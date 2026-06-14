@@ -15,13 +15,14 @@ from app.core.exception_handler import (
     validation_exception_handler
 )
 
-from app.routes.products import router as product_router
-from app.routes.users import router as user_router
-from app.routes.auth_route import router as auth_router
-from app.routes.purchases import router as purchase_router
-from app.routes.sales import router as sale_router
-from app.routes.stocks import router as stock_router
+from app.routes.product_routes import router as product_router
+from app.routes.user_routes import router as user_router
+from app.routes.auth_routes import router as auth_router
+from app.routes.purchase_routes import router as purchase_router
+from app.routes.sale_routes import router as sale_router
+from app.routes.stock_routes import router as stock_router
 from app.routes.audit_routes import router as audit_router
+from app.routes.dashboard_routes import router as dashboard_router
 
 # STARTUP EVENT
 
@@ -58,6 +59,7 @@ app.add_exception_handler(
 
 
 # ROUTERS
+app.include_router(dashboard_router)
 app.include_router(product_router)
 app.include_router(stock_router)
 app.include_router(purchase_router)

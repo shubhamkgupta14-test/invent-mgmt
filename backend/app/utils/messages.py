@@ -79,3 +79,9 @@ class Messages:
 
     # AUDIT_LOG
     AUDIT_LOGS_FETCHED = "Audit logs fetched successfully"
+
+    # DASHBOARD
+    DASHBOARD_SUMMARY_FETCHED = "Dashboard summary fetched successfully"
+    LOW_STOCK_PRODUCTS_FETCHED = "Low stock products fetched successfully"
+    RECENT_PURCHASES_FETCHED = "Recent purchases fetched successfully"
+    RECENT_SALES_FETCHED = "Recent sales fetched successfully"
