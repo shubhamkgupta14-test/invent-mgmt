@@ -1,0 +1,11 @@
+sku,name,description,category,unit_of_measure,tax_rate,reorder_level,color,material,weight,size,dimension,supplier_id
+SKU-001,Wireless Mouse,2.4GHz ergonomic wireless mouse,Electronics,pcs,18,5,Black,Plastic,0.12kg,Standard,11x6x3 cm,SUP-001
+SKU-002,LED Bulb 12W,Energy efficient LED bulb 12 watt,Electrical,pcs,12,5,White,Glass,0.08kg,Standard,6x6x11 cm,SUP-002
+SKU-003,Cotton T-Shirt,Round neck cotton t-shirt,Apparel,pcs,5,5,Blue,Cotton,0.25kg,Large,30x25x2 cm,SUP-003
+SKU-004,Office Chair,Adjustable ergonomic office chair,Furniture,pcs,18,2,Black,Metal,12kg,Medium,60x60x110 cm,SUP-004
+SKU-005,Steel Water Bottle,1 litre stainless steel water bottle,Kitchen,pcs,12,7,Silver,Stainless Steel,0.45kg,1L,8x8x30 cm,SUP-005
+SKU-006,A4 Notebook,200 pages ruled notebook,Stationery,pcs,12,8,White,Paper,0.35kg,A4,21x29x2 cm,SUP-005
+SKU-007,Bluetooth Speaker,Portable bluetooth speaker with bass,Electronics,pcs,18,3,Red,Plastic,0.75kg,Compact,18x8x8 cm,SUP-001
+SKU-008,Wooden Study Table,Engineered wood study table,Furniture,pcs,18,3,Brown,Wood,18kg,Large,120x60x75 cm,SUP-004
+SKU-009,Ceiling Fan 1200mm,High speed ceiling fan with remote,Electrical,pcs,18,3,White,Metal,4.5kg,1200mm,120x120x45 cm,SUP-002
+SKU-010,Plastic Storage Container,Multi-purpose storage container 20L,Home Utility,pcs,18,3,Transparent,Plastic,0.9kg,20L,40x30x25 cm,SUP-004

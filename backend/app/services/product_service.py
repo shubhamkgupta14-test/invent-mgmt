@@ -1,0 +1,206 @@
+from app.utils.messages import Messages
+from datetime import datetime, UTC
+
+from app.database.mongodb import db
+from app.utils.helpers import normalize_sku
+from app.utils.responseBuilder import build_product_response
+from app.models.auth import UserRole
+from app.core.exceptions import (
+    forbidden,
+    not_found,
+    bad_request,
+    conflict
+)
+
+products_collection = db.products
+
+
+# CREATE PRODUCT
+async def add_product(product_data: dict, auth_user: dict):
+    sku = normalize_sku(product_data.get("sku"))
+    if auth_user.get("role") == UserRole.USER:
+        forbidden()
+
+    # Check duplicate SKU
+    existing_product = await products_collection.find_one({
+        "sku": sku
+    })
+
+    if existing_product:
+        conflict(Messages.PRODUCT_ALREADY_EXISTS)
+
+    product_data["created_at"] = datetime.now(UTC)
+    product_data["updated_at"] = datetime.now(UTC)
+    product_data["is_active"] = True
+    product_data["sku"] = sku
+
+    result = await products_collection.insert_one(product_data)
+
+    created_product = await products_collection.find_one({
+        "_id": result.inserted_id
+    })
+
+    return build_product_response(created_product)
+
+
+# GET ALL PRODUCTS
+async def get_all_products(auth_user: dict):
+    products = []
+
+    # superadmin can get all products, while admin and users can get active products
+    if auth_user.get("role") == UserRole.SUPERADMIN:
+        async for product in products_collection.find().sort("created_at", -1):
+            products.append(
+                build_product_response(product)
+            )
+        return products
+
+    if auth_user.get("role") in [UserRole.ADMIN, UserRole.USER]:
+        async for product in products_collection.find({"is_active": True}).sort("created_at", -1):
+            products.append(
+                build_product_response(product)
+            )
+
+        return products
+
+    forbidden()
+
+
+# GET SINGLE PRODUCT
+async def get_product_by_sku(sku: str, auth_user: dict):
+    sku = normalize_sku(sku)
+
+    if not sku:
+        bad_request(Messages.INVALID_SKU)
+
+    product = await products_collection.find_one({
+        "sku": sku
+    })
+
+    if not product:
+        not_found(Messages.PRODUCT_NOT_FOUND)
+
+    if auth_user.get("role") == UserRole.SUPERADMIN:
+        return build_product_response(product)
+
+    if auth_user.get("role") in [UserRole.ADMIN, UserRole.USER]:
+
+        if not product.get("is_active"):
+            forbidden()
+        return build_product_response(product)
+
+    forbidden()
+
+
+# UPDATE PRODUCT
+async def update_product_by_sku(sku: str, update_data: dict, auth_user: dict):
+
+    if auth_user.get("role") == UserRole.USER:
+        forbidden()
+
+    sku = normalize_sku(sku)
+
+    if not sku:
+        bad_request(Messages.INVALID_SKU)
+
+    existing_product = await products_collection.find_one({
+        "sku": sku
+    })
+
+    if not existing_product:
+        not_found(Messages.PRODUCT_NOT_FOUND)
+
+    if (
+        auth_user.get("role") == UserRole.ADMIN
+        and not existing_product.get("is_active")
+    ):
+        forbidden()
+
+    update_data["updated_at"] = datetime.now(UTC)
+
+    await products_collection.update_one(
+        {"sku": sku},
+        {"$set": update_data}
+    )
+
+    updated_product = await products_collection.find_one({
+        "sku": sku
+    })
+
+    return build_product_response(updated_product)
+
+
+# DELETE PRODUCT (soft or permanent)
+async def delete_product_by_sku(sku: str,  permanent: bool, auth_user: dict):
+    if auth_user.get("role") == UserRole.USER:
+        forbidden()
+
+    sku = normalize_sku(sku)
+
+    if not sku:
+        bad_request(Messages.INVALID_SKU)
+
+    existing_product = await products_collection.find_one({"sku": sku})
+
+    if not existing_product:
+        not_found(Messages.PRODUCT_NOT_FOUND)
+
+    if permanent:
+        if auth_user.get("role") != UserRole.SUPERADMIN:
+            forbidden()
+
+        if existing_product.get("is_active"):
+            bad_request(Messages.PRODUCT_DEACTIVATION_REQUIRED)
+
+        await products_collection.delete_one({"sku": sku})
+        return Messages.PRODUCT_DELETED_PERMANENTLY
+
+    if not existing_product.get("is_active"):
+        bad_request(Messages.PRODUCT_INACTIVE)
+
+    await products_collection.update_one(
+        {"sku": sku},
+        {"$set": {
+            "is_active": False,
+            "updated_at": datetime.now(UTC)
+        }
+        })
+
+    return Messages.PRODUCT_DELETED
+
+
+async def filter_products_service(
+    sku=None, category=None,
+    supplier_id=None, is_active=None, auth_user=None
+):
+    filters = {}
+    products = []
+
+    if auth_user.get("role") != UserRole.SUPERADMIN:
+        if is_active is None:
+            filters["is_active"] = True
+
+        elif not is_active:
+            return products
+
+        filters["is_active"] = True
+
+    else:
+        if is_active is not None:
+            filters["is_active"] = is_active
+
+    if sku:
+        filters["sku"] = normalize_sku(sku)
+
+    if category:
+        filters["category"] = category
+
+    if supplier_id:
+        filters["supplier_id"] = supplier_id
+
+    async for product in products_collection.find(filters).sort("created_at", -1):
+        products.append(
+            build_product_response(product)
+        )
+
+    return products
