@@ -18,6 +18,14 @@ async def create_indexes():
     )
 
     await db.products.create_index(
-        "sku",
+        "created_at"
+    )
+
+    await db.suppliers.create_index(
+        "supplier_id",
         unique=True
+    )
+
+    await db.suppliers.create_index(
+        "created_at"
     )

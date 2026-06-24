@@ -92,6 +92,18 @@ async def get_user_by_username(auth_user: dict, username: str):
     # USER
     return build_user_response(user)
 
+
+# GET ME
+
+async def get_me(auth_user: dict):
+    if not auth_user:
+        forbidden()
+    username = normalize_username(auth_user.get("username"))
+    user = await user_collection.find_one({
+        "username": username
+    })
+    return build_user_response(user)
+
 # GET ALL USERS
 
 

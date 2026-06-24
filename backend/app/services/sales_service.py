@@ -50,6 +50,14 @@ async def create_sale(auth_user: dict, sale_data: dict):
         if not product.get("is_active"):
             forbidden(Messages.PRODUCT_INACTIVE)
 
+        supplier_id = product.get("supplier_id")
+        if not supplier_id:
+            bad_request(Messages.INVALID_SUPPLIER_ID)
+
+        supplier = await db.suppliers.find_one({"supplier_id": supplier_id})
+        if not supplier:
+            bad_request(Messages.INVALID_SUPPLIER_ID)
+
         item["name"] = product.get("name")
 
         quantity = item.get("quantity")

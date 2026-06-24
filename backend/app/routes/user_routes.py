@@ -13,7 +13,8 @@ from app.services.user_service import (
     create_user,
     get_all_users,
     get_user_by_username,
-    delete_user
+    delete_user,
+    get_me
 )
 
 from app.utils.messages import Messages
@@ -68,6 +69,18 @@ async def get_users_api(auth_user: user_dependency):
         message=Messages.USERS_FETCHED,
         data=users,
         count=len(users)
+    )
+
+# GET ME
+
+
+@router.get("/me")
+async def get_me_api(auth_user: user_dependency):
+    user = await get_me(auth_user)
+
+    return success_response(
+        message=Messages.USER_DETAILS_FETCHED,
+        data=user
     )
 
 # DELETE USER

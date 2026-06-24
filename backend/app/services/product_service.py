@@ -13,6 +13,7 @@ from app.core.exceptions import (
 )
 
 products_collection = db.products
+suppliers_collection = db.suppliers
 
 
 # CREATE PRODUCT
@@ -28,6 +29,14 @@ async def add_product(product_data: dict, auth_user: dict):
 
     if existing_product:
         conflict(Messages.PRODUCT_ALREADY_EXISTS)
+
+    supplier_id = product_data.get("supplier_id")
+    if supplier_id:
+        supplier = await suppliers_collection.find_one({
+            "supplier_id": supplier_id
+        })
+        if not supplier:
+            bad_request(Messages.INVALID_SUPPLIER_ID)
 
     product_data["created_at"] = datetime.now(UTC)
     product_data["updated_at"] = datetime.now(UTC)
@@ -115,6 +124,14 @@ async def update_product_by_sku(sku: str, update_data: dict, auth_user: dict):
         and not existing_product.get("is_active")
     ):
         forbidden()
+
+    supplier_id = update_data.get("supplier_id")
+    if supplier_id is not None:
+        supplier = await suppliers_collection.find_one({
+            "supplier_id": supplier_id
+        })
+        if not supplier:
+            bad_request(Messages.INVALID_SUPPLIER_ID)
 
     update_data["updated_at"] = datetime.now(UTC)
 

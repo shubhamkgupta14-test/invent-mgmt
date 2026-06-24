@@ -63,6 +63,15 @@ async def create_purchase(
             forbidden(Messages.PRODUCT_INACTIVE)
 
         supplier_id = product.get("supplier_id")
+        print(supplier_id)
+        if not supplier_id:
+            bad_request(Messages.INVALID_SUPPLIER_ID)
+
+        supplier = await db.suppliers.find_one({
+            "supplier_id": supplier_id
+        })
+        if not supplier:
+            bad_request(Messages.INVALID_SUPPLIER_ID)
 
         quantity = item.get("quantity")
         unit_price = item.get("unit_price")

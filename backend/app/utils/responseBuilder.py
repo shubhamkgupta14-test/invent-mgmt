@@ -1,4 +1,4 @@
-from app.utils.helpers import format_datetime_ist
+from app.utils.helpers import format_datetime_ist, format_datetime_iso
 
 
 def build_user_response(user: dict):
@@ -7,8 +7,8 @@ def build_user_response(user: dict):
         "username": user["username"],
         "role": user["role"],
         "active": user["active"],
-        "created_at": format_datetime_ist(user["created_at"]),
-        "updated_at": format_datetime_ist(user["updated_at"])
+        "created_at": format_datetime_iso(user["created_at"]),
+        "updated_at": format_datetime_iso(user["updated_at"])
     }
 
 
@@ -31,8 +31,8 @@ def build_product_response(product: dict):
         },
         "supplier_id": product["supplier_id"],
         "is_active": product["is_active"],
-        "created_at": format_datetime_ist(product["created_at"]),
-        "updated_at": format_datetime_ist(product["updated_at"])
+        "created_at": format_datetime_iso(product["created_at"]),
+        "updated_at": format_datetime_iso(product["updated_at"])
     }
 
 
@@ -58,8 +58,8 @@ def build_purchase_response(purchase: dict):
         "other_charges": purchase.get("other_charges"),
         "additional_charge_per_unit": purchase.get("additional_charge_per_unit"),
         "created_by": purchase.get("created_by"),
-        "created_at": format_datetime_ist(purchase.get("created_at")),
-        "updated_at": format_datetime_ist(purchase.get("updated_at"))
+        "created_at": format_datetime_iso(purchase.get("created_at")),
+        "updated_at": format_datetime_iso(purchase.get("updated_at"))
     }
 
 
@@ -76,8 +76,8 @@ def build_sales_response(sale: dict):
         "payment_details": sale.get("payment_details", []),
         "sale_status": sale.get("sale_status", "SOLD"),
         "notes": sale.get("notes"),
-        "created_at": format_datetime_ist(sale.get("created_at")),
-        "updated_at": format_datetime_ist(sale.get("updated_at"))
+        "created_at": format_datetime_iso(sale.get("created_at")),
+        "updated_at": format_datetime_iso(sale.get("updated_at"))
     }
 
 
@@ -90,8 +90,8 @@ def build_stock_response(stock: dict):
         "avg_price": stock.get("avg_price"),
         "inventory_value": stock.get("inventory_value"),
         "stock_status": stock.get("stock_status"),
-        "created_at": format_datetime_ist(stock.get("created_at")),
-        "updated_at": format_datetime_ist(stock.get("updated_at"))
+        "created_at": format_datetime_iso(stock.get("created_at")),
+        "updated_at": format_datetime_iso(stock.get("updated_at"))
     }
 
 
@@ -106,5 +106,21 @@ def build_audit_response(audit: dict):
         "old_data": audit.get("old_data"),
         "new_data": audit.get("new_data"),
         "performed_by": audit.get("performed_by"),
-        "created_at": format_datetime_ist(audit.get("created_at"))
+        "created_at": format_datetime_iso(audit.get("created_at"))
+    }
+
+
+def build_supplier_response(supplier: dict):
+    return {
+        "id": str(supplier.get("_id")),
+        "supplier_id": supplier.get("supplier_id"),
+        "name": supplier.get("name"),
+        "email": supplier.get("email"),
+        "phone": supplier.get("phone"),
+        "address": supplier.get("address"),
+        "gst_number": supplier.get("gst_number"),
+        "contact_person": supplier.get("contact_person"),
+        "is_active": supplier.get("is_active", True),
+        "created_at": format_datetime_iso(supplier.get("created_at")),
+        "updated_at": format_datetime_iso(supplier.get("updated_at"))
     }

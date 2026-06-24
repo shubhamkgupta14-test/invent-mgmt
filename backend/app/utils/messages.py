@@ -53,6 +53,17 @@ class Messages:
     PRODUCT_DEACTIVATION_REQUIRED = "Deactivate the product before permanent deletion"
     INVALID_SKU = "Invalid SKU format"
     PRODUCT_INACTIVE = "Product is inactive"
+    NO_UPDATE_FIELDS = "No update fields provided"
+
+    # SUPPLIERS
+    SUPPLIER_ADDED = "Supplier added successfully"
+    SUPPLIER_ALREADY_EXISTS = "Supplier already exists"
+    SUPPLIERS_FETCHED = "Supplier(s) fetched successfully"
+    NO_SUPPLIERS_FOUND = "No suppliers found"
+    SUPPLIER_DETAILS_FETCHED = "Supplier details fetched successfully"
+    SUPPLIER_NOT_FOUND = "Supplier not found"
+    SUPPLIER_UPDATED = "Supplier updated successfully"
+    INVALID_SUPPLIER_ID = "Invalid supplier id"
 
     # PURCHASES
     PURCHASE_CREATED = "Purchase created successfully"

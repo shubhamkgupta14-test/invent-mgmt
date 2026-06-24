@@ -49,3 +49,24 @@ def format_datetime_ist(dt):
     return dt.astimezone(Settings.IST).strftime(
         "%Y-%m-%dT%H:%M:%S IST"
     )
+
+
+def format_datetime_iso(dt):
+    return dt.isoformat()
+
+
+async def generate_supplier_id(db):
+    last_supplier = await db.suppliers.find_one(
+        {},
+        sort=[("supplier_id", -1)]
+    )
+    if not last_supplier:
+        return "SUP-0001"
+
+    last_id = last_supplier["supplier_id"]
+
+    number = int(
+        last_id.split("-")[1]
+    ) + 1
+
+    return f"SUP-{number:04d}"

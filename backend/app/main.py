@@ -15,6 +15,10 @@ from app.core.exception_handler import (
     validation_exception_handler
 )
 
+from fastapi.middleware.cors import (
+    CORSMiddleware
+)
+
 from app.routes.product_routes import router as product_router
 from app.routes.user_routes import router as user_router
 from app.routes.auth_routes import router as auth_router
@@ -23,6 +27,7 @@ from app.routes.sale_routes import router as sale_router
 from app.routes.stock_routes import router as stock_router
 from app.routes.audit_routes import router as audit_router
 from app.routes.dashboard_routes import router as dashboard_router
+from app.routes.supplier_routes import router as supplier_router
 
 # STARTUP EVENT
 
@@ -40,6 +45,16 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Inventory Management API",
     lifespan=lifespan
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.add_exception_handler(
@@ -61,6 +76,7 @@ app.add_exception_handler(
 # ROUTERS
 app.include_router(dashboard_router)
 app.include_router(product_router)
+app.include_router(supplier_router)
 app.include_router(stock_router)
 app.include_router(purchase_router)
 app.include_router(sale_router)
