@@ -3,6 +3,7 @@ import MainLayout from "../layouts/MainLayout";
 import SearchBar from "../components/SearchBar";
 import ProductTable from "../components/ProductTable";
 import Loader from "../components/Loader";
+import { useNavigate } from "react-router-dom";
 import {
   getProducts,
   addProduct,
@@ -14,18 +15,15 @@ function Inventory() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
+  const navigate = useNavigate();
 
   useEffect(() => {
     loadProducts();
   }, []);
 
-  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
   const loadProducts = async () => {
     try {
       setLoading(true);
-
-      await sleep(1000); // 3 seconds
 
       const products_response = await getProducts();
 
@@ -40,10 +38,15 @@ function Inventory() {
   if (loading) {
     return (
       <MainLayout>
+        <h1 className="text-xl font-bold">Purchases</h1>
         <Loader />
       </MainLayout>
     );
   }
+
+  const handleAddProduct = () => {
+    navigate("/products/add");
+  };
 
   const filteredProducts = products.filter(
     (product) =>
@@ -55,7 +58,8 @@ function Inventory() {
 
   return (
     <MainLayout>
-      <div className="mb-5">
+      <h1 className="text-xl font-bold">Purchases</h1>
+      <div className="my-5">
         <SearchBar
           value={search}
           onChange={setSearch}
@@ -63,7 +67,17 @@ function Inventory() {
         />
       </div>
 
+      <button
+        onClick={handleAddProduct}
+        className="bg-blue-600 text-white px-4 py-2 mb-5 rounded"
+      >
+        + Add Product
+      </button>
+
       {<ProductTable products={filteredProducts} />}
+      <div className="bg-white p-4 my-3 rounded">
+        <p>Total Purchases: {filteredProducts.length}</p>
+      </div>
     </MainLayout>
   );
 }

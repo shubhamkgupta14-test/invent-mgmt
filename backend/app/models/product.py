@@ -20,9 +20,9 @@ class ProductBase(BaseModel):
                              description="Product description")
     category: str = Field(default="General", max_length=100,
                           description="Product category")
-    unit_of_measure: str = Field(max_length=20,
+    unit_of_measure: str = Field(..., max_length=20,
                                  description="Unit of measurement", enum=["pcs", "kg", "g", "m", "cm", "ltr", "ml", "other"])
-    tax_rate: float = Field(default=0, ge=0, le=100,
+    tax_rate: float = Field(..., ge=0, le=100,
                             description="Applicable tax percentage")
     reorder_level: int = Field(
         default=5, ge=0, description="Minimum stock alert quantity")

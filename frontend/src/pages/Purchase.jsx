@@ -51,10 +51,9 @@ function Purchases() {
 
   return (
     <MainLayout>
-      {/* <div className="flex justify-between mb-4"> */}
       <h1 className="text-xl font-bold">Purchases</h1>
 
-      <div className="mb-5">
+      <div className="my-5">
         <SearchBar
           value={search}
           onChange={setSearch}
@@ -64,11 +63,10 @@ function Purchases() {
 
       <button
         onClick={handleAddPurchase}
-        className="bg-blue-600 text-white px-4 py-2 rounded"
+        className="bg-blue-600 text-white px-4 py-2 mb-5 rounded"
       >
         + Add Purchase
       </button>
-      {/* </div> */}
 
       {<PurchaseTable purchases={filteredPurchases} />}
 

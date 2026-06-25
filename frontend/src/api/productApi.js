@@ -4,8 +4,8 @@ export const getProducts = async () => {
   return API.get("/products");
 };
 
-export const addProduct = async () => {
-  return API.post("/products/add");
+export const addProduct = async (payload) => {
+  return API.post("/products/add", payload);
 };
 
 export const getProductDetails = async (sku) => {

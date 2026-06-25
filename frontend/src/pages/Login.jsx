@@ -39,14 +39,22 @@ function Login() {
         const field = apiError.data[0].field;
 
         if (field.includes("username")) {
+          console.log("a");
           setError("* Username is required");
         } else if (field.includes("password")) {
+          console.log("b");
           setError("* Password is required");
         } else {
+          console.log("c");
           setError(`* ${apiError.data[0].message}`);
         }
       } else {
-        setError(`* ${apiError?.message}` || "* Login Failed");
+        console.log("d");
+        if (apiError) {
+          setError(`* ${apiError?.message}` || "* Login Failed");
+        } else {
+          setError(`* Something went wrong`);
+        }
       }
     } finally {
       setLoading(false);

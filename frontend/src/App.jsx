@@ -4,9 +4,11 @@ import Dashboard from "./pages/Dashboard";
 import Inventory from "./pages/Inventory";
 import Purchase from "./pages/Purchase";
 import AddPurchase from "./pages/AddPurchase";
+import AddProducts from "./pages/AddProduct";
 import Sale from "./pages/Sale";
 import Stock from "./pages/Stock";
 import ProtectedRoute from "./routes/ProtectedRoute";
+import AddProduct from "./pages/AddProduct";
 
 function App() {
   return (
@@ -57,6 +59,14 @@ function App() {
         element={
           <ProtectedRoute>
             <AddPurchase />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/products/add"
+        element={
+          <ProtectedRoute>
+            <AddProduct />
           </ProtectedRoute>
         }
       />
