@@ -1,10 +1,11 @@
-from typing import Optional
+from typing import Annotated, Optional
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from app.services.audit_service import (
     get_audit_logs
 )
+from app.services.auth_service import get_current_user
 
 from app.utils.response import (
     success_response
@@ -17,9 +18,12 @@ router = APIRouter(
     tags=["Audits"]
 )
 
+user_dependency = Annotated[dict, Depends(get_current_user)]
+
 
 @router.get("/")
 async def get_audits_api(
+    auth_user: user_dependency,
     module_name: Optional[str] = None,
     event_type: Optional[str] = None,
     reference_id: Optional[str] = None,
@@ -27,6 +31,7 @@ async def get_audits_api(
 ):
 
     result = await get_audit_logs(
+        auth_user=auth_user,
         module_name=module_name,
         event_type=event_type,
         reference_id=reference_id,

@@ -5,7 +5,7 @@ function Alert({ alert, onClose }) {
 
   return (
     <div
-      className={`mb-4 rounded-lg border p-4 flex justify-between items-start ${
+      className={`mb-4 rounded-xl border p-4 flex justify-between items-start ${
         alert.type === "success"
           ? "border-green-300 bg-green-50"
           : "border-red-300 bg-red-50"

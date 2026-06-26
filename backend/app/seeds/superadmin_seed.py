@@ -17,11 +17,17 @@ async def create_default_superadmin():
         "SUPERADMIN_USERNAME") or Settings.DEFAULT_SUPERADMIN_USERNAME
     password = os.getenv(
         "SUPERADMIN_PASSWORD") or Settings.DEFAULT_SUPERADMIN_PASSWORD
+    email = os.getenv("SUPERADMIN_EMAIL") or "superadmin@example.com"
+    firstname = os.getenv("SUPERADMIN_FIRSTNAME") or "Super"
+    lastname = os.getenv("SUPERADMIN_LASTNAME") or "Admin"
 
     if not existing_superadmin:
         superadmin_data = {
             "username": username,
             "password": hash_password(password),
+            "firstname": firstname,
+            "lastname": lastname,
+            "email": email,
             "role": UserRole.SUPERADMIN,
             "active": True,
             "created_at": datetime.utcnow(),

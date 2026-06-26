@@ -1,47 +1,87 @@
 import { useEffect, useState } from "react";
 import MainLayout from "../layouts/MainLayout";
-import PurchaseForm from "../components/PurchaseForm";
-import Alert from "../components/Alert";
-import { getProducts } from "../api/productApi";
+import PurchaseForm from "../components/pages/purchase/PurchaseForm";
+import Card from "../components/common/Card";
+import Loader from "../components/common/Loader";
+import { useToast } from "../context/ToastContext";
+import { getProductOptions } from "../api/productApi";
 import { createPurchase } from "../api/purchaseApi";
+import { getMyDetails } from "../api/userApi";
 
 function AddPurchase() {
   const [products, setProducts] = useState([]);
-  const [alert, setAlert] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const { addToast } = useToast();
 
   useEffect(() => {
-    loadData();
-  }, []);
+    let isActive = true;
 
-  const loadData = async () => {
-    const p = await getProducts();
+    Promise.all([getProductOptions(), getMyDetails()])
+      .then(([productsResponse, userResponse]) => {
+        if (!isActive) return;
+        setProducts(productsResponse.data.data);
+        setCurrentUser(userResponse.data.data);
+      })
+      .catch((error) => {
+        addToast(
+          error.response?.data?.message || "Failed to load product options",
+          "error",
+        );
+      })
+      .finally(() => {
+        if (isActive) setLoading(false);
+      });
 
-    setProducts(p.data.data);
-  };
+    return () => {
+      isActive = false;
+    };
+  }, [addToast]);
 
   const handleSubmit = async (payload) => {
     try {
       await createPurchase(payload);
-
-      setAlert({
-        type: "success",
-        message: "Purchase created successfully",
-      });
+      addToast("Purchase created successfully", "success");
     } catch (err) {
-      setAlert({
-        type: "error",
-        message: err.response?.data?.message || "Something went wrong",
-
-        details: err.response?.data?.data || [],
-      });
+      addToast(err.response?.data?.message || "Something went wrong", "error");
     }
   };
 
+  if (loading) {
+    return (
+      <MainLayout>
+        <div className="flex min-h-[calc(100vh-88px)] items-center justify-center">
+          <Loader message="Loading purchase form..." />
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (currentUser?.role === "user") {
+    return (
+      <MainLayout>
+        <Card>
+          <p className="text-sm font-medium text-slate-700">
+            You have view-only access and cannot create purchases.
+          </p>
+        </Card>
+      </MainLayout>
+    );
+  }
+
   return (
     <MainLayout>
-      <div className="p-5">
-        <Alert alert={alert} onClose={() => setAlert(null)} />
-        <PurchaseForm products={products} onSubmit={handleSubmit} />
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900">Add Purchase</h1>
+          <p className="text-slate-600 mt-1">
+            Create a purchase order and add inventory details.
+          </p>
+        </div>
+
+        <Card>
+          <PurchaseForm products={products} onSubmit={handleSubmit} />
+        </Card>
       </div>
     </MainLayout>
   );

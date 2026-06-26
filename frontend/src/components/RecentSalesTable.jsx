@@ -19,7 +19,7 @@ function RecentSalesTable({ sales }) {
             <tr key={sale._id}>
               <td>{sale.invoice_id}</td>
 
-              <td>₹ {sale.final_total_amount}</td>
+              <td>Rs {sale.final_total_amount}</td>
 
               <td>{sale.sale_status}</td>
             </tr>

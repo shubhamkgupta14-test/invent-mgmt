@@ -12,6 +12,8 @@ from app.models.product import (
 from app.services.product_service import (
     add_product,
     get_all_products,
+    get_product_form_options,
+    get_product_options,
     get_product_by_sku,
     update_product_by_sku,
     delete_product_by_sku,
@@ -62,6 +64,34 @@ async def get_products_api(auth_user: user_dependency):
         data=products,
         count=len(products)
     )
+
+
+@router.get("/options")
+async def get_product_options_api(
+    auth_user: user_dependency,
+    active_only: bool = False
+):
+
+    products = await get_product_options(auth_user, active_only=active_only)
+
+    return success_response(
+        message=Messages.PRODUCTS_FETCHED if len(
+            products) != 0 else Messages.NO_PRODUCTS_FOUND,
+        data=products,
+        count=len(products)
+    )
+
+
+@router.get("/form-options")
+async def get_product_form_options_api(auth_user: user_dependency):
+
+    options = await get_product_form_options(auth_user)
+
+    return success_response(
+        message=Messages.PRODUCTS_FETCHED,
+        data=options
+    )
+
 
 # GET PRODUCT BY SKU
 
@@ -127,12 +157,13 @@ async def delete_product_api(
 async def filter_products_api(
     auth_user: user_dependency,
     sku: Optional[str] = None,
+    name: Optional[str] = None,
     category: Optional[str] = None,
     supplier_id: Optional[str] = None,
     is_active: Optional[bool] = None
 ):
     result = await filter_products_service(
-        sku=sku, category=category,
+        sku=sku, name=name, category=category,
         supplier_id=supplier_id, is_active=is_active, auth_user=auth_user
     )
 

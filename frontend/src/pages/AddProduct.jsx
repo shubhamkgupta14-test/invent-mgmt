@@ -1,56 +1,95 @@
 import { useEffect, useState } from "react";
 import MainLayout from "../layouts/MainLayout";
-import ProductForm from "../components/ProductForm";
-import Alert from "../components/Alert";
-import { getProducts } from "../api/productApi";
-import { addProduct } from "../api/productApi";
-import { getSuppliers } from "../api/supplierApi";
+import ProductForm from "../components/pages/product/ProductForm";
+import Card from "../components/common/Card";
+import Loader from "../components/common/Loader";
+import { useToast } from "../context/ToastContext";
+import { addProduct, getProductFormOptions } from "../api/productApi";
+import { getMyDetails } from "../api/userApi";
 
 function AddProduct() {
   const [suppliers, setSuppliers] = useState([]);
-  const [products, setProducts] = useState([]);
-  const [alert, setAlert] = useState(null);
+  const [categories, setCategories] = useState([]);
+  const [units, setUnits] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const { addToast } = useToast();
+
   useEffect(() => {
-    loadData();
-  }, []);
+    let isActive = true;
 
-  const loadData = async () => {
-    const s = await getSuppliers();
-    setSuppliers(s.data.data);
+    Promise.all([getProductFormOptions(), getMyDetails()])
+      .then(([response, userResponse]) => {
+        if (!isActive) return;
+        setSuppliers(response.data.data.suppliers || []);
+        setCategories(response.data.data.categories || []);
+        setUnits(response.data.data.units || []);
+        setCurrentUser(userResponse.data.data);
+      })
+      .catch((error) => {
+        addToast(
+          error.response?.data?.message || "Failed to load product form options",
+          "error",
+        );
+      })
+      .finally(() => {
+        if (isActive) setLoading(false);
+      });
 
-    const p = await getProducts();
-    setProducts(p.data.data);
-  };
+    return () => {
+      isActive = false;
+    };
+  }, [addToast]);
 
   const handleSubmit = async (payload) => {
     try {
-      console.log(payload);
       await addProduct(payload);
-
-      setAlert({
-        type: "success",
-        message: "Product added successfully",
-      });
+      addToast("Product added successfully", "success");
     } catch (err) {
-      setAlert({
-        type: "error",
-        message: err.response?.data?.message || "Something went wrong",
-
-        details: err.response?.data?.data || [],
-      });
+      addToast(err.response?.data?.message || "Something went wrong", "error");
     }
   };
 
+  if (loading) {
+    return (
+      <MainLayout>
+        <div className="flex min-h-[calc(100vh-88px)] items-center justify-center">
+          <Loader message="Loading product form..." />
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (currentUser?.role === "user") {
+    return (
+      <MainLayout>
+        <Card>
+          <p className="text-sm font-medium text-slate-700">
+            You have view-only access and cannot add products.
+          </p>
+        </Card>
+      </MainLayout>
+    );
+  }
+
   return (
     <MainLayout>
-      <div className="p-5">
-        <h1 className="text-xl font-bold">Add Products</h1>
-        <Alert alert={alert} onClose={() => setAlert(null)} />
-        <ProductForm
-          products={products}
-          suppliers={suppliers}
-          onSubmit={handleSubmit}
-        />
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900">Add Product</h1>
+          <p className="text-slate-600 mt-1">
+            Create a new product and update its inventory details.
+          </p>
+        </div>
+
+        <Card>
+          <ProductForm
+            categories={categories}
+            units={units}
+            suppliers={suppliers}
+            onSubmit={handleSubmit}
+          />
+        </Card>
       </div>
     </MainLayout>
   );

@@ -2,6 +2,8 @@ from app.utils.responseBuilder import build_audit_response
 from datetime import datetime, UTC
 
 from app.database.mongodb import db
+from app.core.exceptions import forbidden
+from app.models.auth import UserRole
 
 audit_collection = db.audits
 
@@ -35,11 +37,14 @@ async def create_audit_log(
 
 
 async def get_audit_logs(
+    auth_user: dict,
     module_name: str = None,
     event_type: str = None,
     reference_id: str = None,
     sku: str = None
 ):
+    if auth_user.get("role") != UserRole.SUPERADMIN:
+        forbidden()
 
     filters = {}
 

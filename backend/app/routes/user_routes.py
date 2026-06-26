@@ -6,15 +6,21 @@ from app.services.auth_service import get_current_user
 from app.models.auth import (
     CreateUserRequest,
     GetUserRequest,
-    DeleteUserRequest
+    ActivateUserRequest,
+    DeleteUserRequest,
+    UpdateUserRoleRequest,
+    CleanDatabaseRequest
 )
 
 from app.services.user_service import (
     create_user,
     get_all_users,
     get_user_by_username,
+    activate_user,
     delete_user,
-    get_me
+    get_me,
+    update_user_role,
+    clean_database_collections
 )
 
 from app.utils.messages import Messages
@@ -83,6 +89,23 @@ async def get_me_api(auth_user: user_dependency):
         data=user
     )
 
+# ACTIVATE USER
+
+
+@router.patch("/activate")
+async def activate_user_api(
+    auth_user: user_dependency,
+    user: ActivateUserRequest
+):
+
+    result = await activate_user(auth_user, user.username)
+
+    return success_response(
+        message=Messages.USER_ACTIVATED,
+        data=result
+    )
+
+
 # DELETE USER
 
 
@@ -98,4 +121,31 @@ async def delete_user_api(auth_user: user_dependency, user: DeleteUserRequest):
     return success_response(
         message=result,
         data=data
+    )
+
+
+@router.patch("/role")
+async def update_user_role_api(
+    auth_user: user_dependency,
+    user: UpdateUserRoleRequest
+):
+
+    result = await update_user_role(auth_user, user.username, user.role)
+
+    return success_response(
+        message=Messages.USER_ROLE_UPDATED,
+        data=result
+    )
+
+
+@router.delete("/clean-db")
+async def clean_database_api(
+    auth_user: user_dependency,
+    request: CleanDatabaseRequest
+):
+    result = await clean_database_collections(auth_user, request.collections)
+
+    return success_response(
+        message=Messages.DATABASE_CLEANED,
+        data=result
     )

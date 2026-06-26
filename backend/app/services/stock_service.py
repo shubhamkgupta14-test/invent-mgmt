@@ -237,7 +237,7 @@ async def get_stocks(
     sku: str = None,
     stock_status: str = None,
     sort_by: str = "created_at",
-    sort_order: int = "desc"
+    sort_order: str = "desc"
 ):
 
     if auth_user.get("role") not in [
@@ -248,6 +248,20 @@ async def get_stocks(
         forbidden()
 
     filters = {}
+    allowed_sort_fields = [
+        "created_at",
+        "updated_at",
+        "sku",
+        "name",
+        "quantity",
+        "stock_status"
+    ]
+
+    if sort_by not in allowed_sort_fields:
+        bad_request(Messages.INVALID_SORT_FIELD)
+
+    if sort_order.lower() not in ["asc", "desc"]:
+        bad_request(Messages.INVALID_SORT_FIELD)
 
     if sku:
         filters["sku"] = normalize_sku(sku)

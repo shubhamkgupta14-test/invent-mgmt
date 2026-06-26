@@ -30,6 +30,7 @@ class Messages:
     USER_ALREADY_PRESENT = "User already present"
     USER_DELETED_PERMANENTLY = "User permanently deleted successfully"
     USER_DELETED = "User deleted successfully"
+    USER_ACTIVATED = "User activated successfully"
     USERS_FETCHED = "User(s) fetched successfully"
     USER_DETAILS_FETCHED = "User details fetched successfully"
     USER_ACCOUNT_DEACTIVATED = "User details fetched successfully"
@@ -38,6 +39,11 @@ class Messages:
     USER_SELF_DELETE_NOT_ALLOWED = "Self account deletion is not allowed"
     SUPERADMIN_DELETE_NOT_ALLOWED = "SuperAdmin account cannot be deleted"
     USER_DEACTIVATION_REQUIRED = "Deactivate the user before permanent deletion"
+    USER_PROMOTED_TO_ADMIN = "User promoted to admin successfully"
+    USER_ALREADY_ADMIN = "User is already an admin"
+    USER_ROLE_UPDATED = "User role updated successfully"
+    DATABASE_CLEANED = "Database cleaned successfully"
+    INVALID_COLLECTION = "Invalid collection selected"
 
     # PRODUCT
     PRODUCT_ADDED = "Product added successfully"

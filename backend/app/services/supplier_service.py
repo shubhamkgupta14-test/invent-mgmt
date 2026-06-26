@@ -14,9 +14,17 @@ from app.core.exceptions import (
 suppliers_collection = db.suppliers
 
 
+def clean_optional_supplier_fields(supplier_data: dict):
+    for field in ["email", "phone", "gst_number", "address"]:
+        if supplier_data.get(field) == "":
+            supplier_data[field] = None
+
+
 async def add_supplier(supplier_data: dict, auth_user: dict):
     if auth_user.get("role") == UserRole.USER:
         forbidden()
+
+    clean_optional_supplier_fields(supplier_data)
 
     # existing_supplier = await suppliers_collection.find_one({
     #     "name": supplier_data.get("name")
@@ -92,6 +100,8 @@ async def update_supplier_by_id(supplier_id: str, update_data: dict, auth_user: 
 
     if auth_user.get("role") == UserRole.ADMIN and not existing_supplier.get("is_active"):
         forbidden()
+
+    clean_optional_supplier_fields(update_data)
 
     update_data["updated_at"] = datetime.now(UTC)
 
