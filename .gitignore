@@ -74,3 +74,7 @@ coverage_html_report/
 # Misc
 *.swp
 *.swo
+figma-code/
+figma-code.zip
+codex-frontend/
+.agents/

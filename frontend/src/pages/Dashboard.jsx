@@ -1,20 +1,62 @@
-import { useEffect, useState } from "react";
-import MainLayout from "../layouts/MainLayout";
-import DashboardCard from "../components/DashboardCard";
-import RecentSalesTable from "../components/RecentSalesTable";
-import DashboardTable from "../components/DashboardTable";
-import Loader from "../components/Loader";
-
+import { useEffect, useMemo, useState } from "react";
 import {
-  getDashboardSummary,
-  getLowStockProducts,
-  getRecentSales,
-} from "../api/dashboardApi";
+  FaBoxes,
+  FaChartLine,
+  FaExclamationCircle,
+  FaMoneyBillWave,
+  FaShoppingCart,
+  FaTruck,
+} from "react-icons/fa";
+import { getDashboardSummary } from "../api/dashboardApi";
+import { getProducts } from "../api/productApi";
+import { getSales } from "../api/salesApi";
+import { getStocks } from "../api/stockApi";
+import KPICard from "../components/common/KPICard";
+import Loader from "../components/common/Loader";
+import StockStatusBadge from "../components/common/StockStatusBadge";
+import DashboardTable from "../components/pages/dashboard/DashboardTable";
+import MainLayout from "../layouts/MainLayout";
+
+const money = (value = 0) => `Rs ${Number(value || 0).toLocaleString("en-IN")}`;
+
+const formatDate = (value) => {
+  if (!value) return "-";
+  return new Date(value).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
+const CountBadge = ({ children, tone = "slate" }) => {
+  const tones = {
+    slate: "bg-slate-100 text-slate-700 ring-slate-200",
+    red: "bg-rose-50 text-rose-700 ring-rose-200",
+    amber: "bg-amber-50 text-amber-700 ring-amber-200",
+    green: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+  };
+
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${tones[tone]}`}
+    >
+      {children}
+    </span>
+  );
+};
+
+// TODO: need to make dynamic and should come from sales table.
+const SaleStatusBadge = ({ status = "SOLD" }) => {
+  const label = status.replaceAll("_", " ");
+  return <CountBadge tone="green">{label}</CountBadge>;
+};
 
 function Dashboard() {
   const [summary, setSummary] = useState(null);
-  const [lowStock, setLowStock] = useState([]);
-  const [recentSales, setRecentSales] = useState([]);
+  const [sales, setSales] = useState([]);
+  const [stocks, setStocks] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadDashboard();
@@ -22,115 +64,269 @@ function Dashboard() {
 
   const loadDashboard = async () => {
     try {
-      const [summaryRes, lowStockRes, salesRes] = await Promise.all([
+      setLoading(true);
+      const [summaryRes, salesRes, stocksRes, productsRes] = await Promise.all([
         getDashboardSummary(),
-        getLowStockProducts(),
-        getRecentSales(),
+        getSales(),
+        getStocks(),
+        getProducts(),
       ]);
 
       setSummary(summaryRes.data.data);
-      setLowStock(lowStockRes.data.data);
-      setRecentSales(salesRes.data.data);
+      setSales(salesRes.data.data || []);
+      setStocks(stocksRes.data.data || []);
+      setProducts(productsRes.data.data || []);
     } catch (error) {
-      console.log(error);
+      console.error("Dashboard load error:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  if (!summary) {
+  const dashboardData = useMemo(() => {
+    const stockBySku = new Map(stocks.map((stock) => [stock.sku, stock]));
+    const productBySku = new Map(products.map((product) => [product.sku, product]));
+
+    console.log(stockBySku)
+
+    const recentSales = [...sales]
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      .slice(0, 5)
+      .map((sale) => {
+        const firstItem = sale.items?.[0] || {};
+        const quantity = sale.items?.reduce(
+          (sum, item) => sum + Number(item.quantity || 0),
+          0,
+        );
+
+        return {
+          id: sale.sale_id,
+          product:
+            sale.items?.length > 1
+              ? `${firstItem.name || firstItem.sku} +${sale.items.length - 1}`
+              : firstItem.name || firstItem.sku || sale.invoice_id,
+          quantity,
+          total: sale.final_total_amount,
+          date: sale.created_at,
+          status: sale.sale_status,
+        };
+      });
+
+    const soldMap = new Map();
+    sales.forEach((sale) => {
+      sale.items?.forEach((item) => {
+        const existing = soldMap.get(item.sku) || {
+          sku: item.sku,
+          product: item.name || item.sku,
+          quantity: 0,
+        };
+        existing.quantity += Number(item.quantity || 0);
+        soldMap.set(item.sku, existing);
+      });
+    });
+
+    const mostSoldItems = [...soldMap.values()]
+      .sort((a, b) => b.quantity - a.quantity)
+      .slice(0, 5)
+      .map((item) => {
+        const product = productBySku.get(item.sku);
+        const stock = stockBySku.get(item.sku);
+        return {
+          ...item,
+          category: product?.category || "-",
+          stock: stock?.quantity ?? 0,
+          status: stock?.stock_status || "UNKNOWN",
+        };
+      });
+
+    const lowQuantityProducts = stocks
+      .filter((stock) => stock.stock_status === "LOW_QUANTITY")
+      .sort((a, b) => Number(a.quantity || 0) - Number(b.quantity || 0))
+      .slice(0, 5)
+      .map((stock) => ({
+        ...stock,
+        product: stock.name,
+        price: stock.avg_price,
+      }));
+
+    const outOfStockProducts = stocks
+      .filter((stock) => stock.stock_status === "OUT_OF_STOCK")
+      .slice(0, 5)
+      .map((stock) => {
+        const product = productBySku.get(stock.sku);
+        return {
+          ...stock,
+          product: stock.name,
+          category: product?.category || "-",
+          price: stock.avg_price,
+        };
+      });
+
+    return {
+      recentSales,
+      mostSoldItems,
+      lowQuantityProducts,
+      outOfStockProducts,
+    };
+  }, [products, sales, stocks]);
+
+  if (loading || !summary) {
     return (
       <MainLayout>
-        <Loader />
+        <div className="flex min-h-[calc(100vh-88px)] items-center justify-center">
+          <Loader message="Loading dashboard..." />
+        </div>
       </MainLayout>
     );
   }
 
   return (
     <MainLayout>
-      {/* FIRST ROW */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-slate-900">Dashboard</h1>
+        <p className="mt-1 text-slate-600">
+          Welcome back. Here's your HappiHome inventory overview.
+        </p>
+      </div>
 
-      <div className="grid grid-cols-4 gap-6">
-        <DashboardCard
+      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <KPICard
+          icon={FaBoxes}
           title="Total Products"
           value={summary.inventory.total_products}
-          bgColor="bg-blue-100 text-blue-700"
+          subtitle="In catalog"
+          bgColor="bg-indigo-100"
         />
-
-        <DashboardCard
+        <KPICard
+          icon={FaMoneyBillWave}
           title="Inventory Value"
-          value={`₹ ${summary.inventory.total_inventory_value}`}
-          bgColor="bg-green-100 text-green-700"
+          value={`Rs ${(summary.inventory.total_inventory_value / 1000).toFixed(1)}K`}
+          subtitle="Total valuation"
+          bgColor="bg-emerald-100"
         />
-
-        <DashboardCard
-          title="Low Stock"
-          value={summary.inventory.low_stock_products}
-          bgColor="bg-yellow-100 text-yellow-700"
-        />
-
-        <DashboardCard
-          title="Out Of Stock"
-          value={summary.inventory.out_of_stock_products}
-          bgColor="bg-red-100 text-red-700"
-        />
-      </div>
-
-      {/* SECOND ROW */}
-
-      <div className="grid grid-cols-2 gap-6 mt-6">
-        <DashboardCard
+        <KPICard
+          icon={FaChartLine}
           title="Total Sales"
-          value={`₹ ${summary.sales.total_sales_amount}`}
-          bgColor="bg-purple-100 text-purple-700"
+          value={`Rs ${(summary.sales.total_sales_amount / 1000).toFixed(1)}K`}
+          subtitle="All time"
+          delta={`${summary.sales.total_orders || 0} orders`}
+          deltaType="up"
+          bgColor="bg-violet-100"
         />
-
-        <DashboardCard
+        <KPICard
+          icon={FaTruck}
           title="Total Purchases"
-          value={`₹ ${summary.purchases.total_purchase_amount}`}
-          bgColor="bg-orange-100 text-orange-700"
+          value={`Rs ${(summary.purchases.total_purchase_amount / 1000).toFixed(1)}K`}
+          subtitle="All time"
+          bgColor="bg-amber-100"
+        />
+        <KPICard
+          icon={FaExclamationCircle}
+          title="Stock Alerts"
+          value={
+            summary.inventory.low_stock_products +
+            summary.inventory.out_of_stock_products
+          }
+          subtitle={`${summary.inventory.low_stock_products} low + ${summary.inventory.out_of_stock_products} out`}
+          delta={summary.inventory.out_of_stock_products ? "Needs review" : "Healthy"}
+          deltaType={summary.inventory.out_of_stock_products ? "down" : "up"}
+          bgColor="bg-rose-100"
         />
       </div>
 
-      {/* THIRD ROW */}
-
-      <div className="grid grid-cols-2 gap-6 mt-6">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <DashboardTable
-          title="Recent Sold Products"
-          columns={["Invoice", "Amount", "Date"]}
-          data={recentSales.map((sale) => ({
-            invoice: sale.invoice_id,
-
-            amount: `₹ ${sale.final_total_amount}`,
-
-            date: sale.created_at,
-          }))}
+          title="Recent Sales"
+          badge={dashboardData.recentSales.length}
+          columns={[
+            { key: "product", label: "PRODUCT" },
+            {
+              key: "quantity",
+              label: "QTY",
+              render: (row) => <CountBadge>{row.quantity}</CountBadge>,
+            },
+            {
+              key: "total",
+              label: "TOTAL",
+              render: (row) => (
+                <span className="font-mono font-semibold text-slate-900">
+                  {money(row.total)}
+                </span>
+              ),
+            },
+            { key: "date", label: "DATE", render: (row) => formatDate(row.date) },
+            {
+              key: "status",
+              label: "STATUS",
+              render: (row) => <SaleStatusBadge status={row.status} />,
+            },
+          ]}
+          data={dashboardData.recentSales}
+          emptyMessage="No recent sales found"
         />
 
         <DashboardTable
-          title="Most Selling Products"
-          columns={["SKU", "Product", "Sold Qty"]}
-          data={[]}
+          title="Most Sold Items"
+          badge={dashboardData.mostSoldItems.length}
+          columns={[
+            { key: "product", label: "PRODUCT" },
+            { key: "sku", label: "SKU" },
+            { key: "category", label: "CATEGORY" },
+            {
+              key: "stock",
+              label: "STOCK",
+              render: (row) => <CountBadge tone="slate">{row.stock}</CountBadge>,
+            },
+            {
+              key: "status",
+              label: "STATUS",
+              render: (row) => <StockStatusBadge status={row.status} />,
+            },
+          ]}
+          data={dashboardData.mostSoldItems}
+          emptyMessage="No sold items found"
         />
-      </div>
 
-      {/* FOURTH ROW */}
-
-      <div className="grid grid-cols-2 gap-6 mt-6">
         <DashboardTable
-          title="Low Stock Items"
-          columns={["SKU", "Name", "Quantity"]}
-          data={lowStock.map((item) => ({
-            sku: item.sku,
-
-            name: item.name,
-
-            quantity: item.quantity,
-          }))}
+          title="Low Quantity Products"
+          badge={summary.inventory.low_stock_products}
+          columns={[
+            { key: "product", label: "PRODUCT" },
+            { key: "sku", label: "SKU" },
+            {
+              key: "quantity",
+              label: "QTY",
+              render: (row) => <CountBadge tone="red">{row.quantity}</CountBadge>,
+            },
+            {
+              key: "price",
+              label: "PRICE",
+              render: (row) => (
+                <span className="font-mono text-slate-900">{money(row.price)}</span>
+              ),
+            },
+          ]}
+          data={dashboardData.lowQuantityProducts}
+          emptyMessage="No low quantity products found"
         />
 
         <DashboardTable
-          title="Out Of Stock Items"
-          columns={["SKU", "Name", "Quantity"]}
-          data={[]}
+          title="Out Of Stock Products"
+          badge={summary.inventory.out_of_stock_products}
+          columns={[
+            { key: "product", label: "PRODUCT" },
+            { key: "sku", label: "SKU" },
+            { key: "category", label: "CATEGORY" },
+            {
+              key: "price",
+              label: "PRICE",
+              render: (row) => (
+                <span className="font-mono text-slate-900">{money(row.price)}</span>
+              ),
+            },
+          ]}
+          data={dashboardData.outOfStockProducts}
+          emptyMessage="No out of stock products found"
         />
       </div>
     </MainLayout>

@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
-import MainLayout from "../layouts/MainLayout";
-import SearchBar from "../components/SearchBar";
-import PurchaseTable from "../components/PurchaseTable";
-import Loader from "../components/Loader";
-import { getPurchases } from "../api/purchaseApi";
 import { useNavigate } from "react-router-dom";
+import MainLayout from "../layouts/MainLayout";
+import SearchBar from "../components/common/SearchBar";
+import PurchaseTable from "../components/pages/purchase/PurchaseTable";
+import Loader from "../components/common/Loader";
+import Button from "../components/common/Button";
+import Card from "../components/common/Card";
+import { getPurchases } from "../api/purchaseApi";
 
 function Purchases() {
   const [purchases, setPurchases] = useState([]);
@@ -19,12 +21,10 @@ function Purchases() {
   const loadPurchase = async () => {
     try {
       setLoading(true);
-
       const purchases_response = await getPurchases();
-
       setPurchases(purchases_response.data.data);
     } catch (error) {
-      console.log(error);
+      console.error(error);
     } finally {
       setLoading(false);
     }
@@ -33,7 +33,9 @@ function Purchases() {
   if (loading) {
     return (
       <MainLayout>
-        <Loader />
+        <div className="flex min-h-[calc(100vh-88px)] items-center justify-center">
+          <Loader message="Loading purchases..." />
+        </div>
       </MainLayout>
     );
   }
@@ -51,28 +53,35 @@ function Purchases() {
 
   return (
     <MainLayout>
-      <h1 className="text-xl font-bold">Purchases</h1>
-
-      <div className="my-5">
-        <SearchBar
-          value={search}
-          onChange={setSearch}
-          placeholder="Search Invoice Id, Supplier Id, or Total amount"
-        />
+      <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900">Purchases</h1>
+          <p className="text-slate-600 mt-1">
+            Track and manage your purchase orders.
+          </p>
+        </div>
+        <Button variant="primary" size="md" onClick={handleAddPurchase}>
+          + Add Purchase
+        </Button>
       </div>
 
-      <button
-        onClick={handleAddPurchase}
-        className="bg-blue-600 text-white px-4 py-2 mb-5 rounded"
-      >
-        + Add Purchase
-      </button>
+      <Card>
+        <div className="mb-5">
+          <SearchBar
+            value={search}
+            onChange={setSearch}
+            placeholder="Search invoice, supplier, or total"
+          />
+        </div>
 
-      {<PurchaseTable purchases={filteredPurchases} />}
+        <PurchaseTable purchases={filteredPurchases} />
 
-      <div className="bg-white p-4 my-3 rounded">
-        <p>Total Purchases: {filteredPurchases.length}</p>
-      </div>
+        <div className="mt-6 rounded-lg border border-border bg-slate-50 p-4 text-sm text-slate-700">
+          Showing{" "}
+          <span className="font-semibold">{filteredPurchases.length}</span>{" "}
+          purchases.
+        </div>
+      </Card>
     </MainLayout>
   );
 }

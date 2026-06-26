@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import MainLayout from "../layouts/MainLayout";
-import ProductForm from "../components/ProductForm";
-import Alert from "../components/Alert";
+import ProductForm from "../components/pages/product/ProductForm";
+import Card from "../components/common/Card";
+import { useToast } from "../context/ToastContext";
 import { getProducts } from "../api/productApi";
 import { addProduct } from "../api/productApi";
 import { getSuppliers } from "../api/supplierApi";
@@ -9,7 +10,8 @@ import { getSuppliers } from "../api/supplierApi";
 function AddProduct() {
   const [suppliers, setSuppliers] = useState([]);
   const [products, setProducts] = useState([]);
-  const [alert, setAlert] = useState(null);
+  const { addToast } = useToast();
+
   useEffect(() => {
     loadData();
   }, []);
@@ -24,33 +26,30 @@ function AddProduct() {
 
   const handleSubmit = async (payload) => {
     try {
-      console.log(payload);
       await addProduct(payload);
-
-      setAlert({
-        type: "success",
-        message: "Product added successfully",
-      });
+      addToast("Product added successfully", "success");
     } catch (err) {
-      setAlert({
-        type: "error",
-        message: err.response?.data?.message || "Something went wrong",
-
-        details: err.response?.data?.data || [],
-      });
+      addToast(err.response?.data?.message || "Something went wrong", "error");
     }
   };
 
   return (
     <MainLayout>
-      <div className="p-5">
-        <h1 className="text-xl font-bold">Add Products</h1>
-        <Alert alert={alert} onClose={() => setAlert(null)} />
-        <ProductForm
-          products={products}
-          suppliers={suppliers}
-          onSubmit={handleSubmit}
-        />
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900">Add Product</h1>
+          <p className="text-slate-600 mt-1">
+            Create a new product and update its inventory details.
+          </p>
+        </div>
+
+        <Card>
+          <ProductForm
+            products={products}
+            suppliers={suppliers}
+            onSubmit={handleSubmit}
+          />
+        </Card>
       </div>
     </MainLayout>
   );
