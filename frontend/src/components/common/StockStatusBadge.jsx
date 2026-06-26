@@ -33,9 +33,9 @@ function StockStatusBadge({ status }) {
 
   return (
     <span
-      className={`inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-full ${config.className}`}
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${config.className}`}
     >
-      {Icon && <Icon size={14} />}
+      {Icon && <Icon size={11} />}
       {config.label}
     </span>
   );

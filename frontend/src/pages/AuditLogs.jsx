@@ -1,0 +1,403 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { FaEye, FaSyncAlt } from "react-icons/fa";
+import { getAuditLogs } from "../api/auditApi";
+import { getMyDetails } from "../api/userApi";
+import Button from "../components/common/Button";
+import Card from "../components/common/Card";
+import Input from "../components/common/Input";
+import Loader from "../components/common/Loader";
+import Modal from "../components/common/Modal";
+import Select from "../components/common/Select";
+import { useToast } from "../context/ToastContext";
+import MainLayout from "../layouts/MainLayout";
+
+const moduleOptions = [
+  { label: "All modules", value: "" },
+  { label: "Stock", value: "STOCK" },
+  { label: "Purchase", value: "PURCHASE" },
+  { label: "Sales", value: "SALES" },
+];
+
+const eventOptions = [
+  { label: "All events", value: "" },
+  { label: "Created", value: "CREATED" },
+  { label: "Updated", value: "UPDATED" },
+  { label: "Deleted", value: "DELETED" },
+  { label: "Stock Increased", value: "STOCK_INCREASED" },
+  { label: "Stock Decreased", value: "STOCK_DECREASED" },
+  { label: "Stock Adjusted", value: "STOCK_ADJUSTED" },
+];
+
+const emptyFilters = {
+  module_name: "",
+  event_type: "",
+  reference_id: "",
+  sku: "",
+};
+
+const moduleBadgeClasses = {
+  STOCK: "bg-sky-100 text-sky-700 border border-sky-200",
+  PURCHASE: "bg-amber-100 text-amber-700 border border-amber-200",
+  SALES: "bg-emerald-100 text-emerald-700 border border-emerald-200",
+};
+
+function formatText(value) {
+  return String(value || "NA").replaceAll("_", " ");
+}
+
+function formatJson(value) {
+  if (!value || value === "NA") return "NA";
+  return JSON.stringify(value, null, 2);
+}
+
+function formatDateTimeIST(value) {
+  if (!value) return "-";
+
+  const normalizedValue = /[zZ]|[+-]\d{2}:\d{2}$/.test(value)
+    ? value
+    : `${value}Z`;
+  const date = new Date(normalizedValue);
+
+  if (Number.isNaN(date.getTime())) return value;
+
+  return new Intl.DateTimeFormat("en-IN", {
+    timeZone: "Asia/Kolkata",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  }).format(date);
+}
+
+function moduleBadgeClass(moduleName) {
+  return moduleBadgeClasses[moduleName] || "bg-slate-100 text-slate-700 border border-slate-200";
+}
+
+function AuditLogs() {
+  const [currentUser, setCurrentUser] = useState(null);
+  const [logs, setLogs] = useState([]);
+  const [filters, setFilters] = useState(emptyFilters);
+  const [loading, setLoading] = useState(true);
+  const [filtering, setFiltering] = useState(false);
+  const [selectedLog, setSelectedLog] = useState(null);
+  const { addToast } = useToast();
+
+  const loadLogs = useCallback(async (nextFilters = emptyFilters, showInlineLoading = false) => {
+    try {
+      if (showInlineLoading) setFiltering(true);
+      const response = await getAuditLogs(nextFilters);
+      setLogs(response.data.data || []);
+    } catch (error) {
+      addToast(error.response?.data?.message || "Failed to load audit logs", "error");
+    } finally {
+      setFiltering(false);
+      setLoading(false);
+    }
+  }, [addToast]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    getMyDetails()
+      .then(async (response) => {
+        if (!isActive) return;
+        const user = response.data.data;
+        setCurrentUser(user);
+
+        if (user?.role === "superadmin") {
+          await loadLogs(emptyFilters);
+        } else {
+          setLoading(false);
+        }
+      })
+      .catch((error) => {
+        addToast(error.response?.data?.message || "Failed to load user details", "error");
+        setLoading(false);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [addToast, loadLogs]);
+
+  const stats = useMemo(() => {
+    const modules = new Set(logs.map((log) => log.module_name).filter(Boolean));
+    const users = new Set(logs.map((log) => log.performed_by).filter(Boolean));
+
+    return {
+      total: logs.length,
+      modules: modules.size,
+      users: users.size,
+    };
+  }, [logs]);
+
+  const updateFilter = (key, value) => {
+    setFilters((current) => ({ ...current, [key]: value }));
+  };
+
+  const applyFilters = (event) => {
+    event.preventDefault();
+    loadLogs(filters, true);
+  };
+
+  const clearFilters = () => {
+    setFilters(emptyFilters);
+    loadLogs(emptyFilters, true);
+  };
+
+  if (loading) {
+    return (
+      <MainLayout>
+        <div className="flex min-h-[calc(100vh-88px)] items-center justify-center">
+          <Loader message="Loading audit logs..." />
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (currentUser?.role !== "superadmin") {
+    return (
+      <MainLayout>
+        <Card>
+          <p className="text-sm font-medium text-slate-700">
+            Only superadmin users can access audit logs.
+          </p>
+        </Card>
+      </MainLayout>
+    );
+  }
+
+  return (
+    <MainLayout>
+      <div className="space-y-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900">Audit Logs</h1>
+            <p className="mt-1 text-slate-600">
+              Review system activity across stock, purchases, and sales.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            icon={FaSyncAlt}
+            loading={filtering}
+            onClick={() => loadLogs(filters, true)}
+          >
+            Refresh
+          </Button>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card>
+            <p className="text-xs font-semibold uppercase text-slate-500">Logs</p>
+            <p className="mt-2 text-2xl font-bold text-slate-900">{stats.total}</p>
+          </Card>
+          <Card>
+            <p className="text-xs font-semibold uppercase text-slate-500">Modules</p>
+            <p className="mt-2 text-2xl font-bold text-slate-900">{stats.modules}</p>
+          </Card>
+          <Card>
+            <p className="text-xs font-semibold uppercase text-slate-500">Actors</p>
+            <p className="mt-2 text-2xl font-bold text-slate-900">{stats.users}</p>
+          </Card>
+        </div>
+
+        <Card>
+          <form onSubmit={applyFilters} className="grid gap-4 lg:grid-cols-6">
+            <Select
+              label="Module"
+              value={filters.module_name}
+              onChange={(value) => updateFilter("module_name", value)}
+              options={moduleOptions}
+            />
+            <Select
+              label="Event"
+              value={filters.event_type}
+              onChange={(value) => updateFilter("event_type", value)}
+              options={eventOptions}
+            />
+            <Input
+              label="Reference"
+              value={filters.reference_id}
+              onChange={(value) => updateFilter("reference_id", value)}
+              placeholder="Invoice/ref id"
+            />
+            <Input
+              label="SKU"
+              value={filters.sku}
+              onChange={(value) => updateFilter("sku", value)}
+              placeholder="SKU"
+            />
+            <div className="flex items-end">
+              <Button type="submit" variant="primary" loading={filtering}>
+                Apply
+              </Button>
+            </div>
+            <div className="flex items-end">
+              <Button type="button" variant="ghost" onClick={clearFilters}>
+                Clear
+              </Button>
+            </div>
+          </form>
+        </Card>
+
+        <Card>
+          <div className="overflow-hidden rounded-2xl border border-border bg-white">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-slate-50/70">
+                    <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                      Time
+                    </th>
+                    <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                      Module
+                    </th>
+                    <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                      Event
+                    </th>
+                    <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                      Reference
+                    </th>
+                    <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                      SKU
+                    </th>
+                    <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                      Actor
+                    </th>
+                    <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                      Action
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {logs.map((log) => (
+                    <tr
+                      key={log.audit_id}
+                      className="border-b border-border transition-colors last:border-0 hover:bg-slate-50/70"
+                    >
+                      <td className="whitespace-nowrap px-5 py-4 text-slate-700">
+                        {formatDateTimeIST(log.created_at)}
+                      </td>
+                      <td className="px-5 py-4">
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-semibold ${moduleBadgeClass(log.module_name)}`}
+                        >
+                          {formatText(log.module_name)}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                          {formatText(log.event_type)}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4 text-slate-700">
+                        {log.reference_id || "-"}
+                      </td>
+                      <td className="px-5 py-4 text-slate-700">{log.sku || "-"}</td>
+                      <td className="px-5 py-4 font-medium text-slate-900">
+                        {log.performed_by || "-"}
+                      </td>
+                      <td className="px-5 py-4">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          icon={FaEye}
+                          onClick={() => setSelectedLog(log)}
+                        >
+                          View
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                  {!logs.length && (
+                    <tr>
+                      <td
+                        colSpan={7}
+                        className="px-5 py-8 text-center text-sm text-slate-500"
+                      >
+                        No audit logs found.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      <Modal
+        isOpen={Boolean(selectedLog)}
+        onClose={() => setSelectedLog(null)}
+        title="Audit Details"
+        size="2xl"
+      >
+        <div className="space-y-5">
+          <div className="grid gap-4 text-sm sm:grid-cols-2">
+            <div>
+              <p className="text-xs font-semibold uppercase text-slate-500">Module</p>
+              <p
+                className={`mt-1 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${moduleBadgeClass(selectedLog?.module_name)}`}
+              >
+                {formatText(selectedLog?.module_name)}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase text-slate-500">Event</p>
+              <p className="font-semibold text-slate-900">
+                {formatText(selectedLog?.event_type)}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase text-slate-500">
+                Reference
+              </p>
+              <p className="font-semibold text-slate-900">
+                {selectedLog?.reference_id || "-"}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase text-slate-500">Actor</p>
+              <p className="font-semibold text-slate-900">
+                {selectedLog?.performed_by || "-"}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase text-slate-500">Time</p>
+              <p className="font-semibold text-slate-900">
+                {formatDateTimeIST(selectedLog?.created_at)}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase text-rose-700">
+                Old Data
+              </p>
+              <pre className="max-h-80 overflow-auto rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs leading-5 text-rose-950">
+                {formatJson(selectedLog?.old_data)}
+              </pre>
+            </div>
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase text-emerald-700">
+                New Data
+              </p>
+              <pre className="max-h-80 overflow-auto rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-xs leading-5 text-emerald-950">
+                {formatJson(selectedLog?.new_data)}
+              </pre>
+            </div>
+          </div>
+        </div>
+      </Modal>
+    </MainLayout>
+  );
+}
+
+export default AuditLogs;

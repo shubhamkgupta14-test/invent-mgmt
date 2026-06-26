@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { FaBoxes, FaChartLine, FaEye, FaEyeSlash, FaLock } from "react-icons/fa";
+import { FaBoxes, FaEye, FaEyeSlash, FaLock } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { loginUser } from "../api/authApi";
 import Button from "../components/common/Button";
 import Input from "../components/common/Input";
-import { setToken } from "../utils/authUtils";
+import { getUserFromToken, setStoredUser, setToken } from "../utils/authUtils";
 
 function Login() {
   const [username, setUsername] = useState("");
@@ -36,6 +36,7 @@ function Login() {
       }
 
       setToken(token, expiresIn);
+      setStoredUser(getUserFromToken(token));
       navigate("/dashboard");
     } catch (error) {
       const apiError = error.response?.data;
@@ -64,17 +65,19 @@ function Login() {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#f6f7fb]">
+    <div
+      className="flex min-h-screen"
+      style={{
+        background:
+          "linear-gradient(135deg, #0f172a 0%, #1e1b4b 60%, #312e81 100%)",
+      }}
+    >
       <div
-        className="relative hidden overflow-hidden p-12 text-white md:flex md:w-[45%] md:flex-col md:justify-between"
-        style={{
-          background:
-            "linear-gradient(135deg, #0f172a 0%, #24184f 52%, #4338ca 100%)",
-        }}
+        className="relative hidden overflow-hidden p-12 text-white lg:flex lg:w-[45%] lg:flex-col lg:justify-between"
       >
         <div>
           <div className="mb-12 flex items-center gap-3">
-            <div className="rounded-lg bg-indigo-500 p-2 shadow-lg shadow-indigo-950/30">
+            <div className="rounded-xl bg-indigo-500 p-2 shadow-xl shadow-indigo-950/50">
               <FaBoxes size={24} />
             </div>
             <h1 className="text-2xl font-bold">HappiHome Inventory</h1>
@@ -88,61 +91,55 @@ function Login() {
             workspace.
           </p>
 
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 p-3">
-                <FaChartLine className="text-emerald-400" size={18} />
+          <div className="mt-8 flex gap-3">
+            {[
+              { label: "Products tracked", value: "8K+" },
+              { label: "Orders daily", value: "200+" },
+              { label: "Uptime", value: "99.9%" },
+            ].map((stat) => (
+              <div
+                key={stat.label}
+                className="rounded-xl border border-white/10 bg-white/10 px-4 py-3 backdrop-blur"
+              >
+                <div className="font-mono text-xl font-bold text-white">
+                  {stat.value}
+                </div>
+                <div className="mt-0.5 text-xs text-indigo-200/60">
+                  {stat.label}
+                </div>
               </div>
-              <div>
-                <p className="text-sm text-slate-400">Real-time Analytics</p>
-                <p className="font-semibold text-slate-200">
-                  Track inventory in real time
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg border border-indigo-400/30 bg-indigo-400/10 p-3">
-                <FaLock className="text-indigo-300" size={18} />
-              </div>
-              <div>
-                <p className="text-sm text-slate-400">Secure Access</p>
-                <p className="font-semibold text-slate-200">
-                  Role-based permissions
-                </p>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
 
-        <div className="border-t border-slate-700 pt-6">
-          <p className="text-sm text-slate-400">
+        <div>
+          <p className="text-xs text-indigo-300/40">
             HappiHome Inventory workspace
           </p>
         </div>
       </div>
 
-      <div className="flex w-full items-center justify-center p-4 sm:p-8 md:w-[55%]">
+      <div className="flex flex-1 items-center justify-center p-6">
         <div className="w-full max-w-md">
-          <div className="mb-8 flex items-center gap-2 md:hidden">
-            <div className="rounded-lg bg-indigo-600 p-2">
-              <FaBoxes size={20} className="text-white" />
+          <div className="rounded-3xl bg-white p-8 shadow-2xl lg:p-10">
+            <div className="mb-8 flex items-center gap-2 lg:hidden">
+              <div className="rounded-lg bg-indigo-500 p-2">
+                <FaBoxes size={18} className="text-white" />
+              </div>
+              <h1 className="text-lg font-bold tracking-tight text-slate-900">
+                HappiHome Inventory
+              </h1>
             </div>
-            <h1 className="text-xl font-bold text-slate-900">
-              HappiHome Inventory
-            </h1>
-          </div>
-
-          <div className="rounded-lg border border-border bg-card p-6 shadow-sm sm:p-8">
             <div>
-              <h2 className="mb-2 text-2xl font-bold text-slate-900">
-                Welcome Back
+              <h2 className="mb-1.5 text-2xl font-bold text-slate-900">
+                Welcome back
               </h2>
-              <p className="mb-8 text-slate-600">
-                Sign in to manage HappiHome inventory.
+              <p className="mb-8 text-sm text-slate-600">
+                Sign in to your inventory workspace.
               </p>
             </div>
 
-            <form onSubmit={handleLogin} className="space-y-6">
+            <form onSubmit={handleLogin} className="space-y-5">
               <Input
                 label="Username"
                 placeholder="Enter your username"
@@ -151,6 +148,7 @@ function Login() {
                 onChange={setUsername}
                 required
                 disabled={loading}
+                className="bg-slate-50 py-3 text-sm placeholder:text-slate-300"
               />
 
               <div>
@@ -164,7 +162,7 @@ function Login() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     disabled={loading}
-                    className="w-full rounded-lg border border-border bg-white px-4 py-2.5 font-sans text-slate-900 placeholder-slate-400 transition-all duration-200 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
+                    className="w-full rounded-xl border border-border bg-slate-50 px-4 py-3 font-sans text-sm text-slate-900 placeholder-slate-300 transition-all duration-200 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
                   />
                   <button
                     type="button"
@@ -178,7 +176,7 @@ function Login() {
               </div>
 
               {error && (
-                <div className="flex items-start gap-3 rounded-lg border border-rose-200 bg-rose-50 p-3">
+                <div className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-3">
                   <div className="mt-0.5 text-rose-600">
                     <FaLock size={14} />
                   </div>
@@ -192,13 +190,13 @@ function Login() {
                 size="md"
                 loading={loading}
                 disabled={loading}
-                className="mt-8 w-full"
+                className="mt-7 w-full py-3"
               >
                 {loading ? "Signing in..." : "Sign In"}
               </Button>
             </form>
 
-            <div className="mt-8 rounded-lg border border-indigo-200 bg-indigo-50 p-4">
+            <div className="mt-8 rounded-xl border border-indigo-200 bg-indigo-50 p-4">
               <p className="text-xs font-medium text-indigo-700">
                 Demo Credentials:
               </p>

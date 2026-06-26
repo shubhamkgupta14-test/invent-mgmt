@@ -26,11 +26,13 @@
   --input: transparent;
   --input-background: #f8fafc;
   --switch-background: #cbd5e1;
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
   --ring: #6366f1;
-  --radius: 0.5rem;
-  --sidebar: #111827;
-  --sidebar-foreground: #a8b3c7;
-  --sidebar-primary: #4f46e5;
+  --radius: 0.75rem;
+  --sidebar: #0f172a;
+  --sidebar-foreground: #94a3b8;
+  --sidebar-primary: #6366f1;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: rgba(255, 255, 255, 0.06);
   --sidebar-accent-foreground: #f8fafc;
@@ -60,14 +62,43 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
+  h1 {
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  h2 {
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  h3 {
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  h4 {
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  label {
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
   button {
     font-family: var(--font-body);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
   }
 
   input,
   select,
   textarea {
     font-family: var(--font-body);
+    font-weight: var(--font-weight-normal);
+    line-height: 1.5;
   }
 }
 

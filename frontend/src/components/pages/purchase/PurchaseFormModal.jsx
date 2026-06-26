@@ -227,7 +227,7 @@ export function PurchaseFormModal({
               setFormData({ ...formData, notes: e.target.value })
             }
             rows="3"
-            className="w-full px-4 py-2.5 border border-slate-200 rounded-lg
+            className="w-full px-4 py-2.5 border border-slate-200 rounded-xl
               bg-white text-slate-900 placeholder-slate-400 font-sans resize-vertical
               focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
               transition-all duration-200"

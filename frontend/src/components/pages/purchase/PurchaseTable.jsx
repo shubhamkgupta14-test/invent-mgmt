@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { FaSortDown, FaSortUp } from "react-icons/fa";
+import StatusBadge from "../../common/StatusBadge";
+import { formatDateIST } from "../../../utils/formatters";
 
-function PurchaseTable({ purchases }) {
+function PurchaseTable({ purchases, onView }) {
   const [sortOrder, setSortOrder] = useState("asc");
 
   const sorted = [...purchases].sort((a, b) => {
@@ -14,7 +16,7 @@ function PurchaseTable({ purchases }) {
 
   if (!sorted?.length) {
     return (
-      <div className="rounded-lg border border-[var(--border)] bg-white p-5 shadow-sm">
+      <div className="rounded-2xl border border-[var(--border)] bg-white p-5 shadow-sm">
         <p className="py-8 text-center text-slate-500">
           No purchases found
         </p>
@@ -23,7 +25,7 @@ function PurchaseTable({ purchases }) {
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border border-[var(--border)] bg-white shadow-sm">
+    <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-white shadow-sm">
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -59,7 +61,7 @@ function PurchaseTable({ purchases }) {
                 Total
               </th>
               <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                Other
+                Status
               </th>
             </tr>
           </thead>
@@ -67,14 +69,11 @@ function PurchaseTable({ purchases }) {
             {sorted.map((purchase) => (
               <tr
                 key={purchase.purchase_id}
-                className="border-b border-[var(--border)] transition-colors last:border-0 hover:bg-slate-50/70"
+                onClick={() => onView?.(purchase)}
+                className="cursor-pointer border-b border-[var(--border)] transition-colors last:border-0 hover:bg-slate-50/70"
               >
                 <td className="px-5 py-4 text-slate-700">
-                  {new Date(purchase.created_at).toLocaleDateString("en-IN", {
-                    day: "2-digit",
-                    month: "short",
-                    year: "numeric",
-                  })}
+                  {formatDateIST(purchase.created_at)}
                 </td>
                 <td className="px-5 py-4 text-slate-700">
                   {purchase.invoice_id}
@@ -92,12 +91,7 @@ function PurchaseTable({ purchases }) {
                   Rs {purchase.final_total_amount?.toLocaleString("en-IN")}
                 </td>
                 <td className="px-5 py-4 text-slate-700">
-                  Rs{" "}
-                  {(
-                    purchase.shipping_charges ||
-                    0 + purchase.other_charges ||
-                    0
-                  ).toLocaleString("en-IN")}
+                  <StatusBadge status={purchase.purchase_status} type="purchase" />
                 </td>
               </tr>
             ))}

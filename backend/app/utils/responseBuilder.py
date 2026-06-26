@@ -5,6 +5,9 @@ def build_user_response(user: dict):
     return {
         "id": str(user["_id"]),
         "username": user["username"],
+        "firstname": user.get("firstname", ""),
+        "lastname": user.get("lastname", ""),
+        "email": user.get("email", ""),
         "role": user["role"],
         "active": user["active"],
         "created_at": format_datetime_iso(user["created_at"]),
@@ -74,7 +77,7 @@ def build_sales_response(sale: dict):
         "total_discount": sale.get("total_discount", 0),
         "final_total_amount": sale.get("final_total_amount", 0),
         "payment_details": sale.get("payment_details", []),
-        "sale_status": sale.get("sale_status", "SOLD"),
+        "sale_status": sale.get("sale_status", ""),
         "notes": sale.get("notes"),
         "created_at": format_datetime_iso(sale.get("created_at")),
         "updated_at": format_datetime_iso(sale.get("updated_at"))

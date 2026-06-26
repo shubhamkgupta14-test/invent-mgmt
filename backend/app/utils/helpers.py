@@ -25,6 +25,12 @@ def normalize_sku(sku: str):
     return "-".join(sku.split())
 
 
+def normalize_product_name(name: str):
+    if not isinstance(name, str):
+        return ""
+    return " ".join(name.strip().split()).title()
+
+
 def normalize_username(username: str):
     return username.strip().lower()
 

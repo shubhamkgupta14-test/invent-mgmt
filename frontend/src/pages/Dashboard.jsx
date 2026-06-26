@@ -4,20 +4,33 @@ import {
   FaChartLine,
   FaExclamationCircle,
   FaMoneyBillWave,
-  FaShoppingCart,
   FaTruck,
 } from "react-icons/fa";
 import { getDashboardSummary } from "../api/dashboardApi";
-import { getProducts } from "../api/productApi";
-import { getSales } from "../api/salesApi";
-import { getStocks } from "../api/stockApi";
 import KPICard from "../components/common/KPICard";
 import Loader from "../components/common/Loader";
+import StatusBadge from "../components/common/StatusBadge";
 import StockStatusBadge from "../components/common/StockStatusBadge";
 import DashboardTable from "../components/pages/dashboard/DashboardTable";
 import MainLayout from "../layouts/MainLayout";
 
 const money = (value = 0) => `Rs ${Number(value || 0).toLocaleString("en-IN")}`;
+
+const formatPercentageDelta = (change) => {
+  const percentage = Number(change?.percentage || 0);
+
+  return {
+    label: `${percentage.toLocaleString("en-IN", {
+      maximumFractionDigits: 2,
+    })}%`,
+    type:
+      change?.status === "DECREASED"
+        ? "down"
+        : change?.status === "NO_CHANGE"
+          ? "neutral"
+          : "up",
+  };
+};
 
 const formatDate = (value) => {
   if (!value) return "-";
@@ -45,130 +58,45 @@ const CountBadge = ({ children, tone = "slate" }) => {
   );
 };
 
-// TODO: need to make dynamic and should come from sales table.
 const SaleStatusBadge = ({ status = "SOLD" }) => {
-  const label = status.replaceAll("_", " ");
-  return <CountBadge tone="green">{label}</CountBadge>;
+  return <StatusBadge status={status} type="sale" />;
 };
 
 function Dashboard() {
   const [summary, setSummary] = useState(null);
-  const [sales, setSales] = useState([]);
-  const [stocks, setStocks] = useState([]);
-  const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadDashboard();
+    let isActive = true;
+
+    getDashboardSummary()
+      .then((summaryRes) => {
+        if (!isActive) return;
+
+        setSummary(summaryRes.data.data);
+      })
+      .catch((error) => {
+        console.error("Dashboard load error:", error);
+      })
+      .finally(() => {
+        if (isActive) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
   }, []);
 
-  const loadDashboard = async () => {
-    try {
-      setLoading(true);
-      const [summaryRes, salesRes, stocksRes, productsRes] = await Promise.all([
-        getDashboardSummary(),
-        getSales(),
-        getStocks(),
-        getProducts(),
-      ]);
-
-      setSummary(summaryRes.data.data);
-      setSales(salesRes.data.data || []);
-      setStocks(stocksRes.data.data || []);
-      setProducts(productsRes.data.data || []);
-    } catch (error) {
-      console.error("Dashboard load error:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const dashboardData = useMemo(() => {
-    const stockBySku = new Map(stocks.map((stock) => [stock.sku, stock]));
-    const productBySku = new Map(products.map((product) => [product.sku, product]));
-
-    console.log(stockBySku)
-
-    const recentSales = [...sales]
-      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-      .slice(0, 5)
-      .map((sale) => {
-        const firstItem = sale.items?.[0] || {};
-        const quantity = sale.items?.reduce(
-          (sum, item) => sum + Number(item.quantity || 0),
-          0,
-        );
-
-        return {
-          id: sale.sale_id,
-          product:
-            sale.items?.length > 1
-              ? `${firstItem.name || firstItem.sku} +${sale.items.length - 1}`
-              : firstItem.name || firstItem.sku || sale.invoice_id,
-          quantity,
-          total: sale.final_total_amount,
-          date: sale.created_at,
-          status: sale.sale_status,
-        };
-      });
-
-    const soldMap = new Map();
-    sales.forEach((sale) => {
-      sale.items?.forEach((item) => {
-        const existing = soldMap.get(item.sku) || {
-          sku: item.sku,
-          product: item.name || item.sku,
-          quantity: 0,
-        };
-        existing.quantity += Number(item.quantity || 0);
-        soldMap.set(item.sku, existing);
-      });
-    });
-
-    const mostSoldItems = [...soldMap.values()]
-      .sort((a, b) => b.quantity - a.quantity)
-      .slice(0, 5)
-      .map((item) => {
-        const product = productBySku.get(item.sku);
-        const stock = stockBySku.get(item.sku);
-        return {
-          ...item,
-          category: product?.category || "-",
-          stock: stock?.quantity ?? 0,
-          status: stock?.stock_status || "UNKNOWN",
-        };
-      });
-
-    const lowQuantityProducts = stocks
-      .filter((stock) => stock.stock_status === "LOW_QUANTITY")
-      .sort((a, b) => Number(a.quantity || 0) - Number(b.quantity || 0))
-      .slice(0, 5)
-      .map((stock) => ({
-        ...stock,
-        product: stock.name,
-        price: stock.avg_price,
-      }));
-
-    const outOfStockProducts = stocks
-      .filter((stock) => stock.stock_status === "OUT_OF_STOCK")
-      .slice(0, 5)
-      .map((stock) => {
-        const product = productBySku.get(stock.sku);
-        return {
-          ...stock,
-          product: stock.name,
-          category: product?.category || "-",
-          price: stock.avg_price,
-        };
-      });
-
     return {
-      recentSales,
-      mostSoldItems,
-      lowQuantityProducts,
-      outOfStockProducts,
+      recentSales: summary?.recent_sales || [],
+      mostSoldItems: summary?.most_sold_items || [],
+      lowQuantityProducts: summary?.low_quantity_products || [],
+      outOfStockProducts: summary?.out_of_stock_products || [],
     };
-  }, [products, sales, stocks]);
+  }, [summary]);
 
   if (loading || !summary) {
     return (
@@ -179,6 +107,11 @@ function Dashboard() {
       </MainLayout>
     );
   }
+
+  const salesDelta = formatPercentageDelta(summary.sales.sales_percentage);
+  const purchasesDelta = formatPercentageDelta(
+    summary.purchases.purchase_percentage,
+  );
 
   return (
     <MainLayout>
@@ -195,6 +128,7 @@ function Dashboard() {
           title="Total Products"
           value={summary.inventory.total_products}
           subtitle="In catalog"
+          footerText="Current inventory"
           bgColor="bg-indigo-100"
         />
         <KPICard
@@ -202,6 +136,7 @@ function Dashboard() {
           title="Inventory Value"
           value={`Rs ${(summary.inventory.total_inventory_value / 1000).toFixed(1)}K`}
           subtitle="Total valuation"
+          footerText="Current valuation"
           bgColor="bg-emerald-100"
         />
         <KPICard
@@ -209,8 +144,9 @@ function Dashboard() {
           title="Total Sales"
           value={`Rs ${(summary.sales.total_sales_amount / 1000).toFixed(1)}K`}
           subtitle="All time"
-          delta={`${summary.sales.total_orders || 0} orders`}
-          deltaType="up"
+          delta={salesDelta.label}
+          deltaType={salesDelta.type}
+          deltaLabel="vs last month"
           bgColor="bg-violet-100"
         />
         <KPICard
@@ -218,6 +154,9 @@ function Dashboard() {
           title="Total Purchases"
           value={`Rs ${(summary.purchases.total_purchase_amount / 1000).toFixed(1)}K`}
           subtitle="All time"
+          delta={purchasesDelta.label}
+          deltaType={purchasesDelta.type}
+          deltaLabel="vs last month"
           bgColor="bg-amber-100"
         />
         <KPICard
@@ -230,6 +169,7 @@ function Dashboard() {
           subtitle={`${summary.inventory.low_stock_products} low + ${summary.inventory.out_of_stock_products} out`}
           delta={summary.inventory.out_of_stock_products ? "Needs review" : "Healthy"}
           deltaType={summary.inventory.out_of_stock_products ? "down" : "up"}
+          deltaLabel="Stock status"
           bgColor="bg-rose-100"
         />
       </div>
@@ -254,7 +194,11 @@ function Dashboard() {
                 </span>
               ),
             },
-            { key: "date", label: "DATE", render: (row) => formatDate(row.date) },
+            {
+              key: "date",
+              label: "DATE",
+              render: (row) => formatDate(row.date || row.created_at),
+            },
             {
               key: "status",
               label: "STATUS",

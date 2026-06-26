@@ -63,7 +63,6 @@ async def create_purchase(
             forbidden(Messages.PRODUCT_INACTIVE)
 
         supplier_id = product.get("supplier_id")
-        print(supplier_id)
         if not supplier_id:
             bad_request(Messages.INVALID_SUPPLIER_ID)
 
@@ -267,6 +266,9 @@ async def get_purchases(
         filters["supplier_id"] = supplier_id
 
     if sort_by not in allowed_sort_fields:
+        bad_request(Messages.INVALID_SORT_FIELD)
+
+    if order.lower() not in ["asc", "desc"]:
         bad_request(Messages.INVALID_SORT_FIELD)
 
     sort_order = -1 if order.lower() == "desc" else 1

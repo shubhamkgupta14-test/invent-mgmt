@@ -4,29 +4,48 @@ import Input from "../../common/Input";
 import SelectDropdown from "../../common/SelectDropdown";
 import Textarea from "../../common/Textarea";
 
-function ProductForm({ products, suppliers, onSubmit }) {
-  const [form, setForm] = useState({
-    sku: "",
-    name: "",
-    description: "",
-    category: "",
-    unit_of_measure: "",
-    tax_rate: 0,
-    reorder_level: 0,
-    attributes: {
-      color: "",
-      material: "",
-      weight: "",
-      size: "",
-      dimension: "",
-    },
-    supplier_id: 0,
-  });
+const defaultProductForm = {
+  sku: "",
+  name: "",
+  description: "",
+  category: "",
+  unit_of_measure: "",
+  tax_rate: 0,
+  reorder_level: 0,
+  attributes: {
+    color: "",
+    material: "",
+    weight: "",
+    size: "",
+    dimension: "",
+  },
+  supplier_id: "",
+  is_active: true,
+};
 
-  const categories = [
+function ProductForm({
+  products,
+  categories: categoryOptions,
+  units: unitOptions,
+  suppliers,
+  onSubmit,
+  initialData = null,
+  submitLabel = "Save Product",
+  disabledFields = [],
+}) {
+  const [form, setForm] = useState(() => ({
+      ...defaultProductForm,
+      ...(initialData || {}),
+      attributes: {
+        ...defaultProductForm.attributes,
+        ...(initialData?.attributes || {}),
+      },
+    }));
+
+  const categories = categoryOptions?.length ? categoryOptions : [
     ...new Set(products?.map((product) => product.category).filter(Boolean)),
   ];
-  const units = ["pcs", "kg", "lt"];
+  const units = unitOptions || ["pcs", "kg", "g", "m", "cm", "ltr", "ml", "other"];
 
   const updateForm = (key, value) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -61,6 +80,7 @@ function ProductForm({ products, suppliers, onSubmit }) {
             placeholder="Enter SKU"
             value={form.sku || ""}
             onChange={(value) => updateForm("sku", value)}
+            disabled={disabledFields.includes("sku")}
             required
           />
           <Input
@@ -70,16 +90,19 @@ function ProductForm({ products, suppliers, onSubmit }) {
             onChange={(value) => updateForm("name", value)}
             required
           />
-          <SelectDropdown
+          <Input
             label="Category"
+            placeholder="Enter or select category"
             value={form.category}
             onChange={(value) => updateForm("category", value)}
-            placeholder="Select category"
-            options={categories.map((category) => ({
-              value: category,
-              label: category,
-            }))}
+            list="product-category-options"
+            required
           />
+          <datalist id="product-category-options">
+            {categories.map((category) => (
+              <option key={category} value={category} />
+            ))}
+          </datalist>
         </div>
         <div className="mt-4">
           <Textarea
@@ -108,6 +131,7 @@ function ProductForm({ products, suppliers, onSubmit }) {
               value: unit,
               label: unit,
             }))}
+            disabled={disabledFields.includes("unit_of_measure")}
           />
           <Input
             label="Tax Rate"
@@ -134,6 +158,7 @@ function ProductForm({ products, suppliers, onSubmit }) {
                 ? `${supplier.name} (${supplier.supplier_id})`
                 : `${supplier.supplier_id}`,
             }))}
+            disabled={disabledFields.includes("supplier_id")}
           />
         </div>
       </section>
@@ -181,7 +206,7 @@ function ProductForm({ products, suppliers, onSubmit }) {
 
       <div className="flex justify-end border-t border-[var(--border)] pt-5">
         <Button type="submit" variant="primary">
-          Save Product
+          {submitLabel}
         </Button>
       </div>
     </form>

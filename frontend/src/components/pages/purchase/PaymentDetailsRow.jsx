@@ -2,7 +2,7 @@ import SelectDropdown from "../../common/SelectDropdown";
 
 function PaymentDetailsRow({ item, index, updatePM }) {
   return (
-    <div className="grid gap-3 rounded-lg border border-[var(--border)] bg-white p-3 md:grid-cols-[minmax(220px,1fr)_180px]">
+    <div className="grid gap-3 rounded-2xl border border-[var(--border)] bg-white p-3 md:grid-cols-[minmax(220px,1fr)_180px]">
       <div>
         <SelectDropdown
           label="Payment Method"
@@ -24,7 +24,7 @@ function PaymentDetailsRow({ item, index, updatePM }) {
         placeholder="Amount Paid"
         value={item.amount_paid || ""}
         onChange={(e) => updatePM(index, "amount_paid", Number(e.target.value))}
-        className="mt-7 w-full rounded-lg border border-[var(--border)] bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-indigo-500/25"
+        className="mt-7 w-full rounded-xl border border-[var(--border)] bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-indigo-500/25"
       />
     </div>
   );

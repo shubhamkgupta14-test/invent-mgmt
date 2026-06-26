@@ -2,7 +2,7 @@ from app.utils.messages import Messages
 from datetime import datetime, UTC
 
 from app.database.mongodb import db
-from app.utils.helpers import normalize_sku
+from app.utils.helpers import normalize_product_name, normalize_sku
 from app.utils.responseBuilder import build_product_response
 from app.models.auth import UserRole
 from app.core.exceptions import (
@@ -19,6 +19,8 @@ suppliers_collection = db.suppliers
 # CREATE PRODUCT
 async def add_product(product_data: dict, auth_user: dict):
     sku = normalize_sku(product_data.get("sku"))
+    product_data["name"] = normalize_product_name(product_data.get("name"))
+
     if auth_user.get("role") == UserRole.USER:
         forbidden()
 
@@ -75,6 +77,60 @@ async def get_all_products(auth_user: dict):
     forbidden()
 
 
+async def get_product_options(auth_user: dict, active_only: bool = False):
+    filters = {}
+
+    if active_only or auth_user.get("role") in [UserRole.ADMIN, UserRole.USER]:
+        filters["is_active"] = True
+    elif auth_user.get("role") != UserRole.SUPERADMIN:
+        forbidden()
+
+    products = []
+    async for product in products_collection.find(
+        filters,
+        {"_id": 0, "sku": 1, "name": 1, "category": 1}
+    ).sort("name", 1):
+        products.append({
+            "sku": product.get("sku"),
+            "name": product.get("name"),
+            "category": product.get("category")
+        })
+
+    return products
+
+
+async def get_product_form_options(auth_user: dict):
+    product_filters = {}
+    supplier_filters = {}
+
+    if auth_user.get("role") in [UserRole.ADMIN, UserRole.USER]:
+        product_filters["is_active"] = True
+        supplier_filters["is_active"] = True
+    elif auth_user.get("role") != UserRole.SUPERADMIN:
+        forbidden()
+
+    categories = await products_collection.distinct(
+        "category",
+        product_filters
+    )
+
+    suppliers = []
+    async for supplier in suppliers_collection.find(
+        supplier_filters,
+        {"_id": 0, "supplier_id": 1, "name": 1}
+    ).sort("name", 1):
+        suppliers.append({
+            "supplier_id": supplier.get("supplier_id"),
+            "name": supplier.get("name")
+        })
+
+    return {
+        "categories": sorted([category for category in categories if category]),
+        "suppliers": suppliers,
+        "units": ["pcs", "kg", "g", "m", "cm", "ltr", "ml", "other"]
+    }
+
+
 # GET SINGLE PRODUCT
 async def get_product_by_sku(sku: str, auth_user: dict):
     sku = normalize_sku(sku)
@@ -124,6 +180,9 @@ async def update_product_by_sku(sku: str, update_data: dict, auth_user: dict):
         and not existing_product.get("is_active")
     ):
         forbidden()
+
+    if "name" in update_data:
+        update_data["name"] = normalize_product_name(update_data.get("name"))
 
     supplier_id = update_data.get("supplier_id")
     if supplier_id is not None:
@@ -187,7 +246,7 @@ async def delete_product_by_sku(sku: str,  permanent: bool, auth_user: dict):
 
 
 async def filter_products_service(
-    sku=None, category=None,
+    sku=None, name=None, category=None,
     supplier_id=None, is_active=None, auth_user=None
 ):
     filters = {}
@@ -208,6 +267,9 @@ async def filter_products_service(
 
     if sku:
         filters["sku"] = normalize_sku(sku)
+
+    if name:
+        filters["name"] = normalize_product_name(name)
 
     if category:
         filters["category"] = category

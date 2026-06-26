@@ -6,13 +6,13 @@ from datetime import datetime
 class SupplierBase(BaseModel):
     name: str = Field(..., min_length=2, max_length=200,
                       description="Supplier name")
-    email: Optional[str] = Field(default=None, min_length=2, max_length=200,
+    email: Optional[str] = Field(default=None, max_length=200,
                                  description="Supplier Email")
-    phone: Optional[str] = Field(default=None, min_length=10, max_length=10,
+    phone: Optional[str] = Field(default=None, max_length=10,
                                  description="Supplier Phone")
-    address: Optional[str] = Field(default=None, min_length=2, max_length=200,
+    address: Optional[str] = Field(default=None, max_length=200,
                                    description="Supplier Address")
-    gst_number: Optional[str] = Field(default=None, min_length=15, max_length=15,
+    gst_number: Optional[str] = Field(default=None, max_length=15,
                                       description="Supplier GST")
     contact_person: str = Field(..., min_length=2, max_length=200,
                                 description="Supplier contact person")
@@ -29,10 +29,10 @@ class SupplierCreate(SupplierBase):
 
 class SupplierUpdate(BaseModel):
     name: Optional[str] = Field(default=None, min_length=2, max_length=200)
-    email: Optional[str] = Field(default=None, min_length=2, max_length=200)
-    phone: Optional[str] = Field(default=None, min_length=10, max_length=10)
-    address: Optional[str] = Field(default=None, min_length=2, max_length=200)
-    gst_number: Optional[str] = Field(default=None, min_length=15, max_length=15)
+    email: Optional[str] = Field(default=None, max_length=200)
+    phone: Optional[str] = Field(default=None, max_length=10)
+    address: Optional[str] = Field(default=None, max_length=200)
+    gst_number: Optional[str] = Field(default=None, max_length=15)
     contact_person: Optional[str] = Field(default=None, min_length=2, max_length=200)
     is_active: Optional[bool] = None
     updated_at: datetime = Field(default_factory=datetime.utcnow)

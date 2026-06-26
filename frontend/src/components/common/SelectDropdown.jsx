@@ -9,6 +9,7 @@ function SelectDropdown({
   valueKey = "value",
   labelKey = "label",
   className = "",
+  disabled = false,
 }) {
   return (
     <div className="w-full">
@@ -22,7 +23,8 @@ function SelectDropdown({
         <select
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className={`w-full appearance-none rounded-lg border border-[var(--border)] bg-white px-4 py-2.5 pr-10 text-sm text-slate-900 shadow-sm transition focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-indigo-500/25 ${className}`}
+          disabled={disabled}
+          className={`w-full appearance-none rounded-xl border border-[var(--border)] bg-white px-4 py-2.5 pr-10 text-sm text-slate-900 shadow-sm transition focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-indigo-500/25 ${className}`}
         >
           <option value="">{placeholder}</option>
 

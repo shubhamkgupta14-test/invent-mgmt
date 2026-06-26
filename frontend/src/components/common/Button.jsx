@@ -13,7 +13,7 @@ function Button({
   ...props
 }) {
   const baseStyles =
-    "inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition-all duration-200 font-sans disabled:opacity-60 disabled:cursor-not-allowed";
+    "inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-all duration-200 font-sans disabled:opacity-60 disabled:cursor-not-allowed";
 
   const variants = {
     primary:

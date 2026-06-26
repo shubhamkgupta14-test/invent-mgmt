@@ -111,6 +111,7 @@ async def create_sale(auth_user: dict, sale_data: dict):
 
     sale_document = {
         "invoice_id": sale_data.get("invoice_id"),
+        "user_info": sale_data.get("user_info"),
         "items": sale_items,
         "subtotal": subtotal,
         "total_tax": total_tax,
@@ -120,6 +121,7 @@ async def create_sale(auth_user: dict, sale_data: dict):
             "payment_details",
             []
         ),
+        "sale_status": sale_data.get("sale_status"),
         "notes": sale_data.get("notes"),
         "created_by": auth_user.get(
             "username"
@@ -205,6 +207,9 @@ async def get_sales(
         filters["invoice_id"] = invoice_id
 
     if sort_by not in allowed_sort_fields:
+        bad_request(Messages.INVALID_SORT_FIELD)
+
+    if order.lower() not in ["asc", "desc"]:
         bad_request(Messages.INVALID_SORT_FIELD)
 
     sort_order = -1 if order.lower() == "desc" else 1

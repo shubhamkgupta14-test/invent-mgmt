@@ -7,8 +7,12 @@ import Purchase from "./pages/Purchase";
 import AddPurchase from "./pages/AddPurchase";
 import AddProduct from "./pages/AddProduct";
 import Sale from "./pages/Sale";
+import AddSale from "./pages/AddSale";
 import Stock from "./pages/Stock";
 import Supplier from "./pages/Supplier";
+import SuperAdmin from "./pages/SuperAdmin";
+import AuditLogs from "./pages/AuditLogs";
+import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./routes/ProtectedRoute";
 
 function App() {
@@ -57,6 +61,14 @@ function App() {
           }
         />
         <Route
+          path="/sales/add"
+          element={
+            <ProtectedRoute>
+              <AddSale />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/purchases/add"
           element={
             <ProtectedRoute>
@@ -77,6 +89,30 @@ function App() {
           element={
             <ProtectedRoute>
               <Supplier />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/superadmin"
+          element={
+            <ProtectedRoute>
+              <SuperAdmin />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/audits"
+          element={
+            <ProtectedRoute>
+              <AuditLogs />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="*"
+          element={
+            <ProtectedRoute>
+              <NotFound />
             </ProtectedRoute>
           }
         />

@@ -1,10 +1,10 @@
 import StockStatusBadge from "../../common/StockStatusBadge";
 import { FaSortDown, FaSortUp } from "react-icons/fa";
 
-function StockTable({ stocks, sortConfig, handleSort }) {
+function StockTable({ stocks, sortConfig, handleSort, onView }) {
   if (!stocks?.length) {
     return (
-      <div className="rounded-lg border border-[var(--border)] bg-white p-5 shadow-sm">
+      <div className="rounded-2xl border border-[var(--border)] bg-white p-5 shadow-sm">
         <p className="py-8 text-center text-slate-500">
           No stocks found
         </p>
@@ -13,7 +13,7 @@ function StockTable({ stocks, sortConfig, handleSort }) {
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border border-[var(--border)] bg-white shadow-sm">
+    <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-white shadow-sm">
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -73,7 +73,8 @@ function StockTable({ stocks, sortConfig, handleSort }) {
             {stocks.map((stock) => (
               <tr
                 key={stock.sku}
-                className="border-b border-[var(--border)] transition-colors last:border-0 hover:bg-slate-50/70"
+                onClick={() => onView?.(stock)}
+                className="cursor-pointer border-b border-[var(--border)] transition-colors last:border-0 hover:bg-slate-50/70"
               >
                 <td className="px-5 py-4 text-slate-700">{stock.sku}</td>
                 <td className="px-5 py-4 text-slate-700">{stock.name}</td>

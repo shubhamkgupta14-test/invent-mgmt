@@ -9,6 +9,12 @@ async def create_indexes():
     )
 
     await db.users.create_index(
+        "email",
+        unique=True,
+        sparse=True
+    )
+
+    await db.users.create_index(
         "created_at"
     )
 

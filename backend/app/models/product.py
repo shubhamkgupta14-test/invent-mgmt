@@ -1,6 +1,7 @@
 from pydantic import (BaseModel, Field, field_validator)
 from typing import Optional
 from datetime import datetime
+from app.utils.helpers import normalize_product_name
 
 
 class ProductAttributes(BaseModel):
@@ -49,7 +50,7 @@ class ProductBase(BaseModel):
     @field_validator("name")
     @classmethod
     def validate_name(cls, value):
-        value = value.strip()
+        value = normalize_product_name(value)
         if len(value) < 2:
             raise ValueError("Product name too short")
         return value

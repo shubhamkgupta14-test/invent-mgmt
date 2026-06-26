@@ -9,6 +9,7 @@ export function Modal({ isOpen, onClose, title, children, size = "md" }) {
     lg: "max-w-lg",
     xl: "max-w-xl",
     "2xl": "max-w-2xl",
+    "4xl": "max-w-4xl",
   }[size];
 
   return (
@@ -21,7 +22,7 @@ export function Modal({ isOpen, onClose, title, children, size = "md" }) {
 
       {/* Modal */}
       <div
-        className={`relative max-h-[90vh] w-full ${sizeClass} overflow-y-auto rounded-lg bg-white shadow-xl animate-fadeIn`}
+        className={`relative max-h-[90vh] w-full ${sizeClass} overflow-y-auto rounded-2xl bg-white shadow-xl animate-fadeIn`}
       >
         {/* Header */}
         <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">

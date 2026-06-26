@@ -2,7 +2,7 @@ function Table({ columns = [], data = [], renderRow, title, className = "" }) {
   if (!data?.length) {
     return (
       <div
-        className={`rounded-lg border border-[var(--border)] bg-white p-5 shadow-sm ${className}`}
+        className={`rounded-2xl border border-[var(--border)] bg-white p-5 shadow-sm ${className}`}
       >
         {title && (
           <h2 className="mb-4 text-lg font-semibold text-slate-900">
@@ -18,7 +18,7 @@ function Table({ columns = [], data = [], renderRow, title, className = "" }) {
 
   return (
     <div
-      className={`rounded-lg border border-[var(--border)] bg-white shadow-sm ${className}`}
+      className={`rounded-2xl border border-[var(--border)] bg-white shadow-sm ${className}`}
     >
       {title && (
         <div className="border-b border-[var(--border)] px-6 py-4">

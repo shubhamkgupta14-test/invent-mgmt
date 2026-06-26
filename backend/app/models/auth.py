@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import List, Optional
 from datetime import datetime
 import enum
 
@@ -12,6 +12,9 @@ class UserRole(str, enum.Enum):
 class Users(BaseModel):
     username: str = Field(..., min_length=3, max_length=50)
     password: str = Field(..., min_length=5)
+    firstname: str = Field(..., min_length=1, max_length=50)
+    lastname: Optional[str] = Field(default="", max_length=50)
+    email: str = Field(..., pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
     active: bool = Field(default=True)
     role: Optional[UserRole] = Field(default=UserRole.USER)
     created_at: datetime = Field(
@@ -23,16 +26,33 @@ class Users(BaseModel):
 class CreateUserRequest(BaseModel):
     username: str = Field(..., min_length=3, max_length=50)
     password: str = Field(..., min_length=5)
-    # active: bool = Field(default=True)
-    # role: Optional[UserRole] = Field(default=UserRole.USER)
+    firstname: str = Field(..., min_length=1, max_length=50)
+    lastname: Optional[str] = Field(default="", max_length=50)
+    email: str = Field(..., pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    role: UserRole = Field(default=UserRole.USER)
+    active: bool = Field(default=True)
 
 
 class GetUserRequest(BaseModel):
     username: str = Field(..., min_length=3, max_length=50)
-    
+
+
+class ActivateUserRequest(BaseModel):
+    username: str = Field(..., min_length=3, max_length=50)
+
+
 class DeleteUserRequest(BaseModel):
     username: str = Field(..., min_length=3, max_length=50)
     permanent: bool = Field(default=False)
+
+
+class UpdateUserRoleRequest(BaseModel):
+    username: str = Field(..., min_length=3, max_length=50)
+    role: UserRole
+
+
+class CleanDatabaseRequest(BaseModel):
+    collections: List[str] = Field(..., min_length=1)
 
 
 class LoginRequest(BaseModel):

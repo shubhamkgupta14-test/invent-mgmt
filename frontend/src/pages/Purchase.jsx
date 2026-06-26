@@ -6,29 +6,40 @@ import PurchaseTable from "../components/pages/purchase/PurchaseTable";
 import Loader from "../components/common/Loader";
 import Button from "../components/common/Button";
 import Card from "../components/common/Card";
+import DetailModal from "../components/common/DetailModal";
+import StatusBadge from "../components/common/StatusBadge";
 import { getPurchases } from "../api/purchaseApi";
+import { getMyDetails } from "../api/userApi";
+import { formatDateIST, formatMoney } from "../utils/formatters";
 
 function Purchases() {
   const [purchases, setPurchases] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [selectedPurchase, setSelectedPurchase] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    loadPurchase();
-  }, []);
+    let isActive = true;
 
-  const loadPurchase = async () => {
-    try {
-      setLoading(true);
-      const purchases_response = await getPurchases();
-      setPurchases(purchases_response.data.data);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    Promise.all([getPurchases(), getMyDetails()])
+      .then(([purchasesResponse, userResponse]) => {
+        if (!isActive) return;
+        setPurchases(purchasesResponse.data.data);
+        setCurrentUser(userResponse.data.data);
+      })
+      .catch((error) => {
+        console.error(error);
+      })
+      .finally(() => {
+        if (isActive) setLoading(false);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   if (loading) {
     return (
@@ -51,6 +62,46 @@ function Purchases() {
     navigate("/purchases/add");
   };
 
+  const renderPurchaseItems = () => (
+    <div className="overflow-hidden rounded-xl border border-border bg-white">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border bg-slate-50">
+              {["Name", "SKU", "Qty", "Price", "Tax", "Disc", "Total"].map((label) => (
+                <th
+                  key={label}
+                  className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500"
+                >
+                  {label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {selectedPurchase?.items?.map((item) => (
+              <tr key={`${item.sku}-${item.name}`} className="border-b border-border last:border-0">
+                <td className="px-4 py-3 font-semibold text-slate-900">{item.name || "-"}</td>
+                <td className="px-4 py-3 text-slate-700">{item.sku || "-"}</td>
+                <td className="px-4 py-3 text-slate-700">{item.quantity || 0}</td>
+                <td className="px-4 py-3 text-slate-700">{formatMoney(item.unit_price)}</td>
+                <td className="px-4 py-3 text-slate-700">
+                  {item.tax_percentage ?? 0}% / {formatMoney(item.tax_amount)}
+                </td>
+                <td className="px-4 py-3 text-slate-700">
+                  {item.discount_percentage ?? 0}% / {formatMoney(item.discount_amount)}
+                </td>
+                <td className="px-4 py-3 font-semibold text-slate-900">
+                  {formatMoney(item.total_price)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
   return (
     <MainLayout>
       <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -60,9 +111,11 @@ function Purchases() {
             Track and manage your purchase orders.
           </p>
         </div>
-        <Button variant="primary" size="md" onClick={handleAddPurchase}>
-          + Add Purchase
-        </Button>
+        {currentUser?.role !== "user" && (
+          <Button variant="primary" size="md" onClick={handleAddPurchase}>
+            + Add Purchase
+          </Button>
+        )}
       </div>
 
       <Card>
@@ -74,14 +127,60 @@ function Purchases() {
           />
         </div>
 
-        <PurchaseTable purchases={filteredPurchases} />
+        <PurchaseTable
+          purchases={filteredPurchases}
+          onView={setSelectedPurchase}
+        />
 
-        <div className="mt-6 rounded-lg border border-border bg-slate-50 p-4 text-sm text-slate-700">
+        <div className="mt-6 rounded-2xl border border-border bg-slate-50 p-4 text-sm text-slate-700">
           Showing{" "}
           <span className="font-semibold">{filteredPurchases.length}</span>{" "}
           purchases.
         </div>
       </Card>
+      <DetailModal
+        isOpen={Boolean(selectedPurchase)}
+        onClose={() => setSelectedPurchase(null)}
+        title={selectedPurchase?.invoice_id || "Purchase Details"}
+        sections={[
+          {
+            title: "Purchase",
+            fields: [
+              { label: "Invoice", value: selectedPurchase?.invoice_id },
+              { label: "Supplier", value: selectedPurchase?.supplier_id },
+              { label: "Date", value: formatDateIST(selectedPurchase?.created_at) },
+              {
+                label: "Status",
+                value: selectedPurchase?.purchase_status,
+                render: (value) => <StatusBadge status={value} type="purchase" />,
+              },
+              {
+                label: "Payment",
+                value: selectedPurchase?.payment_status,
+                render: (value) => <StatusBadge status={value} type="payment" />,
+              },
+              { label: "Items", value: selectedPurchase?.items?.length || 0 },
+            ],
+          },
+          {
+            title: "Items",
+            render: renderPurchaseItems,
+          },
+          {
+            title: "Amounts",
+            fields: [
+              { label: "Subtotal", value: selectedPurchase?.subtotal, money: true },
+              { label: "Tax", value: selectedPurchase?.total_tax, money: true },
+              { label: "Discount", value: selectedPurchase?.total_discount, money: true },
+              { label: "Shipping", value: selectedPurchase?.shipping_charges, money: true },
+              { label: "Other Charges", value: selectedPurchase?.other_charges, money: true },
+              { label: "Final Total", value: selectedPurchase?.final_total_amount, money: true },
+              { label: "Paid", value: selectedPurchase?.total_paid, money: true },
+              { label: "Remaining", value: selectedPurchase?.remaining_amount, money: true },
+            ],
+          },
+        ]}
+      />
     </MainLayout>
   );
 }

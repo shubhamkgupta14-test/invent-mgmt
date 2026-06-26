@@ -143,7 +143,7 @@ export function ProductFormModal({
               setFormData({ ...formData, description: e.target.value })
             }
             rows="3"
-            className="w-full px-4 py-2.5 border border-slate-200 rounded-lg
+            className="w-full px-4 py-2.5 border border-slate-200 rounded-xl
               bg-white text-slate-900 placeholder-slate-400 font-sans resize-vertical
               focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
               transition-all duration-200"
@@ -152,15 +152,20 @@ export function ProductFormModal({
 
         {/* Category & Unit Price */}
         <div className="grid grid-cols-2 gap-4">
-          <Select
+          <Input
             label="Category"
             value={formData.category}
             onChange={(value) => setFormData({ ...formData, category: value })}
-            options={categoryOptions}
-            placeholder="Select category"
+            list="modal-product-category-options"
+            placeholder="Enter or select category"
             error={errors.category}
             required
           />
+          <datalist id="modal-product-category-options">
+            {categoryOptions.map((category) => (
+              <option key={category.value} value={category.value} />
+            ))}
+          </datalist>
           <Input
             label="Unit Price (Rs)"
             type="number"

@@ -6,7 +6,7 @@ function DashboardTable({
   emptyMessage = "No records found",
 }) {
   return (
-    <section className="overflow-hidden rounded-lg border border-[var(--border)] bg-white shadow-sm">
+    <section className="overflow-hidden rounded-2xl border border-[var(--border)] bg-white shadow-sm">
       <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] bg-slate-50/80 px-5 py-4">
         <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
         {badge !== undefined && (

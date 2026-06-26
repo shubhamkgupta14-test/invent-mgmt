@@ -14,7 +14,7 @@ export function ActionButtons({
           <button
             onClick={onView}
             disabled={loading}
-            className="flex items-center gap-2 px-3 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-3 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             title="View"
           >
             <FaEye size={16} />
@@ -25,7 +25,7 @@ export function ActionButtons({
           <button
             onClick={onEdit}
             disabled={loading}
-            className="flex items-center gap-2 px-3 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-3 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-xl transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             title="Edit"
           >
             <FaPencilAlt size={16} />
@@ -36,7 +36,7 @@ export function ActionButtons({
           <button
             onClick={onDelete}
             disabled={loading}
-            className="flex items-center gap-2 px-3 py-2 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-3 py-2 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-xl transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             title="Delete"
           >
             <FaTrash size={16} />
