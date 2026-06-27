@@ -29,8 +29,8 @@ class ProductBase(BaseModel):
         default=5, ge=0, description="Minimum stock alert quantity")
     attributes: Optional[ProductAttributes] = Field(default=None,
                                                     description="Additional product attributes")
-    supplier_id: Optional[str] = Field(
-        default=None, description="ID of the supplier providing this product")
+    supplier_id: str = Field(
+        ..., min_length=1, description="ID of the supplier providing this product")
     is_active: bool = Field(default=True, description="Product active status")
     created_at: datetime = Field(
         default_factory=datetime.utcnow, description="Product creation timestamp")
@@ -76,6 +76,14 @@ class ProductBase(BaseModel):
     def validate_unit_of_measure(cls, value):
         return value.strip()
 
+    @field_validator("supplier_id")
+    @classmethod
+    def validate_supplier_id(cls, value):
+        value = value.strip()
+        if not value:
+            raise ValueError("Supplier is required")
+        return value
+
 
 class ProductCreate(ProductBase):
     pass
@@ -84,14 +92,18 @@ class ProductCreate(ProductBase):
 class ProductUpdate(BaseModel):
     name: Optional[str] = None
     category: Optional[str] = None
-    description: str = None
+    description: Optional[str] = None
     attributes: Optional[ProductAttributes] = None
-    unit_of_measure: Optional[str] = Field(max_length=20,
-                                           description="Unit of measurement", enum=["pcs", "kg", "g", "m", "cm", "ltr", "ml", "other"])
+    unit_of_measure: Optional[str] = Field(
+        default=None,
+        max_length=20,
+        description="Unit of measurement",
+        enum=["pcs", "kg", "g", "m", "cm", "ltr", "ml", "other"]
+    )
     tax_rate: Optional[float] = Field(
-        ge=0, le=100, description="Applicable tax percentage")
+        default=None, ge=0, le=100, description="Applicable tax percentage")
     reorder_level: Optional[int] = Field(
-        ge=0, description="Minimum stock alert quantity")
+        default=None, ge=0, description="Minimum stock alert quantity")
     supplier_id: Optional[str] = None
     is_active: Optional[bool] = None
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -100,7 +112,6 @@ class ProductUpdate(BaseModel):
 class ProductDeleteRequest(BaseModel):
     sku: str = Field(..., min_length=2, max_length=50,
                      description="Unique product SKU code")
-    permanent: bool = Field(default=False)
 
 
 class ProductResponse(ProductBase):

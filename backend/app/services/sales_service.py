@@ -121,7 +121,7 @@ async def create_sale(auth_user: dict, sale_data: dict):
             "payment_details",
             []
         ),
-        "sale_status": sale_data.get("sale_status"),
+        "sale_status": "SOLD",
         "notes": sale_data.get("notes"),
         "created_by": auth_user.get(
             "username"

@@ -134,13 +134,13 @@ async def update_product_api(
     )
 
 
-# DELETE PRODUCT (soft or permanent)
+# DELETE PRODUCT
 @router.delete("/delete")
 async def delete_product_api(
         auth_user: user_dependency,
         product: ProductDeleteRequest):
 
-    result = await delete_product_by_sku(product.sku, product.permanent, auth_user)
+    result = await delete_product_by_sku(product.sku, auth_user)
     data = {
         "sku": product.sku
     }

@@ -84,12 +84,50 @@ def build_sales_response(sale: dict):
     }
 
 
+def build_return_response(return_record: dict):
+    return {
+        "return_id": str(return_record.get("_id", "")),
+        "sale_id": return_record.get("sale_id"),
+        "invoice_id": return_record.get("invoice_id"),
+        "items": return_record.get("items", []),
+        "total_quantity": return_record.get("total_quantity", 0),
+        "total_amount": return_record.get("total_amount", 0),
+        "refund_amount": return_record.get("refund_amount", 0),
+        "notes": return_record.get("notes"),
+        "created_by": return_record.get("created_by"),
+        "created_at": format_datetime_iso(return_record.get("created_at")),
+        "updated_at": format_datetime_iso(return_record.get("updated_at"))
+    }
+
+
+def build_exchange_response(exchange: dict):
+    return {
+        "exchange_id": str(exchange.get("_id", "")),
+        "sale_id": exchange.get("sale_id"),
+        "invoice_id": exchange.get("invoice_id"),
+        "returned_items": exchange.get("returned_items", []),
+        "replacement_items": exchange.get("replacement_items", []),
+        "returned_quantity": exchange.get("returned_quantity", 0),
+        "replacement_quantity": exchange.get("replacement_quantity", 0),
+        "returned_amount": exchange.get("returned_amount", 0),
+        "replacement_amount": exchange.get("replacement_amount", 0),
+        "adjustment_amount": exchange.get("adjustment_amount", 0),
+        "notes": exchange.get("notes"),
+        "created_by": exchange.get("created_by"),
+        "created_at": format_datetime_iso(exchange.get("created_at")),
+        "updated_at": format_datetime_iso(exchange.get("updated_at"))
+    }
+
+
 def build_stock_response(stock: dict):
     return {
         "stock_id": str(stock.get("_id")),
         "sku": stock.get("sku"),
         "name": stock.get("name"),
+        "supplier_id": stock.get("supplier_id"),
         "quantity": stock.get("quantity"),
+        "damaged_quantity": stock.get("damaged_quantity", 0),
+        "lost_quantity": stock.get("lost_quantity", 0),
         "avg_price": stock.get("avg_price"),
         "inventory_value": stock.get("inventory_value"),
         "stock_status": stock.get("stock_status"),

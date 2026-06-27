@@ -10,12 +10,14 @@ function SelectDropdown({
   labelKey = "label",
   className = "",
   disabled = false,
+  required = false,
 }) {
   return (
     <div className="w-full">
       {label && (
         <label className="mb-2 block text-sm font-semibold text-slate-700">
           {label}
+          {required && <span className="text-rose-600">*</span>}
         </label>
       )}
 
@@ -24,6 +26,7 @@ function SelectDropdown({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
+          required={required}
           className={`w-full appearance-none rounded-xl border border-[var(--border)] bg-white px-4 py-2.5 pr-10 text-sm text-slate-900 shadow-sm transition focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-indigo-500/25 ${className}`}
         >
           <option value="">{placeholder}</option>

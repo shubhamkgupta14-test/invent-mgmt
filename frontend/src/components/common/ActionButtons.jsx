@@ -1,26 +1,14 @@
-import { FaPencilAlt, FaTrash, FaEye } from "react-icons/fa";
+import { FaPencilAlt, FaTrash } from "react-icons/fa";
 
 export function ActionButtons({
   onEdit,
   onDelete,
-  onView,
   loading = false,
   variant = "compact", // compact or full
 }) {
   if (variant === "full") {
     return (
       <div className="flex items-center gap-2">
-        {onView && (
-          <button
-            onClick={onView}
-            disabled={loading}
-            className="flex items-center gap-2 px-3 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-            title="View"
-          >
-            <FaEye size={16} />
-            <span className="text-sm font-medium">View</span>
-          </button>
-        )}
         {onEdit && (
           <button
             onClick={onEdit}
@@ -50,16 +38,6 @@ export function ActionButtons({
   // Compact icon-only version
   return (
     <div className="flex items-center gap-2">
-      {onView && (
-        <button
-          onClick={onView}
-          disabled={loading}
-          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-          title="View"
-        >
-          <FaEye size={16} />
-        </button>
-      )}
       {onEdit && (
         <button
           onClick={onEdit}

@@ -1,6 +1,7 @@
 const TOKEN_KEY = "token";
 const EXPIRY_KEY = "token_expiry";
 const USER_KEY = "current_user";
+const LAST_PATH_KEY = "last_path";
 
 export function setToken(token, expiresIn = 3600) {
   if (!token) return;
@@ -19,10 +20,21 @@ export function isTokenExpired() {
   return Date.now() > parseInt(expiry);
 }
 
-export function clearToken() {
+export function clearToken(lastPath = null) {
+  if (lastPath && lastPath !== "/") {
+    localStorage.setItem(LAST_PATH_KEY, lastPath);
+  }
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(EXPIRY_KEY);
   sessionStorage.removeItem(USER_KEY);
+}
+
+export function getLastPath() {
+  return localStorage.getItem(LAST_PATH_KEY) || "/dashboard";
+}
+
+export function clearLastPath() {
+  localStorage.removeItem(LAST_PATH_KEY);
 }
 
 export function getTokenWithExpiry() {

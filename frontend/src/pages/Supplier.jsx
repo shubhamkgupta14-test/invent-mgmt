@@ -100,6 +100,8 @@ function SupplierTable({ suppliers, canEdit, onView, onEdit }) {
     );
   }
 
+  const hasActions = canEdit;
+
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
       <div className="overflow-x-auto">
@@ -116,14 +118,13 @@ function SupplierTable({ suppliers, canEdit, onView, onEdit }) {
                 Phone
               </th>
               <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                GST
-              </th>
-              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
                 Email
               </th>
-              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                Action
-              </th>
+              {hasActions && (
+                <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                  Action
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -141,23 +142,21 @@ function SupplierTable({ suppliers, canEdit, onView, onEdit }) {
                   {supplier.contact_person || "-"}
                 </td>
                 <td className="px-5 py-4 text-slate-700">{supplier.phone || "-"}</td>
-                <td className="px-5 py-4 text-slate-700">
-                  {supplier.gst_number || "-"}
-                </td>
                 <td className="px-5 py-4 text-slate-700">{supplier.email || "-"}</td>
-                <td
-                  className="px-5 py-4"
-                  onClick={(event) => event.stopPropagation()}
-                >
-                  <ActionButtons
-                    onView={() => onView(supplier)}
-                    onEdit={
-                      canEdit && supplier.is_active
-                        ? () => onEdit(supplier)
-                        : undefined
-                    }
-                  />
-                </td>
+                {hasActions && (
+                  <td
+                    className="px-5 py-4"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <ActionButtons
+                      onEdit={
+                        supplier.is_active
+                          ? () => onEdit(supplier)
+                          : undefined
+                      }
+                    />
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -285,7 +284,7 @@ function Supplier() {
           <SearchBar
             value={search}
             onChange={setSearch}
-            placeholder="Search supplier, contact, phone, or GST"
+            placeholder="Search supplier, contact, or phone"
           />
         </div>
 

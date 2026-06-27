@@ -3,6 +3,18 @@ import { FaSortDown, FaSortUp } from "react-icons/fa";
 import StatusBadge from "../../common/StatusBadge";
 import { formatDateIST } from "../../../utils/formatters";
 
+const getItemSummary = (items = []) => {
+  const firstItem = items[0];
+  if (!firstItem) return "-";
+
+  const extraCount = items.length - 1;
+  const label = firstItem.sku
+    ? `${firstItem.sku} - ${firstItem.name || "Product"}`
+    : firstItem.name || "Product";
+
+  return `${label}${extraCount > 0 ? ` +${extraCount}` : ""}`;
+};
+
 function PurchaseTable({ purchases, onView }) {
   const [sortOrder, setSortOrder] = useState("asc");
 
@@ -52,6 +64,9 @@ function PurchaseTable({ purchases, onView }) {
                 Supplier
               </th>
               <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                Product
+              </th>
+              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
                 Items
               </th>
               <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
@@ -80,6 +95,9 @@ function PurchaseTable({ purchases, onView }) {
                 </td>
                 <td className="px-5 py-4 text-slate-700">
                   {purchase.supplier_id}
+                </td>
+                <td className="px-5 py-4 font-medium text-slate-900">
+                  {getItemSummary(purchase.items)}
                 </td>
                 <td className="px-5 py-4 text-slate-700">
                   {purchase.items.length || 0}

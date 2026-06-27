@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import MainLayout from "../layouts/MainLayout";
 import SearchBar from "../components/common/SearchBar";
 import ProductTable from "../components/pages/product/ProductTable";
@@ -10,6 +9,7 @@ import Modal from "../components/common/Modal";
 import ProductForm from "../components/pages/product/ProductForm";
 import DetailModal from "../components/common/DetailModal";
 import {
+  addProduct,
   deleteProduct,
   getProductFormOptions,
   getProducts,
@@ -28,7 +28,8 @@ function Inventory() {
   const [search, setSearch] = useState("");
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [editingProduct, setEditingProduct] = useState(null);
-  const navigate = useNavigate();
+  const [productFormOpen, setProductFormOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState(null);
   const { addToast } = useToast();
 
   useEffect(() => {
@@ -74,13 +75,7 @@ function Inventory() {
     );
   }
 
-  const handleAddProduct = () => {
-    navigate("/products/add");
-  };
-
-  const handleEditProduct = async (product) => {
-    setEditingProduct(product);
-
+  const loadProductFormOptions = async () => {
     if (suppliers.length || categories.length || units.length) return;
 
     try {
@@ -94,6 +89,18 @@ function Inventory() {
         "error",
       );
     }
+  };
+
+  const handleAddProduct = async () => {
+    setEditingProduct(null);
+    setProductFormOpen(true);
+    await loadProductFormOptions();
+  };
+
+  const handleEditProduct = async (product) => {
+    setEditingProduct(product);
+    setProductFormOpen(true);
+    await loadProductFormOptions();
   };
 
   const filteredProducts = products.filter(
@@ -118,32 +125,45 @@ function Inventory() {
 
   const canMutateProducts = ["admin", "superadmin"].includes(currentUser?.role);
 
-  const handleUpdateProduct = async (payload) => {
+  const handleSubmitProduct = async (payload) => {
     try {
-      const updatePayload = { ...payload };
-      delete updatePayload.sku;
-      delete updatePayload.id;
-      delete updatePayload.created_at;
-      delete updatePayload.updated_at;
+      if (editingProduct) {
+        const updatePayload = { ...payload };
+        delete updatePayload.sku;
+        delete updatePayload.id;
+        delete updatePayload.created_at;
+        delete updatePayload.updated_at;
 
-      await updateProduct(editingProduct.sku, updatePayload);
-      addToast("Product updated successfully", "success");
+        await updateProduct(editingProduct.sku, updatePayload);
+        addToast("Product updated successfully", "success");
+      } else {
+        await addProduct(payload);
+        addToast("Product added successfully", "success");
+      }
+
       setEditingProduct(null);
+      setProductFormOpen(false);
       await loadProducts();
     } catch (error) {
       addToast(
-        error.response?.data?.message || "Failed to update product",
+        error.response?.data?.message || "Failed to save product",
         "error",
       );
     }
   };
 
-  const handleDeleteProduct = async (product) => {
-    if (!window.confirm(`Delete product ${product.sku}?`)) return;
+  const confirmDeleteProduct = async () => {
+    if (!productToDelete) return;
 
     try {
-      await deleteProduct({ sku: product.sku, permanent: false });
-      addToast("Product deleted successfully", "success");
+      await deleteProduct({ sku: productToDelete.sku });
+      addToast(
+        currentUser?.role === "superadmin" && !productToDelete.is_active
+          ? "Product permanently deleted successfully"
+          : "Product deactivated successfully",
+        "success",
+      );
+      setProductToDelete(null);
       await loadProducts();
     } catch (error) {
       addToast(
@@ -197,7 +217,7 @@ function Inventory() {
           products={filteredProducts}
           onView={setSelectedProduct}
           onEdit={handleEditProduct}
-          onDelete={handleDeleteProduct}
+          onDelete={setProductToDelete}
           onToggleActive={handleToggleProductActive}
           canEdit={canMutateProducts}
           canDelete={canMutateProducts}
@@ -244,21 +264,62 @@ function Inventory() {
       />
 
       <Modal
-        isOpen={Boolean(editingProduct)}
-        onClose={() => setEditingProduct(null)}
-        title="Edit Product"
+        isOpen={productFormOpen}
+        onClose={() => {
+          setProductFormOpen(false);
+          setEditingProduct(null);
+        }}
+        title={editingProduct ? "Edit Product" : "Add Product"}
         size="2xl"
       >
         <ProductForm
+          key={editingProduct?.sku || "new-product"}
           products={products}
           categories={categories}
           units={units}
           suppliers={suppliers}
           initialData={editingProduct}
-          disabledFields={["sku"]}
-          submitLabel="Update Product"
-          onSubmit={handleUpdateProduct}
+          disabledFields={editingProduct ? ["sku"] : []}
+          submitLabel={editingProduct ? "Update Product" : "Add Product"}
+          onSubmit={handleSubmitProduct}
         />
+      </Modal>
+
+      <Modal
+        isOpen={Boolean(productToDelete)}
+        onClose={() => setProductToDelete(null)}
+        title="Confirm Delete Product"
+      >
+        <div className="space-y-5">
+          <p className="text-sm text-slate-700">
+            This will{" "}
+            {currentUser?.role === "superadmin" && !productToDelete?.is_active
+              ? "permanently delete"
+              : "deactivate"}{" "}
+            product{" "}
+            <span className="font-semibold text-slate-900">
+              {productToDelete?.name} ({productToDelete?.sku})
+            </span>
+            .
+          </p>
+          <div className="flex justify-end gap-3 border-t border-border pt-5">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setProductToDelete(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              className="bg-rose-600 text-white hover:bg-rose-700"
+              onClick={confirmDeleteProduct}
+            >
+              Delete Product
+            </Button>
+          </div>
+        </div>
       </Modal>
     </MainLayout>
   );
