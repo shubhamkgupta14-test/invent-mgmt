@@ -1,4 +1,5 @@
 import { FaBars, FaBell } from "react-icons/fa";
+import { APP_TITLE } from "../../config/brand";
 
 function Navbar({ onMenuClick }) {
   return (
@@ -15,7 +16,7 @@ function Navbar({ onMenuClick }) {
 
         <div className="hidden min-w-0 md:block">
           <p className="text-sm font-semibold text-slate-500">
-            HappiHome Inventory
+            {APP_TITLE}
           </p>
         </div>
 

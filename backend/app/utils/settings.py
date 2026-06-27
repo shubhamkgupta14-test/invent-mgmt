@@ -1,7 +1,13 @@
+import os
 from zoneinfo import ZoneInfo
+
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 class Settings:
+    APP_BRAND_NAME = os.getenv("APP_BRAND_NAME") or "E-Store"
     ACCESS_TOKEN_EXPIRE_MINUTES = 30
     TOKEN_TYPE = "bearer"
     DEFAULT_PAGE_SIZE = 10

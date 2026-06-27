@@ -1,11 +1,11 @@
 sku,name,description,category,unit_of_measure,tax_rate,reorder_level,color,material,weight,size,dimension,supplier_id
-ELEC-BULB-12W-WHT,LED Bulb 12W,Energy efficient 12 watt LED bulb for home and office lighting,Electronics,Piece,18,20,White,Plastic and Metal,80g,Standard,"6cm x 6cm x 11cm",SUP-0002
-ELEC-EXTN-4S-BLK,4 Socket Extension Board,Four socket electrical extension board with surge protection,Electronics,Piece,18,15,Black,ABS Plastic and Copper,450g,Medium,"28cm x 8cm x 4cm",SUP-0001
-HOME-STOR-25L-BLU,Plastic Storage Container 25L,Durable plastic storage container with secure lid for household use,Home Storage,Piece,18,10,Blue,Food Grade Plastic,1.2kg,25L,"45cm x 32cm x 28cm",SUP-0005
-KITCH-BOWL-SET-SS,Stainless Steel Bowl Set,Set of 5 stainless steel mixing and serving bowls,Kitchenware,Set,12,12,Silver,Stainless Steel,900g,5 Pieces,"Nested Set",SUP-0004
-KITCH-PAN-24CM-BLK,Non Stick Frying Pan 24CM,Non stick frying pan with heat resistant handle,Kitchenware,Piece,12,8,Black,Aluminium and Bakelite,780g,24cm,"24cm x 24cm x 5cm",SUP-0004
-HOME-MOP-SPIN-GRY,Spin Mop Cleaning Set,360 degree spin mop with bucket for floor cleaning,Home Cleaning,Set,18,6,Grey,Plastic and Microfiber,2.8kg,Standard,"48cm x 28cm x 26cm",SUP-0003
-ELEC-CHGR-20W-WHT,USB-C Fast Charger 20W,Compact 20 watt USB-C fast charger adapter for mobile devices,Electronics,Piece,18,25,White,Polycarbonate,95g,Compact,"4.5cm x 3cm x 2.8cm",SUP-0001
-HOME-RACK-3T-BRN,3 Tier Shoe Rack,Three tier lightweight shoe rack for home entrance storage,Furniture,Piece,18,7,Brown,Engineered Wood and Metal,4.5kg,3 Tier,"60cm x 28cm x 55cm",SUP-0003
-PLAS-BASKET-10L-RED,Plastic Utility Basket 10L,Multi purpose plastic basket for kitchen and household storage,Home Storage,Piece,18,18,Red,Plastic,350g,10L,"32cm x 24cm x 18cm",SUP-0005
-KITCH-BOTTLE-1L-SS,Stainless Steel Water Bottle 1L,Leak proof stainless steel water bottle for daily use,Kitchenware,Piece,12,15,Silver,Stainless Steel,420g,1L,"8cm x 8cm x 28cm",SUP-0004
+ELEC-BULB-12W-WHT,LED Bulb 12W,Energy efficient 12 watt LED bulb for home and office lighting,Electronics,pcs,18,20,White,Plastic and Metal,80g,Standard,"6cm x 6cm x 11cm",SUP-0002
+ELEC-EXTN-4S-BLK,4 Socket Extension Board,Four socket electrical extension board with surge protection,Electronics,pcs,18,15,Black,ABS Plastic and Copper,450g,Medium,"28cm x 8cm x 4cm",SUP-0001
+HOME-STOR-25L-BLU,Plastic Storage Container 25L,Durable plastic storage container with secure lid for household use,Home Storage,pcs,18,10,Blue,Food Grade Plastic,1.2kg,25L,"45cm x 32cm x 28cm",SUP-0005
+KITCH-BOWL-SET-SS,Stainless Steel Bowl Set,Set of 5 stainless steel mixing and serving bowls,Kitchenware,pcs,12,12,Silver,Stainless Steel,900g,5 pcss,"Nested Set",SUP-0004
+KITCH-PAN-24CM-BLK,Non Stick Frying Pan 24CM,Non stick frying pan with heat resistant handle,Kitchenware,pcs,12,8,Black,Aluminium and Bakelite,780g,24cm,"24cm x 24cm x 5cm",SUP-0004
+HOME-MOP-SPIN-GRY,Spin Mop Cleaning Set,360 degree spin mop with bucket for floor cleaning,Home Cleaning,pcs,18,6,Grey,Plastic and Microfiber,2.8kg,Standard,"48cm x 28cm x 26cm",SUP-0003
+ELEC-CHGR-20W-WHT,USB-C Fast Charger 20W,Compact 20 watt USB-C fast charger adapter for mobile devices,Electronics,pcs,18,25,White,Polycarbonate,95g,Compact,"4.5cm x 3cm x 2.8cm",SUP-0001
+HOME-RACK-3T-BRN,3 Tier Shoe Rack,Three tier lightweight shoe rack for home entrance storage,Furniture,pcs,18,7,Brown,Engineered Wood and Metal,4.5kg,3 Tier,"60cm x 28cm x 55cm",SUP-0003
+PLAS-BASKET-10L-RED,Plastic Utility Basket 10L,Multi purpose plastic basket for kitchen and household storage,Home Storage,pcs,18,18,Red,Plastic,350g,10L,"32cm x 24cm x 18cm",SUP-0005
+KITCH-BOTTLE-1L-SS,Stainless Steel Water Bottle 1L,Leak proof stainless steel water bottle for daily use,Kitchenware,pcs,12,15,Silver,Stainless Steel,420g,1L,"8cm x 8cm x 28cm",SUP-0004

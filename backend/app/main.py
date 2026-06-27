@@ -32,6 +32,7 @@ from app.routes.stock_routes import router as stock_router
 from app.routes.audit_routes import router as audit_router
 from app.routes.dashboard_routes import router as dashboard_router
 from app.routes.supplier_routes import router as supplier_router
+from app.utils.settings import Settings
 
 # STARTUP EVENT
 
@@ -39,15 +40,15 @@ from app.routes.supplier_routes import router as supplier_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # create_default_superadmin()
-    print("Starting up the Inventory Management API...")
+    print(f"Starting up the {Settings.APP_BRAND_NAME} Inventory API...")
     await create_indexes()
     await create_default_superadmin()
     yield
-    print("Shutting down the Inventory Management API...")
+    print(f"Shutting down the {Settings.APP_BRAND_NAME} Inventory API...")
 
 
 app = FastAPI(
-    title="Inventory Management API",
+    title=f"{Settings.APP_BRAND_NAME} Inventory API",
     lifespan=lifespan
 )
 
@@ -55,7 +56,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
-        "https://happihome-inventory.vercel.app"
+        "https://inventory-frontend-owht.vercel.app"
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -97,7 +98,7 @@ app.include_router(auth_router)
 @app.get("/")
 async def root():
     return {
-        "message": "Welcome to the Inventory Management API!",
+        "message": f"Welcome to the {Settings.APP_BRAND_NAME} Inventory API!",
         "documentation": "Use /docs for API documentation."
     }
 

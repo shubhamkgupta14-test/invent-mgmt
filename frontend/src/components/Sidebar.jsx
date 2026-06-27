@@ -1,15 +1,16 @@
 import { FaBox, FaChartBar, FaShoppingCart, FaTruck } from "react-icons/fa";
 import { NavLink } from "react-router-dom";
+import { APP_TITLE, BRAND_INITIAL } from "../config/brand";
 
 function Sidebar({ onNavigate }) {
   return (
     <div className="h-full bg-white p-6 md:h-screen md:p-5">
       <div className="mb-8 flex items-center gap-3">
         <div className="grid h-10 w-10 place-items-center rounded-lg bg-primary text-lg font-bold text-white">
-          I
+          {BRAND_INITIAL}
         </div>
         <div>
-          <h1 className="text-2xl font-bold">InventMgmt</h1>
+          <h1 className="text-2xl font-bold">{APP_TITLE}</h1>
           <p className="text-sm text-slate-500">Inventory dashboard</p>
         </div>
       </div>

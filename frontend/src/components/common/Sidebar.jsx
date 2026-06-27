@@ -16,6 +16,7 @@ import {
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { getMyDetails } from "../../api/userApi";
 import { clearToken } from "../../utils/authUtils";
+import { APP_TITLE, BRAND_INITIAL, BRAND_NAME } from "../../config/brand";
 
 function Sidebar({ onNavigate, onClose }) {
   const [displayName, setDisplayName] = useState("");
@@ -83,16 +84,16 @@ function Sidebar({ onNavigate, onClose }) {
               {!logoMissing && (
                 <img
                   src="/brand-logo.png"
-                  alt="HappiHome"
+                  alt={BRAND_NAME}
                   className="h-full w-full object-cover"
                   onError={() => setLogoMissing(true)}
                 />
               )}
-              {logoMissing && <span className="absolute">H</span>}
+              {logoMissing && <span className="absolute">{BRAND_INITIAL}</span>}
             </div>
             <div className="min-w-0">
               <h1 className="truncate text-base font-bold tracking-tight">
-                HappiHome Inventory
+                {APP_TITLE}
               </h1>
               <p className="text-xs text-slate-400">Inventory dashboard</p>
             </div>

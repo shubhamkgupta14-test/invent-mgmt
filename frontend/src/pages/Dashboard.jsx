@@ -13,6 +13,7 @@ import Loader from "../components/common/Loader";
 import StatusBadge from "../components/common/StatusBadge";
 import DashboardTable from "../components/pages/dashboard/DashboardTable";
 import MainLayout from "../layouts/MainLayout";
+import { BRAND_NAME } from "../config/brand";
 
 const money = (value = 0) => `Rs ${Number(value || 0).toLocaleString("en-IN")}`;
 
@@ -118,7 +119,7 @@ function Dashboard() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-slate-900">Dashboard</h1>
         <p className="mt-1 text-slate-600">
-          Welcome back. Here's your HappiHome inventory overview.
+          Welcome back. Here's your {BRAND_NAME} inventory overview.
         </p>
       </div>
 

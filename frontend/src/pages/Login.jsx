@@ -11,6 +11,7 @@ import {
   setStoredUser,
   setToken,
 } from "../utils/authUtils";
+import { APP_TITLE, BRAND_NAME } from "../config/brand";
 
 function Login() {
   const [username, setUsername] = useState("");
@@ -86,11 +87,11 @@ function Login() {
             <div className="rounded-xl bg-indigo-500 p-2 shadow-xl shadow-indigo-950/50">
               <FaBoxes size={24} />
             </div>
-            <h1 className="text-2xl font-bold">HappiHome Inventory</h1>
+            <h1 className="text-2xl font-bold">{APP_TITLE}</h1>
           </div>
 
           <h2 className="mb-4 text-4xl font-bold leading-tight">
-            Inventory management for every HappiHome shelf.
+            Inventory management for every {BRAND_NAME} shelf.
           </h2>
           <p className="mb-8 max-w-md text-lg text-slate-300">
             Manage products, purchases, sales, and stock levels in one focused
@@ -120,7 +121,7 @@ function Login() {
 
         <div>
           <p className="text-xs text-indigo-300/40">
-            HappiHome Inventory workspace
+            {APP_TITLE} workspace
           </p>
         </div>
       </div>
@@ -133,7 +134,7 @@ function Login() {
                 <FaBoxes size={18} className="text-white" />
               </div>
               <h1 className="text-lg font-bold tracking-tight text-slate-900">
-                HappiHome Inventory
+                {APP_TITLE}
               </h1>
             </div>
             <div>
