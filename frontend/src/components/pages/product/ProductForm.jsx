@@ -132,6 +132,7 @@ function ProductForm({
               label: unit,
             }))}
             disabled={disabledFields.includes("unit_of_measure")}
+            required
           />
           <Input
             label="Tax Rate"
@@ -159,6 +160,7 @@ function ProductForm({
                 : `${supplier.supplier_id}`,
             }))}
             disabled={disabledFields.includes("supplier_id")}
+            required
           />
         </div>
       </section>
@@ -187,7 +189,7 @@ function ProductForm({
             type="number"
             placeholder="0"
             value={form.attributes?.weight || ""}
-            onChange={(value) => updateAttribute("weight", Number(value))}
+            onChange={(value) => updateAttribute("weight", value)}
           />
           <Input
             label="Size"

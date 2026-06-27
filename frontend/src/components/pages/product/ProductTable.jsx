@@ -10,6 +10,8 @@ function ProductTable({
   canDelete = false,
   canToggleActive = false,
 }) {
+  const hasActions = canEdit || canDelete;
+
   if (!products?.length) {
     return (
       <div className="rounded-2xl border border-[var(--border)] bg-white p-5 shadow-sm">
@@ -46,9 +48,11 @@ function ProductTable({
               <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
                 Supplier
               </th>
-              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                Action
-              </th>
+              {hasActions && (
+                <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                  Action
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -85,16 +89,17 @@ function ProductTable({
                 <td className="px-5 py-4 text-slate-700">
                   {product.supplier_id}
                 </td>
-                <td
-                  className="px-5 py-4"
-                  onClick={(event) => event.stopPropagation()}
-                >
-                  <ActionButtons
-                    onView={() => onView?.(product)}
-                    onEdit={canEdit ? () => onEdit?.(product) : undefined}
-                    onDelete={canDelete ? () => onDelete?.(product) : undefined}
-                  />
-                </td>
+                {hasActions && (
+                  <td
+                    className="px-5 py-4"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <ActionButtons
+                      onEdit={canEdit ? () => onEdit?.(product) : undefined}
+                      onDelete={canDelete ? () => onDelete?.(product) : undefined}
+                    />
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

@@ -8,9 +8,9 @@ function formatValue(value) {
   return value;
 }
 
-function DetailModal({ isOpen, onClose, title, sections = [] }) {
+function DetailModal({ isOpen, onClose, title, sections = [], size = "2xl" }) {
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={title} size="2xl">
+    <Modal isOpen={isOpen} onClose={onClose} title={title} size={size}>
       <div className="space-y-5">
         {sections.map((section) => (
           <section key={section.title} className="rounded-2xl border border-border bg-slate-50 p-4">

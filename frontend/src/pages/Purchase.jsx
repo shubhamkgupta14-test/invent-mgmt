@@ -1,15 +1,18 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import MainLayout from "../layouts/MainLayout";
 import SearchBar from "../components/common/SearchBar";
 import PurchaseTable from "../components/pages/purchase/PurchaseTable";
+import PurchaseForm from "../components/pages/purchase/PurchaseForm";
 import Loader from "../components/common/Loader";
 import Button from "../components/common/Button";
 import Card from "../components/common/Card";
+import Modal from "../components/common/Modal";
 import DetailModal from "../components/common/DetailModal";
 import StatusBadge from "../components/common/StatusBadge";
-import { getPurchases } from "../api/purchaseApi";
+import { getProductOptions } from "../api/productApi";
+import { createPurchase, getPurchases } from "../api/purchaseApi";
 import { getMyDetails } from "../api/userApi";
+import { useToast } from "../context/ToastContext";
 import { formatDateIST, formatMoney } from "../utils/formatters";
 
 function Purchases() {
@@ -18,7 +21,20 @@ function Purchases() {
   const [search, setSearch] = useState("");
   const [selectedPurchase, setSelectedPurchase] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
-  const navigate = useNavigate();
+  const [products, setProducts] = useState([]);
+  const [purchaseFormOpen, setPurchaseFormOpen] = useState(false);
+  const { addToast } = useToast();
+
+  const loadPurchases = async () => {
+    const response = await getPurchases();
+    setPurchases(response.data.data || []);
+  };
+
+  const loadProductOptions = async () => {
+    if (products.length) return;
+    const response = await getProductOptions();
+    setProducts(response.data.data || []);
+  };
 
   useEffect(() => {
     let isActive = true;
@@ -58,8 +74,27 @@ function Purchases() {
       purchase.final_total_amount?.toString().includes(search),
   );
 
-  const handleAddPurchase = () => {
-    navigate("/purchases/add");
+  const handleAddPurchase = async () => {
+    try {
+      setPurchaseFormOpen(true);
+      await loadProductOptions();
+    } catch (error) {
+      addToast(
+        error.response?.data?.message || "Failed to load product options",
+        "error",
+      );
+    }
+  };
+
+  const handleSubmitPurchase = async (payload) => {
+    try {
+      await createPurchase(payload);
+      addToast("Purchase created successfully", "success");
+      setPurchaseFormOpen(false);
+      await loadPurchases();
+    } catch (error) {
+      addToast(error.response?.data?.message || "Failed to create purchase", "error");
+    }
   };
 
   const renderPurchaseItems = () => (
@@ -68,7 +103,7 @@ function Purchases() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-slate-50">
-              {["Name", "SKU", "Qty", "Price", "Tax", "Disc", "Total"].map((label) => (
+              {["Name", "Qty", "Price", "Tax", "Disc", "Total"].map((label) => (
                 <th
                   key={label}
                   className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500"
@@ -82,7 +117,6 @@ function Purchases() {
             {selectedPurchase?.items?.map((item) => (
               <tr key={`${item.sku}-${item.name}`} className="border-b border-border last:border-0">
                 <td className="px-4 py-3 font-semibold text-slate-900">{item.name || "-"}</td>
-                <td className="px-4 py-3 text-slate-700">{item.sku || "-"}</td>
                 <td className="px-4 py-3 text-slate-700">{item.quantity || 0}</td>
                 <td className="px-4 py-3 text-slate-700">{formatMoney(item.unit_price)}</td>
                 <td className="px-4 py-3 text-slate-700">
@@ -142,6 +176,7 @@ function Purchases() {
         isOpen={Boolean(selectedPurchase)}
         onClose={() => setSelectedPurchase(null)}
         title={selectedPurchase?.invoice_id || "Purchase Details"}
+        size="4xl"
         sections={[
           {
             title: "Purchase",
@@ -181,6 +216,18 @@ function Purchases() {
           },
         ]}
       />
+      <Modal
+        isOpen={purchaseFormOpen}
+        onClose={() => setPurchaseFormOpen(false)}
+        title="Add Purchase"
+        size="4xl"
+      >
+        <PurchaseForm
+          key={purchaseFormOpen ? "new-purchase" : "closed-purchase"}
+          products={products}
+          onSubmit={handleSubmitPurchase}
+        />
+      </Modal>
     </MainLayout>
   );
 }

@@ -2,14 +2,17 @@ import { useEffect, useState } from "react";
 import MainLayout from "../layouts/MainLayout";
 import SearchBar from "../components/common/SearchBar";
 import SaleTable from "../components/pages/sale/SaleTable";
+import SaleForm from "../components/pages/sale/SaleForm";
 import Loader from "../components/common/Loader";
 import Button from "../components/common/Button";
 import Card from "../components/common/Card";
+import Modal from "../components/common/Modal";
 import DetailModal from "../components/common/DetailModal";
 import StatusBadge from "../components/common/StatusBadge";
-import { getSales } from "../api/salesApi";
+import { createSale, getSales } from "../api/salesApi";
 import { getMyDetails } from "../api/userApi";
-import { useNavigate } from "react-router-dom";
+import { getProductOptions } from "../api/productApi";
+import { useToast } from "../context/ToastContext";
 import { formatDateIST, formatMoney } from "../utils/formatters";
 
 function Sales() {
@@ -18,7 +21,20 @@ function Sales() {
   const [search, setSearch] = useState("");
   const [selectedSale, setSelectedSale] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
-  const navigate = useNavigate();
+  const [products, setProducts] = useState([]);
+  const [saleFormOpen, setSaleFormOpen] = useState(false);
+  const { addToast } = useToast();
+
+  const loadSales = async () => {
+    const response = await getSales();
+    setSales(response.data.data || []);
+  };
+
+  const loadProductOptions = async () => {
+    if (products.length) return;
+    const response = await getProductOptions({ activeOnly: true });
+    setProducts(response.data.data || []);
+  };
 
   useEffect(() => {
     let isActive = true;
@@ -58,13 +74,36 @@ function Sales() {
     );
   }
 
+  const handleAddSale = async () => {
+    try {
+      setSaleFormOpen(true);
+      await loadProductOptions();
+    } catch (error) {
+      addToast(
+        error.response?.data?.message || "Failed to load sale form options",
+        "error",
+      );
+    }
+  };
+
+  const handleSubmitSale = async (payload) => {
+    try {
+      await createSale(payload);
+      addToast("Sale created successfully", "success");
+      setSaleFormOpen(false);
+      await loadSales();
+    } catch (error) {
+      addToast(error.response?.data?.message || "Failed to create sale", "error");
+    }
+  };
+
   const renderSaleItems = () => (
     <div className="overflow-hidden rounded-xl border border-border bg-white">
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-slate-50">
-              {["Name", "SKU", "Qty", "Price", "Tax", "Disc", "Total"].map((label) => (
+              {["Name", "Qty", "Price", "Tax", "Disc", "Total"].map((label) => (
                 <th
                   key={label}
                   className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500"
@@ -78,7 +117,6 @@ function Sales() {
             {selectedSale?.items?.map((item) => (
               <tr key={`${item.sku}-${item.name}`} className="border-b border-border last:border-0">
                 <td className="px-4 py-3 font-semibold text-slate-900">{item.name || "-"}</td>
-                <td className="px-4 py-3 text-slate-700">{item.sku || "-"}</td>
                 <td className="px-4 py-3 text-slate-700">{item.quantity || 0}</td>
                 <td className="px-4 py-3 text-slate-700">{formatMoney(item.unit_price)}</td>
                 <td className="px-4 py-3 text-slate-700">
@@ -112,7 +150,7 @@ function Sales() {
             <Button
               variant="primary"
               size="md"
-              onClick={() => navigate("/sales/add")}
+              onClick={handleAddSale}
             >
               + Add Sale
             </Button>
@@ -147,6 +185,7 @@ function Sales() {
         isOpen={Boolean(selectedSale)}
         onClose={() => setSelectedSale(null)}
         title={selectedSale?.invoice_id || "Sale Details"}
+        size="4xl"
         sections={[
           {
             title: "Sale",
@@ -184,6 +223,18 @@ function Sales() {
           },
         ]}
       />
+      <Modal
+        isOpen={saleFormOpen}
+        onClose={() => setSaleFormOpen(false)}
+        title="Add Sale"
+        size="4xl"
+      >
+        <SaleForm
+          key={saleFormOpen ? "new-sale" : "closed-sale"}
+          products={products}
+          onSubmit={handleSubmitSale}
+        />
+      </Modal>
     </MainLayout>
   );
 }

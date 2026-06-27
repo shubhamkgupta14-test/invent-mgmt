@@ -217,7 +217,8 @@ async def create_purchase(
             sku=item.get("sku"),
             name=item.get("name"),
             quantity=item.get("quantity"),
-            unit_price=item.get("unit_price") + additional_charge_per_unit
+            unit_price=item.get("unit_price") + additional_charge_per_unit,
+            supplier_id=supplier_id
         )
 
     created_purchase = await purchase_collection.find_one({

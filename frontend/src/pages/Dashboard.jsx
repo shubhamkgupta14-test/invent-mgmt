@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  FaBan,
   FaBoxes,
   FaChartLine,
   FaExclamationCircle,
@@ -10,7 +11,6 @@ import { getDashboardSummary } from "../api/dashboardApi";
 import KPICard from "../components/common/KPICard";
 import Loader from "../components/common/Loader";
 import StatusBadge from "../components/common/StatusBadge";
-import StockStatusBadge from "../components/common/StockStatusBadge";
 import DashboardTable from "../components/pages/dashboard/DashboardTable";
 import MainLayout from "../layouts/MainLayout";
 
@@ -32,15 +32,6 @@ const formatPercentageDelta = (change) => {
   };
 };
 
-const formatDate = (value) => {
-  if (!value) return "-";
-  return new Date(value).toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-};
-
 const CountBadge = ({ children, tone = "slate" }) => {
   const tones = {
     slate: "bg-slate-100 text-slate-700 ring-slate-200",
@@ -51,7 +42,7 @@ const CountBadge = ({ children, tone = "slate" }) => {
 
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${tones[tone]}`}
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ${tones[tone]}`}
     >
       {children}
     </span>
@@ -61,6 +52,13 @@ const CountBadge = ({ children, tone = "slate" }) => {
 const SaleStatusBadge = ({ status = "SOLD" }) => {
   return <StatusBadge status={status} type="sale" />;
 };
+
+const ProductCell = ({ row }) => (
+  <div className="min-w-[150px]">
+    <p className="font-semibold text-slate-900">{row.product || row.name || "-"}</p>
+    <p className="text-xs text-slate-500">{row.sku || "-"}</p>
+  </div>
+);
 
 function Dashboard() {
   const [summary, setSummary] = useState(null);
@@ -92,6 +90,8 @@ function Dashboard() {
   const dashboardData = useMemo(() => {
     return {
       recentSales: summary?.recent_sales || [],
+      recentPurchases: summary?.recent_purchases || [],
+      todaysSoldItems: summary?.todays_sold_items || [],
       mostSoldItems: summary?.most_sold_items || [],
       lowQuantityProducts: summary?.low_quantity_products || [],
       outOfStockProducts: summary?.out_of_stock_products || [],
@@ -122,7 +122,7 @@ function Dashboard() {
         </p>
       </div>
 
-      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <KPICard
           icon={FaBoxes}
           title="Total Products"
@@ -172,6 +172,17 @@ function Dashboard() {
           deltaLabel="Stock status"
           bgColor="bg-rose-100"
         />
+        <KPICard
+          icon={FaBan}
+          title="Damage / Lost"
+          value={
+            (summary.inventory.damaged_items || 0) +
+            (summary.inventory.lost_items || 0)
+          }
+          subtitle={`${summary.inventory.damaged_items || 0} damaged + ${summary.inventory.lost_items || 0} lost`}
+          footerText="Unsellable returns"
+          bgColor="bg-slate-100"
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
@@ -179,7 +190,8 @@ function Dashboard() {
           title="Recent Sales"
           badge={dashboardData.recentSales.length}
           columns={[
-            { key: "product", label: "PRODUCT" },
+            { key: "invoice_id", label: "INVOICE" },
+            { key: "product", label: "PRODUCT", render: (row) => <ProductCell row={row} /> },
             {
               key: "quantity",
               label: "QTY",
@@ -195,11 +207,6 @@ function Dashboard() {
               ),
             },
             {
-              key: "date",
-              label: "DATE",
-              render: (row) => formatDate(row.date || row.created_at),
-            },
-            {
               key: "status",
               label: "STATUS",
               render: (row) => <SaleStatusBadge status={row.status} />,
@@ -210,21 +217,70 @@ function Dashboard() {
         />
 
         <DashboardTable
+          title="Recent Purchases"
+          badge={dashboardData.recentPurchases.length}
+          columns={[
+            { key: "invoice_id", label: "INVOICE" },
+            { key: "product", label: "PRODUCT", render: (row) => <ProductCell row={row} /> },
+            { key: "supplier_id", label: "SUPPLIER" },
+            {
+              key: "quantity",
+              label: "QTY",
+              render: (row) => <CountBadge>{row.quantity}</CountBadge>,
+            },
+            {
+              key: "total",
+              label: "TOTAL",
+              render: (row) => (
+                <span className="font-mono font-semibold text-slate-900">
+                  {money(row.total)}
+                </span>
+              ),
+            },
+          ]}
+          data={dashboardData.recentPurchases}
+          emptyMessage="No recent purchases found"
+        />
+
+        <DashboardTable
+          title="Today's Sold Items"
+          badge={dashboardData.todaysSoldItems.length}
+          columns={[
+            { key: "product", label: "PRODUCT", render: (row) => <ProductCell row={row} /> },
+            {
+              key: "quantity",
+              label: "QTY",
+              render: (row) => <CountBadge tone="green">{row.quantity}</CountBadge>,
+            },
+            {
+              key: "sold_count",
+              label: "SOLD COUNT",
+              render: (row) => <CountBadge>{row.sold_count}</CountBadge>,
+            },
+          ]}
+          data={dashboardData.todaysSoldItems}
+          emptyMessage="No items sold today"
+        />
+
+        <DashboardTable
           title="Most Sold Items"
           badge={dashboardData.mostSoldItems.length}
           columns={[
-            { key: "product", label: "PRODUCT" },
-            { key: "sku", label: "SKU" },
-            { key: "category", label: "CATEGORY" },
+            { key: "product", label: "PRODUCT", render: (row) => <ProductCell row={row} /> },
+            {
+              key: "quantity",
+              label: "QTY SOLD",
+              render: (row) => <CountBadge tone="green">{row.quantity}</CountBadge>,
+            },
+            {
+              key: "sold_count",
+              label: "SOLD COUNT",
+              render: (row) => <CountBadge>{row.sold_count}</CountBadge>,
+            },
             {
               key: "stock",
               label: "STOCK",
               render: (row) => <CountBadge tone="slate">{row.stock}</CountBadge>,
-            },
-            {
-              key: "status",
-              label: "STATUS",
-              render: (row) => <StockStatusBadge status={row.status} />,
             },
           ]}
           data={dashboardData.mostSoldItems}
@@ -235,19 +291,12 @@ function Dashboard() {
           title="Low Quantity Products"
           badge={summary.inventory.low_stock_products}
           columns={[
-            { key: "product", label: "PRODUCT" },
-            { key: "sku", label: "SKU" },
+            { key: "product", label: "PRODUCT", render: (row) => <ProductCell row={row} /> },
+            { key: "supplier_id", label: "SUPPLIER" },
             {
               key: "quantity",
               label: "QTY",
               render: (row) => <CountBadge tone="red">{row.quantity}</CountBadge>,
-            },
-            {
-              key: "price",
-              label: "PRICE",
-              render: (row) => (
-                <span className="font-mono text-slate-900">{money(row.price)}</span>
-              ),
             },
           ]}
           data={dashboardData.lowQuantityProducts}
@@ -258,16 +307,9 @@ function Dashboard() {
           title="Out Of Stock Products"
           badge={summary.inventory.out_of_stock_products}
           columns={[
-            { key: "product", label: "PRODUCT" },
-            { key: "sku", label: "SKU" },
+            { key: "product", label: "PRODUCT", render: (row) => <ProductCell row={row} /> },
+            { key: "supplier_id", label: "SUPPLIER" },
             { key: "category", label: "CATEGORY" },
-            {
-              key: "price",
-              label: "PRICE",
-              render: (row) => (
-                <span className="font-mono text-slate-900">{money(row.price)}</span>
-              ),
-            },
           ]}
           data={dashboardData.outOfStockProducts}
           emptyMessage="No out of stock products found"

@@ -15,9 +15,9 @@ function Badge({
   };
 
   const sizes = {
-    sm: "px-2.5 py-1.5 text-xs",
-    md: "px-3.5 py-1.5 text-sm",
-    lg: "px-4.5 py-2 text-base",
+    sm: "px-2 py-0.5 text-[10px]",
+    md: "px-2.5 py-1 text-xs",
+    lg: "px-3 py-1.5 text-sm",
   };
 
   return (
@@ -26,7 +26,7 @@ function Badge({
         tones[tone] || tones.slate
       } ${sizes[size]} ${className}`}
     >
-      {Icon && <Icon size={14} className="flex-shrink-0" />}
+      {Icon && <Icon size={12} className="flex-shrink-0" />}
       {children}
     </span>
   );

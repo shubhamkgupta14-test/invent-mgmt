@@ -86,6 +86,19 @@ class Messages:
     NO_SALES_FOUND = "No sales found"
     INVALID_SALE_ID = "Invalid sale id"
 
+    # RETURNS
+    RETURN_CREATED = "Return created successfully"
+    RETURNS_FETCHED = "Returns fetched successfully"
+    NO_RETURNS_FOUND = "No returns found"
+    INVALID_RETURN_ID = "Invalid return id"
+
+    # EXCHANGES
+    EXCHANGE_CREATED = "Exchange created successfully"
+    EXCHANGES_FETCHED = "Exchanges fetched successfully"
+    NO_EXCHANGES_FOUND = "No exchanges found"
+    INVALID_EXCHANGE_ID = "Invalid exchange id"
+    INVALID_ITEM_STATUS = "Invalid item status"
+
     # STOCKS
     INSUFFICIENT_STOCK = "Insufficient stock available"
     STOCKS_FETCHED = "Stocks fetched successfully"

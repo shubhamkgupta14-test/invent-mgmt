@@ -75,6 +75,8 @@ async def get_dashboard_summary(auth_user: dict):
                 "total_products": {"$sum": 1},
                 "total_inventory_value": {"$sum": {"$ifNull": ["$inventory_value", 0]}},
                 "total_stock_quantity": {"$sum": {"$ifNull": ["$quantity", 0]}},
+                "damaged_items": {"$sum": {"$ifNull": ["$damaged_quantity", 0]}},
+                "lost_items": {"$sum": {"$ifNull": ["$lost_quantity", 0]}},
                 "low_stock_products": {
                     "$sum": {
                         "$cond": [{"$eq": ["$stock_status", "LOW_QUANTITY"]}, 1, 0]
@@ -209,6 +211,8 @@ async def get_dashboard_summary(auth_user: dict):
     )
 
     recent_sales = await get_recent_sales(auth_user)
+    recent_purchases = await get_recent_purchases(auth_user)
+    todays_sold_items = await get_todays_sold_items(auth_user, today_start, tomorrow_start)
     most_sold_items = await get_most_sold_items(auth_user)
     low_quantity_products = await get_low_stock_products(auth_user)
     out_of_stock_products = await get_out_of_stock_products(auth_user)
@@ -220,6 +224,8 @@ async def get_dashboard_summary(auth_user: dict):
                 inventory.get("total_inventory_value", 0)
             ),
             "total_stock_quantity": inventory.get("total_stock_quantity", 0),
+            "damaged_items": inventory.get("damaged_items", 0),
+            "lost_items": inventory.get("lost_items", 0),
             "low_stock_products": inventory.get("low_stock_products", 0),
             "out_of_stock_products": inventory.get("out_of_stock_products", 0)
         },
@@ -245,6 +251,8 @@ async def get_dashboard_summary(auth_user: dict):
             "total_orders": sales.get("total_orders", 0)
         },
         "recent_sales": recent_sales,
+        "recent_purchases": recent_purchases,
+        "todays_sold_items": todays_sold_items,
         "most_sold_items": most_sold_items,
         "low_quantity_products": low_quantity_products,
         "out_of_stock_products": out_of_stock_products
@@ -260,22 +268,31 @@ async def get_low_stock_products(auth_user: dict):
     ]:
         forbidden()
 
-    products = []
+    stocks = []
+    skus = []
 
     async for stock in stocks_collection.find({
         "stock_status": "LOW_QUANTITY"
     }).sort("quantity", 1).limit(5):
+        stocks.append(stock)
+        skus.append(stock.get("sku"))
 
-        products.append({
+    product_by_sku = {}
+    async for product in products_collection.find({"sku": {"$in": skus}}):
+        product_by_sku[product.get("sku")] = product
+
+    return [
+        {
             "sku": stock.get("sku"),
             "name": stock.get("name"),
             "product": stock.get("name"),
+            "supplier_id": product_by_sku.get(stock.get("sku"), {}).get("supplier_id") or stock.get("supplier_id") or "-",
             "quantity": stock.get("quantity"),
             "price": stock.get("avg_price"),
             "stock_status": stock.get("stock_status")
-        })
-
-    return products
+        }
+        for stock in stocks
+    ]
 
 
 async def get_out_of_stock_products(auth_user: dict):
@@ -306,6 +323,7 @@ async def get_out_of_stock_products(auth_user: dict):
             "name": stock.get("name"),
             "product": stock.get("name"),
             "category": product_by_sku.get(stock.get("sku"), {}).get("category", "-"),
+            "supplier_id": product_by_sku.get(stock.get("sku"), {}).get("supplier_id") or stock.get("supplier_id") or "-",
             "price": stock.get("avg_price"),
             "stock_status": stock.get("stock_status")
         }
@@ -329,7 +347,8 @@ async def get_most_sold_items(auth_user: dict):
                 "_id": "$items.sku",
                 "sku": {"$first": "$items.sku"},
                 "product": {"$first": "$items.name"},
-                "quantity": {"$sum": {"$ifNull": ["$items.quantity", 0]}}
+                "quantity": {"$sum": {"$ifNull": ["$items.quantity", 0]}},
+                "sold_count": {"$sum": 1}
             }
         },
         {"$sort": {"quantity": -1}},
@@ -351,6 +370,7 @@ async def get_most_sold_items(auth_user: dict):
             "sku": item.get("sku"),
             "product": item.get("product") or item.get("sku"),
             "quantity": item.get("quantity", 0),
+            "sold_count": item.get("sold_count", 0),
             "category": product_by_sku.get(item.get("sku"), {}).get("category", "-"),
             "stock": stock_by_sku.get(item.get("sku"), {}).get("quantity", 0),
             "status": stock_by_sku.get(item.get("sku"), {}).get(
@@ -387,9 +407,12 @@ async def get_recent_sales(auth_user: dict):
 
         sales.append({
             "id": str(sale.get("_id")),
+            "sale_id": str(sale.get("_id")),
             "invoice_id": sale.get(
                 "invoice_id"
             ),
+            "sku": first_item.get("sku"),
+            "name": first_item.get("name"),
             "product": product,
             "quantity": quantity,
             "total": sale.get(
@@ -405,3 +428,95 @@ async def get_recent_sales(auth_user: dict):
             ))
         })
     return sales
+
+
+async def get_recent_purchases(auth_user: dict):
+
+    if auth_user.get("role") not in [
+        UserRole.SUPERADMIN,
+        UserRole.ADMIN,
+        UserRole.USER
+    ]:
+        forbidden()
+
+    purchases = []
+
+    async for purchase in purchase_collection.find().sort(
+        "created_at",
+        -1
+    ).limit(5):
+        items = purchase.get("items", [])
+        first_item = items[0] if items else {}
+        quantity = sum(item.get("quantity", 0) for item in items)
+        product = first_item.get("name") or first_item.get("sku") or purchase.get("invoice_id")
+
+        if len(items) > 1:
+            product = f"{product} +{len(items) - 1}"
+
+        purchases.append({
+            "id": str(purchase.get("_id")),
+            "purchase_id": str(purchase.get("_id")),
+            "invoice_id": purchase.get("invoice_id"),
+            "supplier_id": purchase.get("supplier_id"),
+            "sku": first_item.get("sku"),
+            "name": first_item.get("name"),
+            "product": product,
+            "quantity": quantity,
+            "total": purchase.get("final_total_amount"),
+            "final_total_amount": purchase.get("final_total_amount"),
+            "status": purchase.get("purchase_status"),
+            "purchase_status": purchase.get("purchase_status"),
+            "created_at": format_datetime_iso(purchase.get("created_at"))
+        })
+    return purchases
+
+
+async def get_todays_sold_items(auth_user: dict, today_start, tomorrow_start):
+
+    if auth_user.get("role") not in [
+        UserRole.SUPERADMIN,
+        UserRole.ADMIN,
+        UserRole.USER
+    ]:
+        forbidden()
+
+    sold_items = await sales_collection.aggregate([
+        {
+            "$match": {
+                "created_at": {
+                    "$gte": today_start,
+                    "$lt": tomorrow_start
+                }
+            }
+        },
+        {"$unwind": "$items"},
+        {
+            "$group": {
+                "_id": "$items.sku",
+                "sku": {"$first": "$items.sku"},
+                "product": {"$first": "$items.name"},
+                "quantity": {"$sum": {"$ifNull": ["$items.quantity", 0]}},
+                "sold_count": {"$sum": 1}
+            }
+        },
+        {"$sort": {"quantity": -1}},
+        {"$limit": 5}
+    ]).to_list(length=5)
+
+    skus = [item.get("sku") for item in sold_items]
+
+    product_by_sku = {}
+    async for product in products_collection.find({"sku": {"$in": skus}}):
+        product_by_sku[product.get("sku")] = product
+
+    return [
+        {
+            "sku": item.get("sku"),
+            "product": item.get("product") or item.get("sku"),
+            "quantity": item.get("quantity", 0),
+            "sold_count": item.get("sold_count", 0),
+            "supplier_id": product_by_sku.get(item.get("sku"), {}).get("supplier_id", "-"),
+            "category": product_by_sku.get(item.get("sku"), {}).get("category", "-")
+        }
+        for item in sold_items
+    ]

@@ -6,6 +6,18 @@ const getQuantity = (sale) =>
   sale.items?.reduce((sum, item) => sum + Number(item.quantity || 0), 0) ||
   0;
 
+const getItemSummary = (items = []) => {
+  const firstItem = items[0];
+  if (!firstItem) return "-";
+
+  const extraCount = items.length - 1;
+  const label = firstItem.sku
+    ? `${firstItem.sku} - ${firstItem.name || "Product"}`
+    : firstItem.name || "Product";
+
+  return `${label}${extraCount > 0 ? ` +${extraCount}` : ""}`;
+};
+
 function SaleTable({ sales, onView }) {
   if (!sales?.length) {
     return (
@@ -26,6 +38,9 @@ function SaleTable({ sales, onView }) {
               </th>
               <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
                 Invoice Id
+              </th>
+              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                Product
               </th>
               <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
                 Items
@@ -52,6 +67,9 @@ function SaleTable({ sales, onView }) {
                   {formatDateIST(sale.created_at)}
                 </td>
                 <td className="px-5 py-4 text-slate-700">{sale.invoice_id}</td>
+                <td className="px-5 py-4 font-medium text-slate-900">
+                  {getItemSummary(sale.items)}
+                </td>
                 <td className="px-5 py-4 text-slate-700">
                   {sale.items?.length || 0}
                 </td>

@@ -23,7 +23,15 @@ function MainLayout({ children }) {
           <Navbar onMenuClick={() => setSidebarOpen(true)} />
 
           <main className="flex-1 overflow-y-auto px-4 py-5 sm:px-6 lg:px-8">
-            <div className="mx-auto w-full max-w-[1400px]">{children}</div>
+            <div className="mx-auto flex min-h-full w-full max-w-[1400px] flex-col">
+              <div className="flex-1">{children}</div>
+              <footer className="mt-8 border-t border-border py-4 text-xs text-slate-500">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <span>HappiHome Inventory</span>
+                  <span>Products, stock, purchases, sales, returns, and exchanges.</span>
+                </div>
+              </footer>
+            </div>
           </main>
         </div>
       </div>

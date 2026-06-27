@@ -28,6 +28,8 @@ const cleanOptions = [
   { label: "Products", value: "products" },
   { label: "Purchases", value: "purchases" },
   { label: "Sales", value: "sales" },
+  { label: "Returns", value: "returns" },
+  { label: "Exchanges", value: "exchanges" },
   { label: "Stocks", value: "stocks" },
   { label: "Suppliers", value: "suppliers" },
   { label: "Audits", value: "audits" },

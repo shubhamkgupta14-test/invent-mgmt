@@ -44,7 +44,8 @@ async def increase_stock(
     sku: str,
     name: str,
     quantity: int,
-    unit_price: float
+    unit_price: float,
+    supplier_id: str = None
 ):
 
     existing_stock = await stocks_collection.find_one({
@@ -63,6 +64,7 @@ async def increase_stock(
         stock_data = {
             "sku": sku,
             "name": name,
+            "supplier_id": supplier_id,
             "quantity": quantity,
             "avg_price": avg_price,
             "inventory_value": inventory_value,
@@ -125,20 +127,25 @@ async def increase_stock(
         new_quantity * avg_price
     )
 
+    set_data = {
+        "quantity": new_quantity,
+        "avg_price": avg_price,
+        "inventory_value": inventory_value,
+        "stock_status": calculate_stock_status(
+            new_quantity
+        ),
+        "updated_at": datetime.now(UTC)
+    }
+
+    if supplier_id:
+        set_data["supplier_id"] = supplier_id
+
     await stocks_collection.update_one(
         {
             "sku": sku
         },
         {
-            "$set": {
-                "quantity": new_quantity,
-                "avg_price": avg_price,
-                "inventory_value": inventory_value,
-                "stock_status": calculate_stock_status(
-                    new_quantity
-                ),
-                "updated_at": datetime.now(UTC)
-            }
+            "$set": set_data
         }
     )
 
@@ -230,6 +237,57 @@ async def decrease_stock(
     )
 
     return True
+
+
+async def record_unsellable_stock(
+    sku: str,
+    name: str,
+    quantity: int,
+    item_status: str,
+    unit_price: float = 0,
+    supplier_id: str = None
+):
+    existing_stock = await stocks_collection.find_one({
+        "sku": sku
+    })
+
+    field = "damaged_quantity" if item_status == "DAMAGED" else "lost_quantity"
+
+    if not existing_stock:
+        stock_data = {
+            "sku": sku,
+            "name": name,
+            "supplier_id": supplier_id,
+            "quantity": 0,
+            "avg_price": round_price(unit_price),
+            "inventory_value": 0,
+            "damaged_quantity": quantity if field == "damaged_quantity" else 0,
+            "lost_quantity": quantity if field == "lost_quantity" else 0,
+            "stock_status": calculate_stock_status(0),
+            "created_at": datetime.now(UTC),
+            "updated_at": datetime.now(UTC)
+        }
+        await stocks_collection.insert_one(stock_data)
+        return
+
+    old_quantity = existing_stock.get(field, 0)
+
+    await stocks_collection.update_one(
+        {"sku": sku},
+        {
+            "$set": {"updated_at": datetime.now(UTC)},
+            "$inc": {field: quantity}
+        }
+    )
+
+    await create_audit_log(
+        module_name=AuditModule.STOCK,
+        event_type=AuditEvent.STOCK_ADJUSTED,
+        sku=sku,
+        performed_by=Messages.SYSTEM,
+        old_data={field: old_quantity},
+        new_data={field: old_quantity + quantity}
+    )
 
 
 async def get_stocks(

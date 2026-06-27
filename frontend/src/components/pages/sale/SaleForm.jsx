@@ -1,7 +1,6 @@
 import { useState } from "react";
 import Button from "../../common/Button";
 import Input from "../../common/Input";
-import SelectDropdown from "../../common/SelectDropdown";
 import Textarea from "../../common/Textarea";
 import PaymentDetailsRow from "../purchase/PaymentDetailsRow";
 import SaleItemRow from "./SaleItemRow";
@@ -97,15 +96,11 @@ function SaleForm({ products, onSubmit }) {
             onChange={(value) => updateForm("invoice_id", value)}
             required
           />
-          <SelectDropdown
+          <Input
             label="Sale Status"
             value={form.sale_status}
-            onChange={(value) => updateForm("sale_status", value)}
-            options={[
-              { value: "SOLD", label: "Sold" },
-              { value: "EXCHANGE", label: "Exchange" },
-              { value: "RETURN", label: "Return" },
-            ]}
+            onChange={() => {}}
+            disabled
           />
         </div>
       </section>

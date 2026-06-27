@@ -30,6 +30,10 @@ pip-delete-this-directory.txt
 .coverage
 .coverage.*
 .cache
+test-results/
+coverage/
+frontend/coverage/
+backend/htmlcov/
 nosetests.xml
 coverage.xml
 *.cover
@@ -78,3 +82,4 @@ figma-code/
 figma-code.zip
 codex-frontend/
 .agents/
+test/

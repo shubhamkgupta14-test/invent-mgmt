@@ -22,6 +22,8 @@ SUPERADMIN_CLEANABLE_COLLECTIONS = {
     "products": db.products,
     "purchases": db.purchases,
     "sales": db.sales,
+    "returns": db.returns,
+    "exchanges": db.exchanges,
     "stocks": db.stocks,
     "suppliers": db.suppliers,
     "audits": db.audits,

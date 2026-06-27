@@ -4,10 +4,9 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Inventory from "./pages/Inventory";
 import Purchase from "./pages/Purchase";
-import AddPurchase from "./pages/AddPurchase";
-import AddProduct from "./pages/AddProduct";
 import Sale from "./pages/Sale";
-import AddSale from "./pages/AddSale";
+import Return from "./pages/Return";
+import Exchange from "./pages/Exchange";
 import Stock from "./pages/Stock";
 import Supplier from "./pages/Supplier";
 import SuperAdmin from "./pages/SuperAdmin";
@@ -61,26 +60,18 @@ function App() {
           }
         />
         <Route
-          path="/sales/add"
+          path="/returns"
           element={
             <ProtectedRoute>
-              <AddSale />
+              <Return />
             </ProtectedRoute>
           }
         />
         <Route
-          path="/purchases/add"
+          path="/exchanges"
           element={
             <ProtectedRoute>
-              <AddPurchase />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/products/add"
-          element={
-            <ProtectedRoute>
-              <AddProduct />
+              <Exchange />
             </ProtectedRoute>
           }
         />

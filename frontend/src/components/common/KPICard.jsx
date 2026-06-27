@@ -18,6 +18,7 @@ export function KPICard({
       "bg-rose-100": "text-rose-600",
       "bg-emerald-100": "text-emerald-600",
       "bg-violet-100": "text-violet-600",
+      "bg-slate-100": "text-slate-600",
     }[bgColor] || "text-indigo-600";
 
   const deltaStyles = {
@@ -58,11 +59,11 @@ export function KPICard({
 
       <div className="mt-auto pt-4">
         {delta && (
-          <div className="flex min-h-5 items-center gap-2 text-xs">
+          <div className="flex min-h-5 items-center gap-2 text-[10px]">
             <span
-              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-semibold ${deltaStyle.bg} ${deltaStyle.color}`}
+              className={`inline-flex items-center gap-1 rounded-full px-1.5 py-px font-semibold ${deltaStyle.bg} ${deltaStyle.color}`}
             >
-              <DeltaIcon size={10} />
+              <DeltaIcon size={9} />
               {delta}
             </span>
             <span className="font-medium text-slate-500">{deltaLabel}</span>

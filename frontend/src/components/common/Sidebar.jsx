@@ -4,6 +4,8 @@ import {
   FaChartBar,
   FaShoppingCart,
   FaTruck,
+  FaUndo,
+  FaExchangeAlt,
   FaBoxes,
   FaUsers,
   FaSignOutAlt,
@@ -11,7 +13,7 @@ import {
   FaUserShield,
   FaClipboardList,
 } from "react-icons/fa";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { getMyDetails } from "../../api/userApi";
 import { clearToken } from "../../utils/authUtils";
 
@@ -20,6 +22,7 @@ function Sidebar({ onNavigate, onClose }) {
   const [role, setRole] = useState("");
   const [logoMissing, setLogoMissing] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     let isActive = true;
@@ -44,7 +47,7 @@ function Sidebar({ onNavigate, onClose }) {
   }, []);
 
   const handleLogout = () => {
-    clearToken();
+    clearToken(`${location.pathname}${location.search}${location.hash}`);
     navigate("/");
   };
 
@@ -54,7 +57,9 @@ function Sidebar({ onNavigate, onClose }) {
     { icon: FaBox, label: "Stock", path: "/stocks" },
     { icon: FaTruck, label: "Purchases", path: "/purchases" },
     { icon: FaShoppingCart, label: "Sales", path: "/sales" },
-    { icon: FaUsers, label: "Supplier", path: "/suppliers" },
+    { icon: FaUndo, label: "Return", path: "/returns" },
+    { icon: FaExchangeAlt, label: "Exchange", path: "/exchanges" },
+    { icon: FaUsers, label: "Suppliers", path: "/suppliers" },
   ];
 
   const roleBadge = {
@@ -127,22 +132,6 @@ function Sidebar({ onNavigate, onClose }) {
             <>
               <li>
                 <NavLink
-                  to="/superadmin"
-                  onClick={onNavigate}
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
-                      isActive
-                        ? "bg-[var(--primary)] text-white shadow-lg shadow-indigo-950/20"
-                        : "text-slate-400 hover:bg-white/5 hover:text-white"
-                    }`
-                  }
-                >
-                  <FaUserShield size={18} className="flex-shrink-0" />
-                  <span>SuperAdmin</span>
-                </NavLink>
-              </li>
-              <li>
-                <NavLink
                   to="/audits"
                   onClick={onNavigate}
                   className={({ isActive }) =>
@@ -155,6 +144,22 @@ function Sidebar({ onNavigate, onClose }) {
                 >
                   <FaClipboardList size={18} className="flex-shrink-0" />
                   <span>Audit Logs</span>
+                </NavLink>
+              </li>
+              <li>
+                <NavLink
+                  to="/superadmin"
+                  onClick={onNavigate}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
+                      isActive
+                        ? "bg-[var(--primary)] text-white shadow-lg shadow-indigo-950/20"
+                        : "text-slate-400 hover:bg-white/5 hover:text-white"
+                    }`
+                  }
+                >
+                  <FaUserShield size={18} className="flex-shrink-0" />
+                  <span>SuperAdmin</span>
                 </NavLink>
               </li>
             </>

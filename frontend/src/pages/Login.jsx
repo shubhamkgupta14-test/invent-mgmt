@@ -4,7 +4,13 @@ import { useNavigate } from "react-router-dom";
 import { loginUser } from "../api/authApi";
 import Button from "../components/common/Button";
 import Input from "../components/common/Input";
-import { getUserFromToken, setStoredUser, setToken } from "../utils/authUtils";
+import {
+  clearLastPath,
+  getLastPath,
+  getUserFromToken,
+  setStoredUser,
+  setToken,
+} from "../utils/authUtils";
 
 function Login() {
   const [username, setUsername] = useState("");
@@ -37,7 +43,9 @@ function Login() {
 
       setToken(token, expiresIn);
       setStoredUser(getUserFromToken(token));
-      navigate("/dashboard");
+      const nextPath = getLastPath();
+      clearLastPath();
+      navigate(nextPath);
     } catch (error) {
       const apiError = error.response?.data;
 
@@ -72,9 +80,7 @@ function Login() {
           "linear-gradient(135deg, #0f172a 0%, #1e1b4b 60%, #312e81 100%)",
       }}
     >
-      <div
-        className="relative hidden overflow-hidden p-12 text-white lg:flex lg:w-[45%] lg:flex-col lg:justify-between"
-      >
+      <div className="relative hidden overflow-hidden p-12 text-white lg:flex lg:w-[45%] lg:flex-col lg:justify-between">
         <div>
           <div className="mb-12 flex items-center gap-3">
             <div className="rounded-xl bg-indigo-500 p-2 shadow-xl shadow-indigo-950/50">
@@ -170,7 +176,11 @@ function Login() {
                     className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-500 transition-colors hover:text-slate-700"
                     tabIndex="-1"
                   >
-                    {showPassword ? <FaEyeSlash size={18} /> : <FaEye size={18} />}
+                    {showPassword ? (
+                      <FaEyeSlash size={18} />
+                    ) : (
+                      <FaEye size={18} />
+                    )}
                   </button>
                 </div>
               </div>
@@ -197,14 +207,20 @@ function Login() {
             </form>
 
             <div className="mt-8 rounded-xl border border-indigo-200 bg-indigo-50 p-4">
-              <p className="text-xs font-medium text-indigo-700">
+              <p className="text-sm font-semibold text-indigo-700">
                 Demo Credentials:
               </p>
               <p className="mt-1 text-xs text-indigo-600">
-                Username: <span className="font-mono font-semibold">admin</span>
+                Superadmin:{" "}
+                <span className="font-mono font-semibold">sa-test / admin</span>
               </p>
-              <p className="text-xs text-indigo-600">
-                Password: <span className="font-mono font-semibold">admin123</span>
+              <p className="mt-1 text-xs text-indigo-600">
+                Admin:{" "}
+                <span className="font-mono font-semibold">admin / admin</span>
+              </p>
+              <p className="mt-1 text-xs text-indigo-600">
+                User:{" "}
+                <span className="font-mono font-semibold">user / admin</span>
               </p>
             </div>
           </div>
