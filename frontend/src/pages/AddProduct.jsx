@@ -3,7 +3,7 @@ import MainLayout from "../layouts/MainLayout";
 import ProductForm from "../components/pages/product/ProductForm";
 import Card from "../components/common/Card";
 import Loader from "../components/common/Loader";
-import { useToast } from "../context/ToastContext";
+import { useToast } from "../context/useToast";
 import { addProduct, getProductFormOptions } from "../api/productApi";
 import { getMyDetails } from "../api/userApi";
 

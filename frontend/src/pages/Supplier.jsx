@@ -10,7 +10,7 @@ import SearchBar from "../components/common/SearchBar";
 import Textarea from "../components/common/Textarea";
 import { addSupplier, getSuppliers, updateSupplier } from "../api/supplierApi";
 import { getMyDetails } from "../api/userApi";
-import { useToast } from "../context/ToastContext";
+import { useToast } from "../context/useToast";
 import MainLayout from "../layouts/MainLayout";
 
 const defaultSupplier = {

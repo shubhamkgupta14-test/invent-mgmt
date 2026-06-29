@@ -12,7 +12,7 @@ import {
   resendNotification,
 } from "../api/notificationApi";
 import { getMyDetails } from "../api/userApi";
-import { useToast } from "../context/ToastContext";
+import { useToast } from "../context/useToast";
 import { formatDateTimeIST } from "../utils/formatters";
 
 const typeBorderClasses = {

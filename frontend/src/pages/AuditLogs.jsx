@@ -8,7 +8,7 @@ import Input from "../components/common/Input";
 import Loader from "../components/common/Loader";
 import Modal from "../components/common/Modal";
 import Select from "../components/common/Select";
-import { useToast } from "../context/ToastContext";
+import { useToast } from "../context/useToast";
 import MainLayout from "../layouts/MainLayout";
 
 const moduleOptions = [

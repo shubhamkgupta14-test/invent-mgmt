@@ -13,7 +13,7 @@ import { createSale, getSales } from "../api/salesApi";
 import { getMyDetails } from "../api/userApi";
 import { getProductOptions } from "../api/productApi";
 import { getStocks } from "../api/stockApi";
-import { useToast } from "../context/ToastContext";
+import { useToast } from "../context/useToast";
 import { formatDateIST, formatMoney } from "../utils/formatters";
 
 const getSalePaidAmount = (sale) =>

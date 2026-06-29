@@ -5,7 +5,7 @@ import SaleForm from "../components/pages/sale/SaleForm";
 import { createSale } from "../api/salesApi";
 import { getMyDetails } from "../api/userApi";
 import { getProductOptions } from "../api/productApi";
-import { useToast } from "../context/ToastContext";
+import { useToast } from "../context/useToast";
 import MainLayout from "../layouts/MainLayout";
 
 function AddSale() {

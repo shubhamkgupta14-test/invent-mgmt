@@ -16,7 +16,7 @@ import {
   updateProduct,
 } from "../api/productApi";
 import { getMyDetails } from "../api/userApi";
-import { useToast } from "../context/ToastContext";
+import { useToast } from "../context/useToast";
 
 function Inventory() {
   const [products, setProducts] = useState([]);

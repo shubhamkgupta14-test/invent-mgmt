@@ -12,7 +12,7 @@ import StatusBadge from "../components/common/StatusBadge";
 import { getProductOptions } from "../api/productApi";
 import { createPurchase, getPurchases } from "../api/purchaseApi";
 import { getMyDetails } from "../api/userApi";
-import { useToast } from "../context/ToastContext";
+import { useToast } from "../context/useToast";
 import { formatDateIST, formatMoney } from "../utils/formatters";
 
 function Purchases() {

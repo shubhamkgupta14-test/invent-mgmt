@@ -14,7 +14,7 @@ import { getProductOptions } from "../api/productApi";
 import { createReturn, getReturns } from "../api/returnApi";
 import { getSales } from "../api/salesApi";
 import { getMyDetails } from "../api/userApi";
-import { useToast } from "../context/ToastContext";
+import { useToast } from "../context/useToast";
 import MainLayout from "../layouts/MainLayout";
 import { formatDateIST, formatMoney } from "../utils/formatters";
 

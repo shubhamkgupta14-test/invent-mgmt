@@ -8,7 +8,7 @@ load_dotenv()
 
 class Settings:
     APP_BRAND_NAME = os.getenv("APP_BRAND_NAME") or "E-Store"
-    ENVIRONMENT = os.getenv("ENVIRONMENT") or os.getenv("APP_ENV") or "production"
+    ENVIRONMENT = os.getenv("ENVIRONMENT") or os.getenv("APP_ENV") or "dev"
     ACCESS_TOKEN_EXPIRE_MINUTES = 30
     TOKEN_TYPE = "bearer"
     DEFAULT_PAGE_SIZE = 10
@@ -19,5 +19,5 @@ class Settings:
     ALGORITHM = os.getenv("ALGORITHM") or "HS256"
     LOW_STOCK_CHECK = 5
     OUT_OF_STOCK_CHECK = 0
-    API_LOG_TTL_DAYS = int(os.getenv("API_LOG_TTL_DAYS", "15"))
+    API_LOG_TTL_DAYS = int(os.getenv("API_LOG_TTL_DAYS", "7"))
     IST = ZoneInfo("Asia/Kolkata")
