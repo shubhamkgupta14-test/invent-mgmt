@@ -1,7 +1,7 @@
 import API from "./apiClient";
 
 export const getPurchases = async () => {
-  return API.get("/purchases");
+  return API.get("/purchases/");
 };
 
 export const createPurchase = async (payload) => {

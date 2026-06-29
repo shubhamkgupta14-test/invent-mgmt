@@ -1,7 +1,7 @@
 import API from "./apiClient";
 
 export const getReturns = async () => {
-  return API.get("/returns");
+  return API.get("/returns/");
 };
 
 export const createReturn = async (payload) => {

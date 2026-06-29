@@ -23,10 +23,13 @@ from app.core.exceptions import (
 from app.services.audit_service import (
     create_audit_log
 )
+from app.services.notification_service import create_system_out_of_stock_notification
 from app.models.audit import (
     AuditEvent, AuditModule
 )
 stocks_collection = db.stocks
+products_collection = db.products
+suppliers_collection = db.suppliers
 
 
 def calculate_stock_status(quantity: int):
@@ -149,6 +152,12 @@ async def increase_stock(
         }
     )
 
+    if calculate_stock_status(new_quantity) == StockStatus.OUT_OF_STOCK:
+        await create_system_out_of_stock_notification(
+            sku=sku,
+            name=existing_stock.get("name")
+        )
+
     await create_audit_log(
         module_name=AuditModule.STOCK,
         event_type=AuditEvent.STOCK_INCREASED,
@@ -218,6 +227,24 @@ async def decrease_stock(
             }
         }
     )
+
+    if current_quantity > 0 and new_quantity == 0:
+        product = await products_collection.find_one({"sku": sku})
+        supplier_id = (
+            existing_stock.get("supplier_id")
+            or (product or {}).get("supplier_id")
+        )
+        supplier = None
+        if supplier_id:
+            supplier = await suppliers_collection.find_one({
+                "supplier_id": supplier_id
+            })
+
+        await create_system_out_of_stock_notification(
+            sku=sku,
+            name=(product or {}).get("name") or existing_stock.get("name"),
+            supplier_name=(supplier or {}).get("name") or supplier_id or "-"
+        )
 
     await create_audit_log(
         module_name=AuditModule.STOCK,
@@ -332,16 +359,26 @@ async def get_stocks(
 
         filters["stock_status"] = stock_status
 
-    stocks = []
+    stock_records = []
 
     sort_order = -1 if sort_order.lower() == "desc" else 1
 
     async for stock in stocks_collection.find(
         filters
     ).sort(sort_by, sort_order):
+        stock_records.append(stock)
 
-        stocks.append(
-            build_stock_response(stock)
-        )
+    skus = [stock.get("sku") for stock in stock_records if stock.get("sku")]
+    tax_rate_by_sku = {}
+    async for product in products_collection.find(
+        {"sku": {"$in": skus}},
+        {"_id": 0, "sku": 1, "tax_rate": 1}
+    ):
+        tax_rate_by_sku[product.get("sku")] = product.get("tax_rate", 0)
+
+    stocks = []
+    for stock in stock_records:
+        stock["tax_rate"] = tax_rate_by_sku.get(stock.get("sku"), 0)
+        stocks.append(build_stock_response(stock))
 
     return stocks

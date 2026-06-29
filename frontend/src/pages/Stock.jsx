@@ -133,6 +133,7 @@ function Stocks() {
               { label: "SKU", value: selectedStock?.sku },
               { label: "Product", value: selectedStock?.name },
               { label: "Quantity", value: selectedStock?.quantity },
+              { label: "Tax", value: `${selectedStock?.tax_rate ?? 0}%` },
               { label: "Avg Purchase Price", value: selectedStock?.avg_price, money: true },
               { label: "Inventory Value", value: selectedStock?.inventory_value, money: true },
               {
@@ -141,7 +142,6 @@ function Stocks() {
                 render: (value) => <StockStatusBadge status={value} />,
               },
               { label: "Created", value: formatDateIST(selectedStock?.created_at) },
-              { label: "Updated", value: formatDateIST(selectedStock?.updated_at) },
             ],
           },
         ]}

@@ -1,6 +1,18 @@
 import StockStatusBadge from "../../common/StockStatusBadge";
 import { FaSortDown, FaSortUp } from "react-icons/fa";
 
+function quantityBadgeClass(stock) {
+  if (stock.stock_status === "OUT_OF_STOCK" || Number(stock.quantity || 0) <= 0) {
+    return "bg-rose-50 text-rose-700 ring-rose-200";
+  }
+
+  if (stock.stock_status === "LOW_QUANTITY") {
+    return "bg-amber-50 text-amber-700 ring-amber-200";
+  }
+
+  return "bg-emerald-50 text-emerald-700 ring-emerald-200";
+}
+
 function StockTable({ stocks, sortConfig, handleSort, onView }) {
   if (!stocks?.length) {
     return (
@@ -42,6 +54,9 @@ function StockTable({ stocks, sortConfig, handleSort, onView }) {
                 Quantity
               </th>
               <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                Tax
+              </th>
+              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
                 Avg Purchase Price
               </th>
               <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
@@ -77,8 +92,17 @@ function StockTable({ stocks, sortConfig, handleSort, onView }) {
                 className="cursor-pointer border-b border-[var(--border)] transition-colors last:border-0 hover:bg-slate-50/70"
               >
                 <td className="px-5 py-4 text-slate-700">{stock.sku}</td>
-                <td className="px-5 py-4 text-slate-700">{stock.name}</td>
-                <td className="px-5 py-4 text-slate-700">{stock.quantity}</td>
+                <td className="px-5 py-4 text-slate-700">
+                  <div className="max-w-[220px] truncate" title={stock.name}>
+                    {stock.name}
+                  </div>
+                </td>
+                <td className="px-5 py-4">
+                  <span className={`inline-flex min-w-9 justify-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${quantityBadgeClass(stock)}`}>
+                    {stock.quantity}
+                  </span>
+                </td>
+                <td className="px-5 py-4 text-slate-700">{stock.tax_rate ?? 0}%</td>
                 <td className="px-5 py-4 text-slate-700">
                   Rs {stock.avg_price?.toLocaleString("en-IN")}
                 </td>

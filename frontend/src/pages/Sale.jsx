@@ -12,8 +12,17 @@ import StatusBadge from "../components/common/StatusBadge";
 import { createSale, getSales } from "../api/salesApi";
 import { getMyDetails } from "../api/userApi";
 import { getProductOptions } from "../api/productApi";
+import { getStocks } from "../api/stockApi";
 import { useToast } from "../context/ToastContext";
 import { formatDateIST, formatMoney } from "../utils/formatters";
+
+const getSalePaidAmount = (sale) =>
+  sale?.total_paid ??
+  sale?.payment_details?.reduce(
+    (sum, payment) => sum + Number(payment.amount_paid || 0),
+    0,
+  ) ??
+  0;
 
 function Sales() {
   const [sales, setSales] = useState([]);
@@ -32,8 +41,26 @@ function Sales() {
 
   const loadProductOptions = async () => {
     if (products.length) return;
-    const response = await getProductOptions({ activeOnly: true });
-    setProducts(response.data.data || []);
+    const [productResponse, stockResponse] = await Promise.all([
+      getProductOptions({ activeOnly: true }),
+      getStocks(),
+    ]);
+
+    const stockBySku = new Map(
+      (stockResponse.data.data || [])
+        .filter((stock) => Number(stock.quantity || 0) > 0)
+        .map((stock) => [stock.sku, stock]),
+    );
+
+    const sellableProducts = (productResponse.data.data || [])
+      .filter((product) => stockBySku.has(product.sku))
+      .map((product) => ({
+        ...product,
+        quantity: stockBySku.get(product.sku)?.quantity || 0,
+        stock_status: stockBySku.get(product.sku)?.stock_status,
+      }));
+
+    setProducts(sellableProducts);
   };
 
   useEffect(() => {
@@ -103,7 +130,7 @@ function Sales() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-slate-50">
-              {["Name", "Qty", "Price", "Tax", "Disc", "Total"].map((label) => (
+              {["Name", "Qty", "Price (Exc Tax)", "Disc", "Tax", "Total"].map((label) => (
                 <th
                   key={label}
                   className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500"
@@ -120,10 +147,10 @@ function Sales() {
                 <td className="px-4 py-3 text-slate-700">{item.quantity || 0}</td>
                 <td className="px-4 py-3 text-slate-700">{formatMoney(item.unit_price)}</td>
                 <td className="px-4 py-3 text-slate-700">
-                  {item.tax_percentage ?? 0}% / {formatMoney(item.tax_amount)}
+                  {item.discount_percentage ?? 0}% / {formatMoney(item.discount_amount)}
                 </td>
                 <td className="px-4 py-3 text-slate-700">
-                  {item.discount_percentage ?? 0}% / {formatMoney(item.discount_amount)}
+                  {item.tax_percentage ?? 0}% / {formatMoney(item.tax_amount)}
                 </td>
                 <td className="px-4 py-3 font-semibold text-slate-900">
                   {formatMoney(item.total_price)}
@@ -205,7 +232,8 @@ function Sales() {
                   selectedSale?.user_info?.email,
               },
               { label: "Items", value: selectedSale?.items?.length || 0 },
-              { label: "Total", value: selectedSale?.final_total_amount, money: true },
+              { label: "Final Total", value: selectedSale?.final_total_amount, money: true },
+              { label: "Paid", value: getSalePaidAmount(selectedSale), money: true },
             ],
           },
           {
@@ -216,8 +244,10 @@ function Sales() {
             title: "Amounts",
             fields: [
               { label: "Subtotal", value: selectedSale?.subtotal, money: true },
-              { label: "Tax", value: selectedSale?.total_tax, money: true },
               { label: "Discount", value: selectedSale?.total_discount, money: true },
+              { label: "Tax", value: selectedSale?.total_tax, money: true },
+              { label: "Final Total", value: selectedSale?.final_total_amount, money: true },
+              { label: "Paid", value: getSalePaidAmount(selectedSale), money: true },
               { label: "Notes", value: selectedSale?.notes },
             ],
           },

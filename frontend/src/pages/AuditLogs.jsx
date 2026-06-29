@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FaEye, FaSyncAlt } from "react-icons/fa";
+import { FaSyncAlt } from "react-icons/fa";
 import { getAuditLogs } from "../api/auditApi";
 import { getMyDetails } from "../api/userApi";
 import Button from "../components/common/Button";
@@ -16,6 +16,7 @@ const moduleOptions = [
   { label: "Stock", value: "STOCK" },
   { label: "Purchase", value: "PURCHASE" },
   { label: "Sales", value: "SALES" },
+  { label: "Manufacturing", value: "MANUFACTURING" },
 ];
 
 const eventOptions = [
@@ -39,6 +40,16 @@ const moduleBadgeClasses = {
   STOCK: "bg-sky-100 text-sky-700 border border-sky-200",
   PURCHASE: "bg-amber-100 text-amber-700 border border-amber-200",
   SALES: "bg-emerald-100 text-emerald-700 border border-emerald-200",
+  MANUFACTURING: "bg-violet-100 text-violet-700 border border-violet-200",
+};
+
+const eventBadgeClasses = {
+  CREATED: "bg-emerald-50 text-emerald-700 border border-emerald-200",
+  UPDATED: "bg-sky-50 text-sky-700 border border-sky-200",
+  DELETED: "bg-rose-50 text-rose-700 border border-rose-200",
+  STOCK_INCREASED: "bg-emerald-50 text-emerald-700 border border-emerald-200",
+  STOCK_DECREASED: "bg-amber-50 text-amber-700 border border-amber-200",
+  STOCK_ADJUSTED: "bg-violet-50 text-violet-700 border border-violet-200",
 };
 
 function formatText(value) {
@@ -74,6 +85,10 @@ function formatDateTimeIST(value) {
 
 function moduleBadgeClass(moduleName) {
   return moduleBadgeClasses[moduleName] || "bg-slate-100 text-slate-700 border border-slate-200";
+}
+
+function eventBadgeClass(eventType) {
+  return eventBadgeClasses[eventType] || "bg-slate-100 text-slate-700 border border-slate-200";
 }
 
 function AuditLogs() {
@@ -238,7 +253,12 @@ function AuditLogs() {
               </Button>
             </div>
             <div className="flex items-end">
-              <Button type="button" variant="ghost" onClick={clearFilters}>
+              <Button
+                type="button"
+                variant="secondary"
+                className="border-slate-300 bg-slate-200 text-slate-800 hover:bg-slate-300"
+                onClick={clearFilters}
+              >
                 Clear
               </Button>
             </div>
@@ -269,56 +289,47 @@ function AuditLogs() {
                     <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
                       Actor
                     </th>
-                    <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                      Action
-                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {logs.map((log) => (
                     <tr
                       key={log.audit_id}
-                      className="border-b border-border transition-colors last:border-0 hover:bg-slate-50/70"
+                      onClick={() => setSelectedLog(log)}
+                      className="cursor-pointer border-b border-border transition-colors last:border-0 hover:bg-slate-50/70"
                     >
                       <td className="whitespace-nowrap px-5 py-4 text-slate-700">
                         {formatDateTimeIST(log.created_at)}
                       </td>
                       <td className="px-5 py-4">
                         <span
-                          className={`rounded-full px-3 py-1 text-xs font-semibold ${moduleBadgeClass(log.module_name)}`}
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${moduleBadgeClass(log.module_name)}`}
                         >
                           {formatText(log.module_name)}
                         </span>
                       </td>
                       <td className="px-5 py-4">
-                        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${eventBadgeClass(log.event_type)}`}>
                           {formatText(log.event_type)}
                         </span>
                       </td>
                       <td className="px-5 py-4 text-slate-700">
                         {log.reference_id || "-"}
                       </td>
-                      <td className="px-5 py-4 text-slate-700">{log.sku || "-"}</td>
-                      <td className="px-5 py-4 font-medium text-slate-900">
-                        {log.performed_by || "-"}
+                      <td className="px-5 py-4 text-slate-700">
+                        {log.sku || "-"}
                       </td>
                       <td className="px-5 py-4">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          icon={FaEye}
-                          onClick={() => setSelectedLog(log)}
-                        >
-                          View
-                        </Button>
+                        <span className="rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700">
+                          {log.performed_by || "-"}
+                        </span>
                       </td>
                     </tr>
                   ))}
                   {!logs.length && (
                     <tr>
                       <td
-                        colSpan={7}
+                        colSpan={6}
                         className="px-5 py-8 text-center text-sm text-slate-500"
                       >
                         No audit logs found.
@@ -343,7 +354,7 @@ function AuditLogs() {
             <div>
               <p className="text-xs font-semibold uppercase text-slate-500">Module</p>
               <p
-                className={`mt-1 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${moduleBadgeClass(selectedLog?.module_name)}`}
+                className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${moduleBadgeClass(selectedLog?.module_name)}`}
               >
                 {formatText(selectedLog?.module_name)}
               </p>

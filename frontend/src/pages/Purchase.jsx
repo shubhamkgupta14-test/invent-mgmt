@@ -103,7 +103,7 @@ function Purchases() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-slate-50">
-              {["Name", "Qty", "Price", "Tax", "Disc", "Total"].map((label) => (
+              {["Name", "Qty", "Price (Exc Tax)", "Disc", "Tax", "Total"].map((label) => (
                 <th
                   key={label}
                   className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500"
@@ -120,10 +120,10 @@ function Purchases() {
                 <td className="px-4 py-3 text-slate-700">{item.quantity || 0}</td>
                 <td className="px-4 py-3 text-slate-700">{formatMoney(item.unit_price)}</td>
                 <td className="px-4 py-3 text-slate-700">
-                  {item.tax_percentage ?? 0}% / {formatMoney(item.tax_amount)}
+                  {item.discount_percentage ?? 0}% / {formatMoney(item.discount_amount)}
                 </td>
                 <td className="px-4 py-3 text-slate-700">
-                  {item.discount_percentage ?? 0}% / {formatMoney(item.discount_amount)}
+                  {item.tax_percentage ?? 0}% / {formatMoney(item.tax_amount)}
                 </td>
                 <td className="px-4 py-3 font-semibold text-slate-900">
                   {formatMoney(item.total_price)}
@@ -205,8 +205,8 @@ function Purchases() {
             title: "Amounts",
             fields: [
               { label: "Subtotal", value: selectedPurchase?.subtotal, money: true },
-              { label: "Tax", value: selectedPurchase?.total_tax, money: true },
               { label: "Discount", value: selectedPurchase?.total_discount, money: true },
+              { label: "Tax", value: selectedPurchase?.total_tax, money: true },
               { label: "Shipping", value: selectedPurchase?.shipping_charges, money: true },
               { label: "Other Charges", value: selectedPurchase?.other_charges, money: true },
               { label: "Final Total", value: selectedPurchase?.final_total_amount, money: true },

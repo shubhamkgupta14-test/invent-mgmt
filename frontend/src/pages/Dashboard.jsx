@@ -14,8 +14,15 @@ import StatusBadge from "../components/common/StatusBadge";
 import DashboardTable from "../components/pages/dashboard/DashboardTable";
 import MainLayout from "../layouts/MainLayout";
 import { BRAND_NAME } from "../config/brand";
+import { formatDateIST } from "../utils/formatters";
 
 const money = (value = 0) => `Rs ${Number(value || 0).toLocaleString("en-IN")}`;
+
+const compactMoney = (value = 0) => {
+  const amount = Number(value || 0);
+  if (Math.abs(amount) < 1000) return money(amount);
+  return `Rs ${(amount / 1000).toFixed(1)}K`;
+};
 
 const formatPercentageDelta = (change) => {
   const percentage = Number(change?.percentage || 0);
@@ -54,10 +61,34 @@ const SaleStatusBadge = ({ status = "SOLD" }) => {
   return <StatusBadge status={status} type="sale" />;
 };
 
+const PaymentStatusBadge = ({ status = "UNPAID" }) => {
+  return <StatusBadge status={status} type="payment" />;
+};
+
+const InvoiceCell = ({ row }) => (
+  <div className="w-[108px]">
+    <p className="truncate font-semibold text-slate-900">
+      {row.invoice_id || "-"}
+    </p>
+    <p className="truncate text-xs text-slate-500">
+      {formatDateIST(row.created_at)}
+    </p>
+  </div>
+);
+
 const ProductCell = ({ row }) => (
-  <div className="min-w-[150px]">
-    <p className="font-semibold text-slate-900">{row.product || row.name || "-"}</p>
-    <p className="text-xs text-slate-500">{row.sku || "-"}</p>
+  <div className="w-[150px]">
+    <div className="flex items-center gap-2">
+      <p className="truncate font-semibold text-slate-900">
+        {row.product || row.name || "-"}
+      </p>
+      {Number(row.extra_count || 0) > 0 && (
+        <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700 ring-1 ring-slate-200">
+          +{row.extra_count}
+        </span>
+      )}
+    </div>
+    <p className="truncate text-xs text-slate-500">{row.sku || "-"}</p>
   </div>
 );
 
@@ -135,7 +166,7 @@ function Dashboard() {
         <KPICard
           icon={FaMoneyBillWave}
           title="Inventory Value"
-          value={`Rs ${(summary.inventory.total_inventory_value / 1000).toFixed(1)}K`}
+          value={compactMoney(summary.inventory.total_inventory_value)}
           subtitle="Total valuation"
           footerText="Current valuation"
           bgColor="bg-emerald-100"
@@ -143,7 +174,7 @@ function Dashboard() {
         <KPICard
           icon={FaChartLine}
           title="Total Sales"
-          value={`Rs ${(summary.sales.total_sales_amount / 1000).toFixed(1)}K`}
+          value={compactMoney(summary.sales.total_sales_amount)}
           subtitle="All time"
           delta={salesDelta.label}
           deltaType={salesDelta.type}
@@ -153,7 +184,7 @@ function Dashboard() {
         <KPICard
           icon={FaTruck}
           title="Total Purchases"
-          value={`Rs ${(summary.purchases.total_purchase_amount / 1000).toFixed(1)}K`}
+          value={compactMoney(summary.purchases.total_purchase_amount)}
           subtitle="All time"
           delta={purchasesDelta.label}
           deltaType={purchasesDelta.type}
@@ -168,7 +199,9 @@ function Dashboard() {
             summary.inventory.out_of_stock_products
           }
           subtitle={`${summary.inventory.low_stock_products} low + ${summary.inventory.out_of_stock_products} out`}
-          delta={summary.inventory.out_of_stock_products ? "Needs review" : "Healthy"}
+          delta={
+            summary.inventory.out_of_stock_products ? "Needs review" : "Healthy"
+          }
           deltaType={summary.inventory.out_of_stock_products ? "down" : "up"}
           deltaLabel="Stock status"
           bgColor="bg-rose-100"
@@ -191,8 +224,18 @@ function Dashboard() {
           title="Recent Sales"
           badge={dashboardData.recentSales.length}
           columns={[
-            { key: "invoice_id", label: "INVOICE" },
-            { key: "product", label: "PRODUCT", render: (row) => <ProductCell row={row} /> },
+            {
+              key: "invoice_id",
+              label: "INVOICE",
+              className: "w-[116px]",
+              render: (row) => <InvoiceCell row={row} />,
+            },
+            {
+              key: "product",
+              label: "PRODUCT",
+              className: "w-[166px]",
+              render: (row) => <ProductCell row={row} />,
+            },
             {
               key: "quantity",
               label: "QTY",
@@ -201,8 +244,9 @@ function Dashboard() {
             {
               key: "total",
               label: "TOTAL",
+              className: "whitespace-nowrap",
               render: (row) => (
-                <span className="font-mono font-semibold text-slate-900">
+                <span className="font-mono text-slate-900">
                   {money(row.total)}
                 </span>
               ),
@@ -221,9 +265,18 @@ function Dashboard() {
           title="Recent Purchases"
           badge={dashboardData.recentPurchases.length}
           columns={[
-            { key: "invoice_id", label: "INVOICE" },
-            { key: "product", label: "PRODUCT", render: (row) => <ProductCell row={row} /> },
-            { key: "supplier_id", label: "SUPPLIER" },
+            {
+              key: "invoice_id",
+              label: "INVOICE",
+              className: "w-[116px]",
+              render: (row) => <InvoiceCell row={row} />,
+            },
+            {
+              key: "product",
+              label: "PRODUCT",
+              className: "w-[166px]",
+              render: (row) => <ProductCell row={row} />,
+            },
             {
               key: "quantity",
               label: "QTY",
@@ -232,10 +285,18 @@ function Dashboard() {
             {
               key: "total",
               label: "TOTAL",
+              className: "whitespace-nowrap",
               render: (row) => (
-                <span className="font-mono font-semibold text-slate-900">
+                <span className="font-mono text-slate-900">
                   {money(row.total)}
                 </span>
+              ),
+            },
+            {
+              key: "payment_status",
+              label: "PAYMENT",
+              render: (row) => (
+                <PaymentStatusBadge status={row.payment_status} />
               ),
             },
           ]}
@@ -247,11 +308,18 @@ function Dashboard() {
           title="Today's Sold Items"
           badge={dashboardData.todaysSoldItems.length}
           columns={[
-            { key: "product", label: "PRODUCT", render: (row) => <ProductCell row={row} /> },
+            { key: "invoice_id", label: "INVOICE" },
+            {
+              key: "product",
+              label: "PRODUCT",
+              render: (row) => <ProductCell row={row} />,
+            },
             {
               key: "quantity",
               label: "QTY",
-              render: (row) => <CountBadge tone="green">{row.quantity}</CountBadge>,
+              render: (row) => (
+                <CountBadge tone="green">{row.quantity}</CountBadge>
+              ),
             },
             {
               key: "sold_count",
@@ -267,11 +335,17 @@ function Dashboard() {
           title="Most Sold Items"
           badge={dashboardData.mostSoldItems.length}
           columns={[
-            { key: "product", label: "PRODUCT", render: (row) => <ProductCell row={row} /> },
+            {
+              key: "product",
+              label: "PRODUCT",
+              render: (row) => <ProductCell row={row} />,
+            },
             {
               key: "quantity",
               label: "QTY SOLD",
-              render: (row) => <CountBadge tone="green">{row.quantity}</CountBadge>,
+              render: (row) => (
+                <CountBadge tone="green">{row.quantity}</CountBadge>
+              ),
             },
             {
               key: "sold_count",
@@ -281,7 +355,9 @@ function Dashboard() {
             {
               key: "stock",
               label: "STOCK",
-              render: (row) => <CountBadge tone="slate">{row.stock}</CountBadge>,
+              render: (row) => (
+                <CountBadge tone="slate">{row.stock}</CountBadge>
+              ),
             },
           ]}
           data={dashboardData.mostSoldItems}
@@ -292,12 +368,18 @@ function Dashboard() {
           title="Low Quantity Products"
           badge={summary.inventory.low_stock_products}
           columns={[
-            { key: "product", label: "PRODUCT", render: (row) => <ProductCell row={row} /> },
+            {
+              key: "product",
+              label: "PRODUCT",
+              render: (row) => <ProductCell row={row} />,
+            },
             { key: "supplier_id", label: "SUPPLIER" },
             {
               key: "quantity",
               label: "QTY",
-              render: (row) => <CountBadge tone="red">{row.quantity}</CountBadge>,
+              render: (row) => (
+                <CountBadge tone="red">{row.quantity}</CountBadge>
+              ),
             },
           ]}
           data={dashboardData.lowQuantityProducts}
@@ -308,7 +390,11 @@ function Dashboard() {
           title="Out Of Stock Products"
           badge={summary.inventory.out_of_stock_products}
           columns={[
-            { key: "product", label: "PRODUCT", render: (row) => <ProductCell row={row} /> },
+            {
+              key: "product",
+              label: "PRODUCT",
+              render: (row) => <ProductCell row={row} />,
+            },
             { key: "supplier_id", label: "SUPPLIER" },
             { key: "category", label: "CATEGORY" },
           ]}

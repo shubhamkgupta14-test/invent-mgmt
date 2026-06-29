@@ -110,6 +110,10 @@ class Messages:
     # AUDIT_LOG
     AUDIT_LOGS_FETCHED = "Audit logs fetched successfully"
 
+    # API_LOG
+    API_LOGS_FETCHED = "API logs fetched successfully"
+    API_LOG_FETCHED = "API log fetched successfully"
+
     # DASHBOARD
     DASHBOARD_SUMMARY_FETCHED = "Dashboard summary fetched successfully"
     LOW_STOCK_PRODUCTS_FETCHED = "Low stock products fetched successfully"

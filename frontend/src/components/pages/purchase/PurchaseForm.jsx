@@ -51,21 +51,23 @@ function PurchaseForm({ products, onSubmit }) {
     setForm((current) => ({ ...current, [key]: value }));
   };
 
+  const getProductTaxRate = (sku) =>
+    Number(products.find((product) => product.sku === sku)?.tax_rate || 0);
+
   const calculateTotal = () => {
     const itemTotal = form.items.reduce((sum, item) => {
       const price = (item.quantity || 0) * (item.unit_price || 0);
       const discount = price * ((item.discount_percentage || 0) / 100);
-      return sum + (price - discount);
+      const taxableAmount = price - discount;
+      const tax = taxableAmount * (getProductTaxRate(item.sku) / 100);
+      return sum + taxableAmount + tax;
     }, 0);
 
-    const discountAmount =
-      itemTotal * ((form.additional_discount || 0) / 100);
-
     return (
-      itemTotal -
-      discountAmount +
+      itemTotal +
       (form.shipping_charges || 0) +
-      (form.other_charges || 0)
+      (form.other_charges || 0) -
+      (form.additional_discount || 0)
     );
   };
 
@@ -141,7 +143,7 @@ function PurchaseForm({ products, onSubmit }) {
       <section>
         <div className="grid gap-4 md:grid-cols-3">
           <Input
-            label="Additional Discount %"
+            label="Additional Discount (Flat)"
             type="number"
             placeholder="0"
             value={form.additional_discount || ""}
@@ -174,7 +176,8 @@ function PurchaseForm({ products, onSubmit }) {
 
       <div className="flex flex-col gap-4 border-t border-[var(--border)] pt-5 md:flex-row md:items-center md:justify-between">
         <div className="rounded-xl bg-indigo-50 px-4 py-3 text-sm text-indigo-800">
-          Estimated item total excludes product tax rates and includes shipping/other charges.
+          <span className="font-semibold">Estimated total:</span>{" "}
+          <span className="font-mono">Rs {calculateTotal().toLocaleString("en-IN")}</span>
         </div>
         <Button type="submit" variant="primary">
           Save Purchase

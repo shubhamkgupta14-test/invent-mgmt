@@ -32,6 +32,8 @@ class ProductBase(BaseModel):
     supplier_id: str = Field(
         ..., min_length=1, description="ID of the supplier providing this product")
     is_active: bool = Field(default=True, description="Product active status")
+    is_manufactured: bool = Field(
+        default=False, description="Whether this product is manufactured in-house")
     created_at: datetime = Field(
         default_factory=datetime.utcnow, description="Product creation timestamp")
     updated_at: datetime = Field(
@@ -106,6 +108,7 @@ class ProductUpdate(BaseModel):
         default=None, ge=0, description="Minimum stock alert quantity")
     supplier_id: Optional[str] = None
     is_active: Optional[bool] = None
+    is_manufactured: Optional[bool] = None
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 

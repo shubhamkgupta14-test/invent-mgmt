@@ -1,7 +1,7 @@
 import API from "./apiClient";
 
 export const getProducts = async () => {
-  return API.get("/products");
+  return API.get("/products/");
 };
 
 export const getProductOptions = async ({ activeOnly = false } = {}) => {

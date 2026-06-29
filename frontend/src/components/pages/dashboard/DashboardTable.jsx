@@ -7,13 +7,15 @@ function DashboardTable({
 }) {
   return (
     <section className="overflow-hidden rounded-2xl border border-[var(--border)] bg-white shadow-sm">
-      <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] bg-slate-50/80 px-4 py-3">
-        <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
-        {badge !== undefined && (
-          <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-700 ring-1 ring-indigo-200">
-            {badge}
-          </span>
-        )}
+      <div className="border-b border-[var(--border)] bg-slate-50/80 px-4 py-3">
+        <h2 className="text-sm font-semibold text-slate-900">
+          {title}
+          {badge !== undefined && (
+            <span className="ml-2 inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-700 ring-1 ring-indigo-200">
+              {badge}
+            </span>
+          )}
+        </h2>
       </div>
 
       <div className="overflow-x-auto">
@@ -23,7 +25,7 @@ function DashboardTable({
               {columns.map((column) => (
                 <th
                   key={column.key}
-                  className="whitespace-nowrap px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wide text-slate-500"
+                  className={`whitespace-nowrap px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wide text-slate-500 ${column.className || ""}`}
                 >
                   {column.label}
                 </th>
@@ -40,7 +42,7 @@ function DashboardTable({
                   {columns.map((column) => (
                     <td
                       key={column.key}
-                      className="px-4 py-3 text-slate-700"
+                      className={`px-4 py-3 text-slate-700 ${column.className || ""}`}
                     >
                       {column.render ? column.render(row) : row[column.key]}
                     </td>

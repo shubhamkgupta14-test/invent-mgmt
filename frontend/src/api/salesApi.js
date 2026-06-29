@@ -1,7 +1,7 @@
 import API from "./apiClient";
 
 export const getSales = async () => {
-  return API.get("/sales");
+  return API.get("/sales/");
 };
 
 export const createSale = async (payload) => {

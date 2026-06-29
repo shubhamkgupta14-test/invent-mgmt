@@ -1,10 +1,19 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { FaPaperPlane, FaTrash } from "react-icons/fa";
+import { useSearchParams } from "react-router-dom";
 import Button from "../components/common/Button";
 import Card from "../components/common/Card";
 import Input from "../components/common/Input";
 import Loader from "../components/common/Loader";
 import Modal from "../components/common/Modal";
 import Select from "../components/common/Select";
+import Textarea from "../components/common/Textarea";
+import {
+  createNotification,
+  deleteNotification,
+  getAllNotifications,
+  resendNotification,
+} from "../api/notificationApi";
 import {
   activateUser,
   cleanDatabase,
@@ -17,6 +26,7 @@ import {
 } from "../api/userApi";
 import { useToast } from "../context/ToastContext";
 import MainLayout from "../layouts/MainLayout";
+import { formatDateTimeIST } from "../utils/formatters";
 
 const roleOptions = [
   { label: "User", value: "user" },
@@ -25,14 +35,17 @@ const roleOptions = [
 ];
 
 const cleanOptions = [
+  { label: "API Logs", value: "api-logs" },
+  { label: "Audits", value: "audits" },
+  { label: "Exchanges", value: "exchanges" },
+  { label: "Manufacturing", value: "manufacturing" },
+  { label: "Notifications", value: "notifications" },
   { label: "Products", value: "products" },
   { label: "Purchases", value: "purchases" },
-  { label: "Sales", value: "sales" },
   { label: "Returns", value: "returns" },
-  { label: "Exchanges", value: "exchanges" },
+  { label: "Sales", value: "sales" },
   { label: "Stocks", value: "stocks" },
   { label: "Suppliers", value: "suppliers" },
-  { label: "Audits", value: "audits" },
   { label: "Users", value: "users" },
 ];
 
@@ -46,7 +59,43 @@ const emptyUserForm = {
   active: true,
 };
 
+const emptyNotificationForm = {
+  title: "",
+  message: "",
+  notification_type: "INFO",
+  audience: "ALL",
+  roles: [],
+  usernames: "",
+};
+
+const notificationTypeOptions = [
+  { label: "Info", value: "INFO" },
+  { label: "Warning", value: "WARNING" },
+  { label: "Maintenance", value: "MAINTENANCE" },
+  { label: "Action Required", value: "ACTION_REQUIRED" },
+];
+
+const audienceOptions = [
+  { label: "All Users", value: "ALL" },
+  { label: "By Role", value: "ROLE" },
+  { label: "Specific Users", value: "USERS" },
+];
+
+const typeBorderClasses = {
+  INFO: "border-l-sky-500",
+  WARNING: "border-l-amber-500",
+  MAINTENANCE: "border-l-violet-500",
+  ACTION_REQUIRED: "border-l-rose-500",
+  OUT_OF_STOCK: "border-l-rose-500",
+};
+
+function toSentenceCase(value) {
+  const text = String(value || "").trim().toLowerCase();
+  return text ? text[0].toUpperCase() + text.slice(1) : "";
+}
+
 function SuperAdmin() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [savingUser, setSavingUser] = useState(false);
@@ -70,7 +119,28 @@ function SuperAdmin() {
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [confirmCleanOpen, setConfirmCleanOpen] = useState(false);
   const [usersModalOpen, setUsersModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState(
+    searchParams.get("tab") === "notifications" ? "notifications" : "users",
+  );
+  const [notificationForm, setNotificationForm] = useState(emptyNotificationForm);
+  const [sendingNotification, setSendingNotification] = useState(false);
+  const [sentNotifications, setSentNotifications] = useState([]);
+  const [expandedNotificationId, setExpandedNotificationId] = useState(null);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const [resendingNotificationId, setResendingNotificationId] = useState(null);
   const { addToast } = useToast();
+
+  const loadSentNotifications = useCallback(async () => {
+    try {
+      setLoadingNotifications(true);
+      const response = await getAllNotifications();
+      setSentNotifications(response.data.data || []);
+    } catch (error) {
+      addToast(error.response?.data?.message || "Failed to load notifications", "error");
+    } finally {
+      setLoadingNotifications(false);
+    }
+  }, [addToast]);
 
   useEffect(() => {
     let isActive = true;
@@ -90,6 +160,13 @@ function SuperAdmin() {
       isActive = false;
     };
   }, [addToast]);
+
+  useEffect(() => {
+    if (activeTab !== "notifications") return undefined;
+
+    const loadId = window.setTimeout(loadSentNotifications, 0);
+    return () => window.clearTimeout(loadId);
+  }, [activeTab, loadSentNotifications]);
 
   const selectedCollectionLabels = useMemo(
     () =>
@@ -228,6 +305,81 @@ function SuperAdmin() {
     }
   };
 
+  const updateNotificationForm = (key, value) => {
+    setNotificationForm((current) => ({ ...current, [key]: value }));
+  };
+
+  const switchTab = (tab) => {
+    setActiveTab(tab);
+    setSearchParams(tab === "notifications" ? { tab: "notifications" } : {});
+  };
+
+  const toggleNotificationRole = (role) => {
+    setNotificationForm((current) => ({
+      ...current,
+      roles: current.roles.includes(role)
+        ? current.roles.filter((item) => item !== role)
+        : [...current.roles, role],
+    }));
+  };
+
+  const handleSendNotification = async (event) => {
+    event.preventDefault();
+
+    try {
+      setSendingNotification(true);
+      await createNotification({
+        ...notificationForm,
+        usernames: notificationForm.usernames
+          .split(",")
+          .map((username) => username.trim())
+          .filter(Boolean),
+      });
+      addToast("Notification sent successfully", "success");
+      setNotificationForm(emptyNotificationForm);
+      await loadSentNotifications();
+      window.dispatchEvent(new Event("notifications:changed"));
+    } catch (error) {
+      addToast(error.response?.data?.message || "Failed to send notification", "error");
+    } finally {
+      setSendingNotification(false);
+    }
+  };
+
+  const handleDeleteNotification = async (notificationId) => {
+    try {
+      await deleteNotification(notificationId);
+      addToast("Notification deleted successfully", "success");
+      setExpandedNotificationId((current) =>
+        current === notificationId ? null : current,
+      );
+      await loadSentNotifications();
+      window.dispatchEvent(new Event("notifications:changed"));
+    } catch (error) {
+      addToast(error.response?.data?.message || "Failed to delete notification", "error");
+    }
+  };
+
+  const handleResendNotification = async (notificationId) => {
+    try {
+      setResendingNotificationId(notificationId);
+      await resendNotification(notificationId);
+      addToast("Notification resent successfully", "success");
+      await loadSentNotifications();
+      window.dispatchEvent(new Event("notifications:changed"));
+    } catch (error) {
+      addToast(error.response?.data?.message || "Failed to resend notification", "error");
+    } finally {
+      setResendingNotificationId(null);
+    }
+  };
+
+  const toggleNotificationCard = (notificationId) => {
+    setExpandedNotificationId((current) =>
+      current === notificationId ? null : notificationId,
+    );
+  };
+
   if (loading) {
     return (
       <MainLayout>
@@ -258,6 +410,32 @@ function SuperAdmin() {
           <p className="mt-1 text-slate-600">Manage users, roles, and database tools.</p>
         </div>
 
+        <div className="inline-flex rounded-2xl border border-border bg-white p-1 shadow-sm">
+          <button
+            type="button"
+            onClick={() => switchTab("users")}
+            className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+              activeTab === "users"
+                ? "bg-indigo-600 text-white shadow-sm"
+                : "text-slate-600 hover:bg-slate-50"
+            }`}
+          >
+            User Control
+          </button>
+          <button
+            type="button"
+            onClick={() => switchTab("notifications")}
+            className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+              activeTab === "notifications"
+                ? "bg-indigo-600 text-white shadow-sm"
+                : "text-slate-600 hover:bg-slate-50"
+            }`}
+          >
+            Notification Manager
+          </button>
+        </div>
+
+        {activeTab === "users" ? (
         <div className="grid gap-6 xl:grid-cols-2">
           <div className="space-y-6">
             <Card title="Create User">
@@ -528,6 +706,162 @@ function SuperAdmin() {
             </Card>
           </div>
         </div>
+        ) : (
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+            <Card title="Send Notification">
+              <form onSubmit={handleSendNotification} className="space-y-5">
+                <Input
+                  label="Title"
+                  value={notificationForm.title}
+                  onChange={(value) => updateNotificationForm("title", value)}
+                  required
+                />
+                <Textarea
+                  label="Message"
+                  value={notificationForm.message}
+                  onChange={(value) => updateNotificationForm("message", value)}
+                  rows={4}
+                  required
+                />
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Select
+                    label="Type"
+                    value={notificationForm.notification_type}
+                    onChange={(value) => updateNotificationForm("notification_type", value)}
+                    options={notificationTypeOptions}
+                    required
+                  />
+                  <Select
+                    label="Target"
+                    value={notificationForm.audience}
+                    onChange={(value) => updateNotificationForm("audience", value)}
+                    options={audienceOptions}
+                    required
+                  />
+                </div>
+
+                {notificationForm.audience === "ROLE" && (
+                  <div>
+                    <p className="mb-2 text-sm font-semibold text-slate-700">Roles</p>
+                    <div className="flex flex-wrap gap-3">
+                      {roleOptions.map((role) => (
+                        <label
+                          key={role.value}
+                          className="flex items-center gap-2 rounded-xl border border-border bg-white px-3 py-2 text-sm font-semibold text-slate-700"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={notificationForm.roles.includes(role.value)}
+                            onChange={() => toggleNotificationRole(role.value)}
+                            className="h-4 w-4 rounded border-slate-300 text-[var(--primary)] focus:ring-[var(--primary)]"
+                          />
+                          {role.label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {notificationForm.audience === "USERS" && (
+                  <Input
+                    label="Usernames"
+                    placeholder="Comma separated usernames"
+                    value={notificationForm.usernames}
+                    onChange={(value) => updateNotificationForm("usernames", value)}
+                    required
+                  />
+                )}
+
+                <Button type="submit" variant="primary" loading={sendingNotification}>
+                  Send Notification
+                </Button>
+              </form>
+            </Card>
+
+            <Card title="Notification History">
+              <div className="space-y-4">
+                {loadingNotifications ? (
+                  <Loader fullScreen={false} message="Loading notifications..." />
+                ) : (
+                  sentNotifications.slice(0, 4).map((notification) => {
+                    const isExpanded =
+                      expandedNotificationId === notification.notification_id;
+
+                    return (
+                      <div
+                        key={notification.notification_id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => toggleNotificationCard(notification.notification_id)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            toggleNotificationCard(notification.notification_id);
+                          }
+                        }}
+                        className={`cursor-pointer rounded-xl border border-l-4 border-border bg-white p-4 text-left shadow-sm transition hover:bg-slate-50 ${
+                          typeBorderClasses[notification.notification_type] || typeBorderClasses.INFO
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-semibold text-slate-900">
+                              {toSentenceCase(notification.title)}
+                            </p>
+                            <p className="mt-1 text-xs font-medium text-slate-500">
+                              {formatDateTimeIST(notification.created_at)}
+                            </p>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-2">
+                            <button
+                              type="button"
+                              className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-50 text-indigo-700 transition hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-60"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleResendNotification(notification.notification_id);
+                              }}
+                              disabled={resendingNotificationId === notification.notification_id}
+                              title="Resend notification"
+                            >
+                              <FaPaperPlane size={13} />
+                            </button>
+                            <button
+                              type="button"
+                              className="flex h-9 w-9 items-center justify-center rounded-full bg-rose-50 text-rose-700 transition hover:bg-rose-100"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleDeleteNotification(notification.notification_id);
+                              }}
+                              title="Delete notification"
+                            >
+                              <FaTrash size={14} />
+                            </button>
+                          </div>
+                        </div>
+
+                        {isExpanded && (
+                          <div className="mt-4 border-t border-border pt-4">
+                            <p className="whitespace-pre-wrap text-sm leading-6 text-slate-600">
+                              {notification.message}
+                            </p>
+                            <p className="mt-3 text-xs font-medium text-slate-500">
+                              Audience: {notification.audience?.replaceAll("_", " ") || "ALL"}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+                {!loadingNotifications && !sentNotifications.length && (
+                  <p className="rounded-xl border border-border bg-slate-50 p-6 text-center text-sm text-slate-500">
+                    No notifications sent yet.
+                  </p>
+                )}
+              </div>
+            </Card>
+          </div>
+        )}
       </div>
 
       <Modal

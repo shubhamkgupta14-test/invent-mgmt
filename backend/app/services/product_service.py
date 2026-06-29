@@ -46,6 +46,7 @@ async def add_product(product_data: dict, auth_user: dict):
     product_data["created_at"] = datetime.now(UTC)
     product_data["updated_at"] = datetime.now(UTC)
     product_data["is_active"] = True
+    product_data["is_manufactured"] = bool(product_data.get("is_manufactured", False))
     product_data["sku"] = sku
 
     result = await products_collection.insert_one(product_data)
@@ -91,12 +92,14 @@ async def get_product_options(auth_user: dict, active_only: bool = False):
     products = []
     async for product in products_collection.find(
         filters,
-        {"_id": 0, "sku": 1, "name": 1, "category": 1}
+        {"_id": 0, "sku": 1, "name": 1, "category": 1, "tax_rate": 1, "is_manufactured": 1}
     ).sort("name", 1):
         products.append({
             "sku": product.get("sku"),
             "name": product.get("name"),
-            "category": product.get("category")
+            "category": product.get("category"),
+            "tax_rate": product.get("tax_rate", 0),
+            "is_manufactured": product.get("is_manufactured", False)
         })
 
     return products

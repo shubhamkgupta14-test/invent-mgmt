@@ -19,14 +19,17 @@ from app.core.exceptions import (
 user_collection = db.users
 
 SUPERADMIN_CLEANABLE_COLLECTIONS = {
+    "api-logs": db.api_logs,
+    "audits": db.audits,
+    "exchanges": db.exchanges,
+    "manufacturing": db.manufacturing,
+    "notifications": db.notifications,
     "products": db.products,
     "purchases": db.purchases,
-    "sales": db.sales,
     "returns": db.returns,
-    "exchanges": db.exchanges,
+    "sales": db.sales,
     "stocks": db.stocks,
     "suppliers": db.suppliers,
-    "audits": db.audits,
     "users": db.users,
 }
 
@@ -314,5 +317,9 @@ async def clean_database_collections(auth_user: dict, collections: list[str]):
             delete_result = await collection.delete_many({})
 
         result[collection_name] = delete_result.deleted_count
+
+        if collection_name == "notifications":
+            read_delete_result = await db.notification_reads.delete_many({})
+            result["notification_reads"] = read_delete_result.deleted_count
 
     return result

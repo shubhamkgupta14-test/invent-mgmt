@@ -68,11 +68,16 @@ function SaleForm({ products, onSubmit }) {
     setForm({ ...form, payment_details: updated });
   };
 
+  const getProductTaxRate = (sku) =>
+    Number(products.find((product) => product.sku === sku)?.tax_rate || 0);
+
   const calculateTotal = () =>
     form.items.reduce((sum, item) => {
       const price = (item.quantity || 0) * (item.unit_price || 0);
       const discount = price * ((item.discount_percentage || 0) / 100);
-      return sum + (price - discount);
+      const taxableAmount = price - discount;
+      const tax = taxableAmount * (getProductTaxRate(item.sku) / 100);
+      return sum + taxableAmount + tax;
     }, 0);
 
   const handleSubmit = (event) => {
@@ -186,7 +191,7 @@ function SaleForm({ products, onSubmit }) {
 
       <div className="flex flex-col gap-4 border-t border-[var(--border)] pt-5 md:flex-row md:items-center md:justify-between">
         <div className="rounded-xl bg-indigo-50 px-4 py-3 text-sm text-indigo-800">
-          <span className="font-semibold">Total:</span>{" "}
+          <span className="font-semibold">Estimated total:</span>{" "}
           <span className="font-mono">Rs {calculateTotal().toLocaleString("en-IN")}</span>
         </div>
         <Button type="submit" variant="primary">

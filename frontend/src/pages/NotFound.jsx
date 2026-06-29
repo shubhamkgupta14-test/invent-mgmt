@@ -1,11 +1,24 @@
+import { useEffect } from "react";
 import { FaArrowLeft, FaHome } from "react-icons/fa";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+import API from "../api/apiClient";
 import Button from "../components/common/Button";
 import Card from "../components/common/Card";
 import MainLayout from "../layouts/MainLayout";
 
+const reportedNotFoundPaths = new Set();
+
 function NotFound() {
+  const location = useLocation();
   const navigate = useNavigate();
+  const missingPath = `${location.pathname}${location.search}`;
+
+  useEffect(() => {
+    if (reportedNotFoundPaths.has(missingPath)) return;
+
+    reportedNotFoundPaths.add(missingPath);
+    API.get(missingPath).catch(() => {});
+  }, [missingPath]);
 
   return (
     <MainLayout>

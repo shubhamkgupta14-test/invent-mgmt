@@ -18,6 +18,7 @@ class TransactionItem(BaseModel):
 
 
 class ReturnCreate(BaseModel):
+    return_id: str = Field(..., min_length=3)
     sale_id: Optional[str] = None
     invoice_id: Optional[str] = None
     items: List[TransactionItem]
@@ -26,6 +27,7 @@ class ReturnCreate(BaseModel):
 
 
 class ExchangeCreate(BaseModel):
+    exchange_id: str = Field(..., min_length=3)
     sale_id: Optional[str] = None
     invoice_id: Optional[str] = None
     returned_items: List[TransactionItem]
