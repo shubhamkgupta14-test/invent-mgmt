@@ -11,6 +11,7 @@ import Textarea from "../components/common/Textarea";
 import TransactionItemRows from "../components/pages/transactions/TransactionItemRows";
 import { createExchange, getExchanges } from "../api/exchangeApi";
 import { getProductOptions } from "../api/productApi";
+import { getReturns } from "../api/returnApi";
 import { getSales } from "../api/salesApi";
 import { getMyDetails } from "../api/userApi";
 import { useToast } from "../context/ToastContext";
@@ -18,6 +19,7 @@ import MainLayout from "../layouts/MainLayout";
 import { formatDateIST, formatMoney } from "../utils/formatters";
 
 const defaultForm = {
+  exchange_id: "",
   sale_id: "",
   invoice_id: "",
   returned_items: [{}],
@@ -69,12 +71,26 @@ function ExchangeTable({ exchanges, onView }) {
                   <td className="px-5 py-4 text-slate-700">{exchange.exchange_id}</td>
                   <td className="px-5 py-4 text-slate-700">{exchange.invoice_id || "-"}</td>
                   <td className="px-5 py-4 font-medium text-slate-900">
-                    {itemLabel(returned)}
-                    {exchange.returned_items?.length > 1 ? ` +${exchange.returned_items.length - 1}` : ""}
+                    <div
+                      className="max-w-[220px] truncate"
+                      title={`${itemLabel(returned)}${
+                        exchange.returned_items?.length > 1 ? ` +${exchange.returned_items.length - 1}` : ""
+                      }`}
+                    >
+                      {itemLabel(returned)}
+                      {exchange.returned_items?.length > 1 ? ` +${exchange.returned_items.length - 1}` : ""}
+                    </div>
                   </td>
                   <td className="px-5 py-4 font-medium text-slate-900">
-                    {itemLabel(replacement)}
-                    {exchange.replacement_items?.length > 1 ? ` +${exchange.replacement_items.length - 1}` : ""}
+                    <div
+                      className="max-w-[220px] truncate"
+                      title={`${itemLabel(replacement)}${
+                        exchange.replacement_items?.length > 1 ? ` +${exchange.replacement_items.length - 1}` : ""
+                      }`}
+                    >
+                      {itemLabel(replacement)}
+                      {exchange.replacement_items?.length > 1 ? ` +${exchange.replacement_items.length - 1}` : ""}
+                    </div>
                   </td>
                   <td className="px-5 py-4 text-slate-700">
                     {exchange.returned_quantity} / {exchange.replacement_quantity}
@@ -94,6 +110,7 @@ function ExchangePage() {
   const [exchanges, setExchanges] = useState([]);
   const [products, setProducts] = useState([]);
   const [sales, setSales] = useState([]);
+  const [returns, setReturns] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -120,6 +137,12 @@ function ExchangePage() {
     if (sales.length) return;
     const response = await getSales();
     setSales(response.data.data || []);
+  };
+
+  const loadReturns = async () => {
+    if (returns.length) return;
+    const response = await getReturns();
+    setReturns(response.data.data || []);
   };
 
   useEffect(() => {
@@ -165,15 +188,52 @@ function ExchangePage() {
     });
   };
 
-  const buildReturnedItemsFromSale = (sale) =>
-    (sale?.items?.length ? sale.items : [{}]).map((item) => ({
+  const isSameTransaction = (record, sale) =>
+    record?.sale_id === sale?.sale_id || record?.invoice_id === sale?.invoice_id;
+
+  const addQuantity = (map, item, direction = 1) => {
+    const sku = item?.sku;
+    if (!sku) return;
+    map.set(sku, (map.get(sku) || 0) + direction * Number(item.quantity || 0));
+  };
+
+  const buildExchangeableItemsFromSale = (sale) => {
+    if (!sale) return [];
+
+    const quantities = new Map();
+    (sale.items || []).forEach((item) => addQuantity(quantities, item));
+
+    returns.filter((returnRecord) => isSameTransaction(returnRecord, sale)).forEach((returnRecord) => {
+      (returnRecord.items || []).forEach((item) => addQuantity(quantities, item, -1));
+    });
+
+    exchanges.filter((exchange) => isSameTransaction(exchange, sale)).forEach((exchange) => {
+      (exchange.returned_items || []).forEach((item) => addQuantity(quantities, item, -1));
+    });
+
+    const seenSkus = new Set();
+
+    return (sale.items || [])
+      .filter((item) => {
+        if (!item.sku || seenSkus.has(item.sku)) return false;
+        seenSkus.add(item.sku);
+        return true;
+      })
+      .map((item) => ({
       sku: item.sku || "",
       name: item.name || "",
-      quantity: item.quantity || "",
+      quantity: quantities.get(item.sku) || 0,
       unit_price: item.unit_price || "",
       item_status: "RESELLABLE",
       reason: "",
-    }));
+    }))
+      .filter((item) => item.sku && item.quantity > 0);
+  };
+
+  const exchangeableSales = sales.filter((sale) =>
+    String(sale.sale_status || "").toUpperCase() === "SOLD" &&
+    buildExchangeableItemsFromSale(sale).length > 0
+  );
 
   const handleSaleInvoiceSelect = (invoiceId) => {
     const sale = sales.find((item) => item.invoice_id === invoiceId);
@@ -182,7 +242,7 @@ function ExchangePage() {
       ...current,
       sale_id: sale?.sale_id || "",
       invoice_id: invoiceId,
-      returned_items: sale ? buildReturnedItemsFromSale(sale) : current.returned_items,
+      returned_items: sale ? buildExchangeableItemsFromSale(sale) : current.returned_items,
       adjustment_amount: 0,
     }));
   };
@@ -191,7 +251,7 @@ function ExchangePage() {
     try {
       setForm(defaultForm);
       setFormOpen(true);
-      await Promise.all([loadProducts(), loadSales()]);
+      await Promise.all([loadProducts(), loadSales(), loadReturns()]);
     } catch (error) {
       addToast(error.response?.data?.message || "Failed to load product options", "error");
     }
@@ -265,7 +325,6 @@ function ExchangePage() {
             fields: [
               { label: "Exchange ID", value: selectedExchange?.exchange_id },
               { label: "Invoice", value: selectedExchange?.invoice_id },
-              { label: "Sale ID", value: selectedExchange?.sale_id },
               { label: "Returned Qty", value: selectedExchange?.returned_quantity },
               { label: "Replacement Qty", value: selectedExchange?.replacement_quantity },
               { label: "Adjustment", value: selectedExchange?.adjustment_amount, money: true },
@@ -296,12 +355,18 @@ function ExchangePage() {
       <Modal isOpen={formOpen} onClose={() => setFormOpen(false)} title="Add Exchange" size="6xl">
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid gap-4 md:grid-cols-2">
+            <Input
+              label="Exchange ID"
+              value={form.exchange_id}
+              onChange={(value) => updateForm("exchange_id", value)}
+              required
+            />
             <SelectDropdown
               label="Original Sale Invoice"
               value={form.invoice_id}
               onChange={handleSaleInvoiceSelect}
               placeholder="Select sale invoice"
-              options={sales.map((sale) => ({
+              options={exchangeableSales.map((sale) => ({
                 value: sale.invoice_id,
                 label: `${sale.invoice_id} - ${
                   sale.items?.[0]?.sku

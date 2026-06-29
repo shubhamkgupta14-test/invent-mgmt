@@ -9,6 +9,7 @@ import SearchBar from "../components/common/SearchBar";
 import SelectDropdown from "../components/common/SelectDropdown";
 import Textarea from "../components/common/Textarea";
 import TransactionItemRows from "../components/pages/transactions/TransactionItemRows";
+import { getExchanges } from "../api/exchangeApi";
 import { getProductOptions } from "../api/productApi";
 import { createReturn, getReturns } from "../api/returnApi";
 import { getSales } from "../api/salesApi";
@@ -18,6 +19,7 @@ import MainLayout from "../layouts/MainLayout";
 import { formatDateIST, formatMoney } from "../utils/formatters";
 
 const defaultForm = {
+  return_id: "",
   sale_id: "",
   invoice_id: "",
   items: [{}],
@@ -69,7 +71,11 @@ function ReturnTable({ returns, onView }) {
                   <td className="px-5 py-4 text-slate-700">{formatDateIST(item.created_at)}</td>
                   <td className="px-5 py-4 text-slate-700">{item.return_id}</td>
                   <td className="px-5 py-4 text-slate-700">{item.invoice_id || "-"}</td>
-                  <td className="px-5 py-4 font-medium text-slate-900">{productLabel}</td>
+                  <td className="px-5 py-4 font-medium text-slate-900">
+                    <div className="max-w-[240px] truncate" title={productLabel}>
+                      {productLabel}
+                    </div>
+                  </td>
                   <td className="px-5 py-4 text-slate-700">{item.items?.length || 0}</td>
                   <td className="px-5 py-4 text-slate-700">{item.total_quantity}</td>
                   <td className="px-5 py-4 text-slate-700">{formatMoney(item.refund_amount)}</td>
@@ -87,6 +93,7 @@ function ReturnPage() {
   const [returns, setReturns] = useState([]);
   const [products, setProducts] = useState([]);
   const [sales, setSales] = useState([]);
+  const [exchanges, setExchanges] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -113,6 +120,12 @@ function ReturnPage() {
     if (sales.length) return;
     const response = await getSales();
     setSales(response.data.data || []);
+  };
+
+  const loadExchanges = async () => {
+    if (exchanges.length) return;
+    const response = await getExchanges();
+    setExchanges(response.data.data || []);
   };
 
   useEffect(() => {
@@ -157,15 +170,61 @@ function ReturnPage() {
     });
   };
 
-  const buildReturnItemsFromSale = (sale) =>
-    (sale?.items?.length ? sale.items : [{}]).map((item) => ({
+  const isSameTransaction = (record, sale) =>
+    record?.sale_id === sale?.sale_id || record?.invoice_id === sale?.invoice_id;
+
+  const addQuantity = (map, item, direction = 1) => {
+    const sku = item?.sku;
+    if (!sku) return;
+    map.set(sku, (map.get(sku) || 0) + direction * Number(item.quantity || 0));
+  };
+
+  const buildReturnItemsFromSale = (sale) => {
+    if (!sale) return [];
+
+    const baseItems = [];
+    const quantities = new Map();
+
+    (sale.items || []).forEach((item) => {
+      baseItems.push(item);
+      addQuantity(quantities, item);
+    });
+
+    exchanges.filter((exchange) => isSameTransaction(exchange, sale)).forEach((exchange) => {
+      (exchange.returned_items || []).forEach((item) => addQuantity(quantities, item, -1));
+      (exchange.replacement_items || []).forEach((item) => {
+        baseItems.push(item);
+        addQuantity(quantities, item);
+      });
+    });
+
+    returns.filter((returnRecord) => isSameTransaction(returnRecord, sale)).forEach((returnRecord) => {
+      (returnRecord.items || []).forEach((item) => addQuantity(quantities, item, -1));
+    });
+
+    const seenSkus = new Set();
+
+    return baseItems
+      .filter((item) => {
+        if (!item.sku || seenSkus.has(item.sku)) return false;
+        seenSkus.add(item.sku);
+        return true;
+      })
+      .map((item) => ({
       sku: item.sku || "",
       name: item.name || "",
-      quantity: item.quantity || "",
+      quantity: quantities.get(item.sku) || 0,
       unit_price: item.unit_price || "",
       item_status: "RESELLABLE",
       reason: "",
-    }));
+    }))
+      .filter((item) => item.sku && item.quantity > 0);
+  };
+
+  const returnableSales = sales.filter((sale) =>
+    ["SOLD", "EXCHANGE"].includes(String(sale.sale_status || "").toUpperCase()) &&
+    buildReturnItemsFromSale(sale).length > 0
+  );
 
   const handleSaleInvoiceSelect = (invoiceId) => {
     const sale = sales.find((item) => item.invoice_id === invoiceId);
@@ -183,7 +242,7 @@ function ReturnPage() {
     try {
       setForm(defaultForm);
       setFormOpen(true);
-      await Promise.all([loadProducts(), loadSales()]);
+      await Promise.all([loadProducts(), loadSales(), loadExchanges()]);
     } catch (error) {
       addToast(error.response?.data?.message || "Failed to load product options", "error");
     }
@@ -257,7 +316,6 @@ function ReturnPage() {
             fields: [
               { label: "Return ID", value: selectedReturn?.return_id },
               { label: "Invoice", value: selectedReturn?.invoice_id },
-              { label: "Sale ID", value: selectedReturn?.sale_id },
               { label: "Quantity", value: selectedReturn?.total_quantity },
               { label: "Refund", value: selectedReturn?.refund_amount, money: true },
               { label: "Created", value: formatDateIST(selectedReturn?.created_at) },
@@ -280,12 +338,18 @@ function ReturnPage() {
       <Modal isOpen={formOpen} onClose={() => setFormOpen(false)} title="Add Return" size="6xl">
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid gap-4 md:grid-cols-2">
+            <Input
+              label="Return ID"
+              value={form.return_id}
+              onChange={(value) => updateForm("return_id", value)}
+              required
+            />
             <SelectDropdown
               label="Original Sale Invoice"
               value={form.invoice_id}
               onChange={handleSaleInvoiceSelect}
               placeholder="Select sale invoice"
-              options={sales.map((sale) => ({
+              options={returnableSales.map((sale) => ({
                 value: sale.invoice_id,
                 label: `${sale.invoice_id} - ${
                   sale.items?.[0]?.sku

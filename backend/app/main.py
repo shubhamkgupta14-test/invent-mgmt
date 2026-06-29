@@ -1,13 +1,16 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from contextlib import asynccontextmanager
+from datetime import datetime, UTC
 
 from app.seeds.superadmin_seed import create_default_superadmin
 from fastapi.exceptions import (
     HTTPException,
     RequestValidationError
 )
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.database.indexes import create_indexes
+from app.database.mongodb import db
 
 from app.core.exception_handler import (
     http_exception_handler,
@@ -23,6 +26,7 @@ from app.routes.product_routes import router as product_router
 from app.routes.user_routes import router as user_router
 from app.routes.auth_routes import router as auth_router
 from app.routes.purchase_routes import router as purchase_router
+from app.routes.manufacturing_routes import router as manufacturing_router
 from app.routes.sale_routes import router as sale_router
 from app.routes.return_exchange_routes import (
     exchange_router,
@@ -32,7 +36,14 @@ from app.routes.stock_routes import router as stock_router
 from app.routes.audit_routes import router as audit_router
 from app.routes.dashboard_routes import router as dashboard_router
 from app.routes.supplier_routes import router as supplier_router
+from app.routes.notification_routes import router as notification_router
+from app.routes.api_logs import router as api_logs_router
+from app.middleware.api_logger import ApiLoggingMiddleware
 from app.utils.settings import Settings
+from app.utils.response import failure_response
+from fastapi.responses import JSONResponse
+
+STARTED_AT = datetime.now(UTC)
 
 # STARTUP EVENT
 
@@ -63,8 +74,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.add_middleware(ApiLoggingMiddleware)
+
 app.add_exception_handler(
     HTTPException,
+    http_exception_handler
+)
+
+app.add_exception_handler(
+    StarletteHTTPException,
     http_exception_handler
 )
 
@@ -85,11 +103,14 @@ app.include_router(product_router)
 app.include_router(supplier_router)
 app.include_router(stock_router)
 app.include_router(purchase_router)
+app.include_router(manufacturing_router)
 app.include_router(sale_router)
 app.include_router(return_router)
 app.include_router(exchange_router)
 app.include_router(audit_router)
+app.include_router(api_logs_router)
 app.include_router(user_router)
+app.include_router(notification_router)
 app.include_router(auth_router)
 
 # ROOT
@@ -107,7 +128,44 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    return {
-        "status": "ok",
-        "message": "API is healthy and running."
+    now = datetime.now(UTC)
+    checks = {
+        "api": "ok",
+        "database": "ok",
     }
+    status_code = 200
+    status = "ok"
+
+    try:
+        await db.command("ping")
+    except Exception:
+        checks["database"] = "down"
+        status = "down"
+        status_code = 503
+
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "status": status,
+            "service": f"{Settings.APP_BRAND_NAME} Inventory API",
+            "environment": Settings.ENVIRONMENT,
+            "timestamp": now.isoformat(),
+            "uptime_seconds": int((now - STARTED_AT).total_seconds()),
+            "checks": checks,
+        },
+    )
+
+
+@app.api_route(
+    "/{path:path}",
+    methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
+)
+async def route_not_found(request: Request, path: str):
+    return failure_response(
+        message="API endpoint not found",
+        status_code=404,
+        data={
+            "method": request.method,
+            "path": f"/{path}",
+        },
+    )

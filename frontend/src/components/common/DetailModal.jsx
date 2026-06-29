@@ -20,13 +20,13 @@ function DetailModal({ isOpen, onClose, title, sections = [], size = "2xl" }) {
             {section.render ? (
               section.render()
             ) : (
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
                 {section.fields.map((field) => (
                   <div key={field.label}>
                     <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                       {field.label}
                     </p>
-                    <div className="mt-1 text-sm font-medium text-slate-900">
+                    <div className="mt-1 text-sm font-medium text-slate-900 break-words">
                       {field.render
                         ? field.render(field.value)
                         : field.money

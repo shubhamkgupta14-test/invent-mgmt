@@ -72,18 +72,21 @@ async def create_sale(auth_user: dict, sale_data: dict):
 
         item_subtotal = round_price(quantity * unit_price)
 
-        tax_amount = round_price(
-            (item_subtotal * tax_percentage) / 100
-        )
-
         discount_amount = round_price(
             (item_subtotal * discount_percentage) / 100
         )
 
+        taxable_amount = round_price(
+            item_subtotal - discount_amount
+        )
+
+        tax_amount = round_price(
+            (taxable_amount * tax_percentage) / 100
+        )
+
         total_price = round_price(
-            item_subtotal +
-            tax_amount -
-            discount_amount
+            taxable_amount +
+            tax_amount
         )
 
         subtotal += round_price(item_subtotal)
@@ -109,6 +112,14 @@ async def create_sale(auth_user: dict, sale_data: dict):
         total_discount
     )
 
+    total_paid = sum(
+        payment.get("amount_paid", 0)
+        for payment in sale_data.get(
+            "payment_details",
+            []
+        )
+    )
+
     sale_document = {
         "invoice_id": sale_data.get("invoice_id"),
         "user_info": sale_data.get("user_info"),
@@ -117,6 +128,7 @@ async def create_sale(auth_user: dict, sale_data: dict):
         "total_tax": total_tax,
         "total_discount": total_discount,
         "final_total_amount": final_total_amount,
+        "total_paid": total_paid,
         "payment_details": sale_data.get(
             "payment_details",
             []

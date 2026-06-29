@@ -8,10 +8,12 @@ import {
   FaExchangeAlt,
   FaBoxes,
   FaUsers,
+  FaIndustry,
   FaSignOutAlt,
   FaTimes,
   FaUserShield,
   FaClipboardList,
+  FaServer,
 } from "react-icons/fa";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { getMyDetails } from "../../api/userApi";
@@ -33,7 +35,9 @@ function Sidebar({ onNavigate, onClose }) {
         if (!isActive) return;
 
         const user = response.data.data;
-        const fullName = [user.firstname, user.lastname].filter(Boolean).join(" ");
+        const fullName = [user.firstname, user.lastname]
+          .filter(Boolean)
+          .join(" ");
 
         setDisplayName(fullName || user.username || "User");
         setRole(user.role || "User");
@@ -58,22 +62,25 @@ function Sidebar({ onNavigate, onClose }) {
     { icon: FaBox, label: "Stock", path: "/stocks" },
     { icon: FaTruck, label: "Purchases", path: "/purchases" },
     { icon: FaShoppingCart, label: "Sales", path: "/sales" },
+    { icon: FaIndustry, label: "Manufacturing", path: "/manufacturing" },
     { icon: FaUndo, label: "Return", path: "/returns" },
     { icon: FaExchangeAlt, label: "Exchange", path: "/exchanges" },
     { icon: FaUsers, label: "Suppliers", path: "/suppliers" },
   ];
 
-  const roleBadge = {
-    superadmin: "bg-violet-500/20 text-violet-200 ring-violet-400/30",
-    admin: "bg-indigo-500/20 text-indigo-200 ring-indigo-400/30",
-    user: "bg-emerald-500/20 text-emerald-200 ring-emerald-400/30",
-  }[role] || "bg-slate-500/20 text-slate-200 ring-slate-400/30";
+  const roleBadge =
+    {
+      superadmin: "bg-violet-500/20 text-violet-200 ring-violet-400/30",
+      admin: "bg-indigo-500/20 text-indigo-200 ring-indigo-400/30",
+      user: "bg-emerald-500/20 text-emerald-200 ring-emerald-400/30",
+    }[role] || "bg-slate-500/20 text-slate-200 ring-slate-400/30";
 
-  const roleLabel = {
-    superadmin: "SuperAdmin",
-    admin: "Admin",
-    user: "User",
-  }[role] || role;
+  const roleLabel =
+    {
+      superadmin: "SuperAdmin",
+      admin: "Admin",
+      user: "User",
+    }[role] || role;
 
   return (
     <aside className="flex h-full flex-col bg-[var(--sidebar)] text-white md:h-screen md:overflow-hidden">
@@ -145,6 +152,22 @@ function Sidebar({ onNavigate, onClose }) {
                 >
                   <FaClipboardList size={18} className="flex-shrink-0" />
                   <span>Audit Logs</span>
+                </NavLink>
+              </li>
+              <li>
+                <NavLink
+                  to="/api-logs"
+                  onClick={onNavigate}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
+                      isActive
+                        ? "bg-[var(--primary)] text-white shadow-lg shadow-indigo-950/20"
+                        : "text-slate-400 hover:bg-white/5 hover:text-white"
+                    }`
+                  }
+                >
+                  <FaServer size={18} className="flex-shrink-0" />
+                  <span>API Logs</span>
                 </NavLink>
               </li>
               <li>

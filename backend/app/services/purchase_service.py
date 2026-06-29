@@ -86,18 +86,21 @@ async def create_purchase(
             quantity * unit_price
         )
 
-        tax_amount = round_price(
-            (item_subtotal * tax_percentage) / 100
-        )
-
         discount_amount = round_price(
             (item_subtotal * discount_percentage) / 100
         )
 
+        taxable_amount = round_price(
+            item_subtotal - discount_amount
+        )
+
+        tax_amount = round_price(
+            (taxable_amount * tax_percentage) / 100
+        )
+
         total_price = round_price(
-            item_subtotal +
-            tax_amount -
-            discount_amount
+            taxable_amount +
+            tax_amount
         )
 
         subtotal += round_price(item_subtotal)
@@ -129,7 +132,9 @@ async def create_purchase(
     final_total_amount = round_final_amount(
         subtotal +
         total_tax -
-        total_discount -
+        total_discount +
+        # shipping_charges +
+        # other_charges -
         additional_discount
     )
 

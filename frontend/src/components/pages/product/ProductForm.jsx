@@ -21,6 +21,7 @@ const defaultProductForm = {
   },
   supplier_id: "",
   is_active: true,
+  is_manufactured: false,
 };
 
 function ProductForm({
@@ -163,6 +164,15 @@ function ProductForm({
             required
           />
         </div>
+        <label className="mt-4 flex items-center gap-3 text-sm font-semibold text-slate-700">
+          <input
+            type="checkbox"
+            checked={Boolean(form.is_manufactured)}
+            onChange={(event) => updateForm("is_manufactured", event.target.checked)}
+            className="h-4 w-4 rounded border-slate-300 text-[var(--primary)] focus:ring-[var(--primary)]"
+          />
+          Manufactured in-house
+        </label>
       </section>
 
       <section>

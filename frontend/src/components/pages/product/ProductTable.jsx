@@ -48,6 +48,9 @@ function ProductTable({
               <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
                 Supplier
               </th>
+              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                Manufactured
+              </th>
               {hasActions && (
                 <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
                   Action
@@ -79,7 +82,11 @@ function ProductTable({
                   </td>
                 )}
                 <td className="px-5 py-4 text-slate-700">{product.sku}</td>
-                <td className="px-5 py-4 font-semibold text-slate-900">{product.name}</td>
+                <td className="px-5 py-4 font-semibold text-slate-900">
+                  <div className="max-w-[240px] truncate" title={product.name}>
+                    {product.name}
+                  </div>
+                </td>
                 <td className="px-5 py-4 text-slate-700">
                   {product.category}
                 </td>
@@ -88,6 +95,17 @@ function ProductTable({
                 </td>
                 <td className="px-5 py-4 text-slate-700">
                   {product.supplier_id}
+                </td>
+                <td className="px-5 py-4">
+                  <span
+                    className={`rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${
+                      product.is_manufactured
+                        ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+                        : "bg-slate-100 text-slate-600 ring-slate-200"
+                    }`}
+                  >
+                    {product.is_manufactured ? "Yes" : "No"}
+                  </span>
                 </td>
                 {hasActions && (
                   <td

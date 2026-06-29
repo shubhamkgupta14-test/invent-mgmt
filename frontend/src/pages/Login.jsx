@@ -207,23 +207,6 @@ function Login() {
               </Button>
             </form>
 
-            <div className="mt-8 rounded-xl border border-indigo-200 bg-indigo-50 p-4">
-              <p className="text-sm font-semibold text-indigo-700">
-                Demo Credentials:
-              </p>
-              <p className="mt-1 text-xs text-indigo-600">
-                Superadmin:{" "}
-                <span className="font-mono font-semibold">sa-test / admin</span>
-              </p>
-              <p className="mt-1 text-xs text-indigo-600">
-                Admin:{" "}
-                <span className="font-mono font-semibold">admin / admin</span>
-              </p>
-              <p className="mt-1 text-xs text-indigo-600">
-                User:{" "}
-                <span className="font-mono font-semibold">user / admin</span>
-              </p>
-            </div>
           </div>
         </div>
       </div>

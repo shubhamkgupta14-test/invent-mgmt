@@ -13,6 +13,8 @@ stocks_collection = db.stocks
 purchase_collection = db.purchases
 sales_collection = db.sales
 products_collection = db.products
+returns_collection = db.returns
+exchanges_collection = db.exchanges
 
 
 def calculate_percentage_change(current, previous):
@@ -42,6 +44,160 @@ def calculate_percentage_change(current, previous):
         "percentage": round(abs(percentage), 2),
         "status": status
     }
+
+
+def _date_match(start=None, end=None):
+    if not start or not end:
+        return {}
+    return {
+        "created_at": {
+            "$gte": start,
+            "$lt": end
+        }
+    }
+
+
+async def _sum_collection_amount(collection, field, start=None, end=None):
+    result = await collection.aggregate([
+        {"$match": _date_match(start, end)},
+        {
+            "$group": {
+                "_id": None,
+                "amount": {"$sum": {"$ifNull": [f"${field}", 0]}}
+            }
+        }
+    ]).to_list(length=1)
+
+    return result[0].get("amount", 0) if result else 0
+
+
+async def _net_sales_amount(gross_amount, start=None, end=None):
+    return_amount = await _sum_collection_amount(
+        returns_collection,
+        "refund_amount",
+        start,
+        end
+    )
+    exchange_adjustment = await _sum_collection_amount(
+        exchanges_collection,
+        "adjustment_amount",
+        start,
+        end
+    )
+
+    return gross_amount - return_amount + exchange_adjustment
+
+
+def _add_net_item(movements, item, quantity_delta, count_delta=0, invoice_id=None):
+    sku = item.get("sku")
+    if not sku:
+        return
+
+    if sku not in movements:
+        movements[sku] = {
+            "sku": sku,
+            "product": item.get("name") or sku,
+            "quantity": 0,
+            "sold_count": 0,
+            "invoice_ids": set()
+        }
+
+    movements[sku]["quantity"] += quantity_delta
+    movements[sku]["sold_count"] += count_delta
+
+    if invoice_id:
+        movements[sku]["invoice_ids"].add(invoice_id)
+
+
+async def _get_net_sold_items(start=None, end=None, limit=5):
+    movements = {}
+    date_filter = _date_match(start, end)
+
+    async for sale in sales_collection.find(date_filter):
+        for item in sale.get("items", []):
+            quantity = item.get("quantity", 0)
+            _add_net_item(
+                movements,
+                item,
+                quantity_delta=quantity,
+                count_delta=1,
+                invoice_id=sale.get("invoice_id")
+            )
+
+    async for return_record in returns_collection.find(date_filter):
+        for item in return_record.get("items", []):
+            quantity = item.get("quantity", 0)
+            _add_net_item(
+                movements,
+                item,
+                quantity_delta=-quantity,
+                count_delta=-1,
+                invoice_id=return_record.get("invoice_id")
+            )
+
+    async for exchange in exchanges_collection.find(date_filter):
+        for item in exchange.get("returned_items", []):
+            quantity = item.get("quantity", 0)
+            _add_net_item(
+                movements,
+                item,
+                quantity_delta=-quantity,
+                count_delta=-1,
+                invoice_id=exchange.get("invoice_id")
+            )
+        for item in exchange.get("replacement_items", []):
+            quantity = item.get("quantity", 0)
+            _add_net_item(
+                movements,
+                item,
+                quantity_delta=quantity,
+                count_delta=1,
+                invoice_id=exchange.get("invoice_id")
+            )
+
+    sold_items = sorted(
+        [
+            item
+            for item in movements.values()
+            if item.get("quantity", 0) > 0
+        ],
+        key=lambda item: item.get("quantity", 0),
+        reverse=True
+    )[:limit]
+
+    skus = [item.get("sku") for item in sold_items]
+
+    product_by_sku = {}
+    async for product in products_collection.find({"sku": {"$in": skus}}):
+        product_by_sku[product.get("sku")] = product
+
+    stock_by_sku = {}
+    async for stock in stocks_collection.find({"sku": {"$in": skus}}):
+        stock_by_sku[stock.get("sku")] = stock
+
+    items = []
+    for item in sold_items:
+        invoice_ids = list(item.get("invoice_ids", []))
+        invoice_summary = "-"
+        if len(invoice_ids) == 1:
+            invoice_summary = invoice_ids[0]
+        elif len(invoice_ids) > 1:
+            invoice_summary = f"{invoice_ids[0]} +{len(invoice_ids) - 1}"
+
+        sku = item.get("sku")
+        items.append({
+            "sku": sku,
+            "invoice_id": invoice_summary,
+            "product": item.get("product") or sku,
+            "quantity": item.get("quantity", 0),
+            "sold_count": max(item.get("sold_count", 0), 0),
+            "supplier_id": product_by_sku.get(sku, {}).get("supplier_id", "-"),
+            "category": product_by_sku.get(sku, {}).get("category", "-"),
+            "stock": stock_by_sku.get(sku, {}).get("quantity", 0),
+            "status": stock_by_sku.get(sku, {}).get("stock_status", "UNKNOWN")
+        })
+
+    return items
 
 
 async def get_dashboard_summary(auth_user: dict):
@@ -200,14 +356,33 @@ async def get_dashboard_summary(auth_user: dict):
 
     sales = sales_stats[0] if sales_stats else {}
 
+    net_total_sales_amount = await _net_sales_amount(
+        sales.get("total_sales_amount", 0)
+    )
+    net_today_sales = await _net_sales_amount(
+        sales.get("today_sales", 0),
+        today_start,
+        tomorrow_start
+    )
+    net_monthly_sales = await _net_sales_amount(
+        sales.get("monthly_sales", 0),
+        current_month_start,
+        next_month_start
+    )
+    net_last_month_sales = await _net_sales_amount(
+        sales.get("last_month_sales", 0),
+        last_month_start,
+        current_month_start
+    )
+
     purchase_growth = calculate_percentage_change(
         purchases.get("monthly_purchases", 0),
         purchases.get("last_month_purchases", 0)
     )
 
     sales_growth = calculate_percentage_change(
-        sales.get("monthly_sales", 0),
-        sales.get("last_month_sales", 0)
+        net_monthly_sales,
+        net_last_month_sales
     )
 
     recent_sales = await get_recent_sales(auth_user)
@@ -243,10 +418,11 @@ async def get_dashboard_summary(auth_user: dict):
         },
 
         "sales": {
-            "total_sales_amount": round_final_amount(sales.get("total_sales_amount", 0)),
-            "today_sales": round_final_amount(sales.get("today_sales", 0)),
-            "monthly_sales": round_final_amount(sales.get("monthly_sales", 0)),
-            "last_month_sales": round_final_amount(sales.get("last_month_sales", 0)),
+            "total_sales_amount": round_final_amount(net_total_sales_amount),
+            "gross_sales_amount": round_final_amount(sales.get("total_sales_amount", 0)),
+            "today_sales": round_final_amount(net_today_sales),
+            "monthly_sales": round_final_amount(net_monthly_sales),
+            "last_month_sales": round_final_amount(net_last_month_sales),
             "sales_percentage": sales_growth,
             "total_orders": sales.get("total_orders", 0)
         },
@@ -340,46 +516,7 @@ async def get_most_sold_items(auth_user: dict):
     ]:
         forbidden()
 
-    sold_items = await sales_collection.aggregate([
-        {"$unwind": "$items"},
-        {
-            "$group": {
-                "_id": "$items.sku",
-                "sku": {"$first": "$items.sku"},
-                "product": {"$first": "$items.name"},
-                "quantity": {"$sum": {"$ifNull": ["$items.quantity", 0]}},
-                "sold_count": {"$sum": 1}
-            }
-        },
-        {"$sort": {"quantity": -1}},
-        {"$limit": 5}
-    ]).to_list(length=5)
-
-    skus = [item.get("sku") for item in sold_items]
-
-    stock_by_sku = {}
-    async for stock in stocks_collection.find({"sku": {"$in": skus}}):
-        stock_by_sku[stock.get("sku")] = stock
-
-    product_by_sku = {}
-    async for product in products_collection.find({"sku": {"$in": skus}}):
-        product_by_sku[product.get("sku")] = product
-
-    return [
-        {
-            "sku": item.get("sku"),
-            "product": item.get("product") or item.get("sku"),
-            "quantity": item.get("quantity", 0),
-            "sold_count": item.get("sold_count", 0),
-            "category": product_by_sku.get(item.get("sku"), {}).get("category", "-"),
-            "stock": stock_by_sku.get(item.get("sku"), {}).get("quantity", 0),
-            "status": stock_by_sku.get(item.get("sku"), {}).get(
-                "stock_status",
-                "UNKNOWN"
-            )
-        }
-        for item in sold_items
-    ]
+    return await _get_net_sold_items(limit=5)
 
 
 async def get_recent_sales(auth_user: dict):
@@ -402,9 +539,6 @@ async def get_recent_sales(auth_user: dict):
         quantity = sum(item.get("quantity", 0) for item in items)
         product = first_item.get("name") or first_item.get("sku") or sale.get("invoice_id")
 
-        if len(items) > 1:
-            product = f"{product} +{len(items) - 1}"
-
         sales.append({
             "id": str(sale.get("_id")),
             "sale_id": str(sale.get("_id")),
@@ -414,6 +548,7 @@ async def get_recent_sales(auth_user: dict):
             "sku": first_item.get("sku"),
             "name": first_item.get("name"),
             "product": product,
+            "extra_count": max(len(items) - 1, 0),
             "quantity": quantity,
             "total": sale.get(
                 "final_total_amount"
@@ -450,9 +585,6 @@ async def get_recent_purchases(auth_user: dict):
         quantity = sum(item.get("quantity", 0) for item in items)
         product = first_item.get("name") or first_item.get("sku") or purchase.get("invoice_id")
 
-        if len(items) > 1:
-            product = f"{product} +{len(items) - 1}"
-
         purchases.append({
             "id": str(purchase.get("_id")),
             "purchase_id": str(purchase.get("_id")),
@@ -461,11 +593,13 @@ async def get_recent_purchases(auth_user: dict):
             "sku": first_item.get("sku"),
             "name": first_item.get("name"),
             "product": product,
+            "extra_count": max(len(items) - 1, 0),
             "quantity": quantity,
             "total": purchase.get("final_total_amount"),
             "final_total_amount": purchase.get("final_total_amount"),
             "status": purchase.get("purchase_status"),
             "purchase_status": purchase.get("purchase_status"),
+            "payment_status": purchase.get("payment_status"),
             "created_at": format_datetime_iso(purchase.get("created_at"))
         })
     return purchases
@@ -480,43 +614,4 @@ async def get_todays_sold_items(auth_user: dict, today_start, tomorrow_start):
     ]:
         forbidden()
 
-    sold_items = await sales_collection.aggregate([
-        {
-            "$match": {
-                "created_at": {
-                    "$gte": today_start,
-                    "$lt": tomorrow_start
-                }
-            }
-        },
-        {"$unwind": "$items"},
-        {
-            "$group": {
-                "_id": "$items.sku",
-                "sku": {"$first": "$items.sku"},
-                "product": {"$first": "$items.name"},
-                "quantity": {"$sum": {"$ifNull": ["$items.quantity", 0]}},
-                "sold_count": {"$sum": 1}
-            }
-        },
-        {"$sort": {"quantity": -1}},
-        {"$limit": 5}
-    ]).to_list(length=5)
-
-    skus = [item.get("sku") for item in sold_items]
-
-    product_by_sku = {}
-    async for product in products_collection.find({"sku": {"$in": skus}}):
-        product_by_sku[product.get("sku")] = product
-
-    return [
-        {
-            "sku": item.get("sku"),
-            "product": item.get("product") or item.get("sku"),
-            "quantity": item.get("quantity", 0),
-            "sold_count": item.get("sold_count", 0),
-            "supplier_id": product_by_sku.get(item.get("sku"), {}).get("supplier_id", "-"),
-            "category": product_by_sku.get(item.get("sku"), {}).get("category", "-")
-        }
-        for item in sold_items
-    ]
+    return await _get_net_sold_items(today_start, tomorrow_start, limit=5)

@@ -252,6 +252,10 @@ function Inventory() {
                 label: "Active",
                 value: selectedProduct?.is_active ? "Yes" : "No",
               },
+              {
+                label: "Manufactured",
+                value: selectedProduct?.is_manufactured ? "Yes" : "No",
+              },
             ],
           },
           {

@@ -100,6 +100,144 @@ async def _update_sale_status(sale_id: str, invoice_id: str, status: str):
         not_found(Messages.SALE_NOT_FOUND)
 
 
+def _add_quantity(quantities: dict, sku: str, quantity: int):
+    quantities[sku] = quantities.get(sku, 0) + quantity
+
+
+def _subtract_quantity(quantities: dict, sku: str, quantity: int):
+    quantities[sku] = quantities.get(sku, 0) - quantity
+
+
+def _available_items_from_quantities(base_items: list, quantities: dict):
+    available = []
+    seen_skus = set()
+    for item in base_items:
+        sku = normalize_sku(item.get("sku"))
+        if sku in seen_skus:
+            continue
+        seen_skus.add(sku)
+        quantity = quantities.get(sku, 0)
+        if quantity <= 0:
+            continue
+        available.append({
+            **item,
+            "sku": sku,
+            "quantity": quantity
+        })
+    return available
+
+
+async def _get_sale_for_transaction(sale_id: str = None, invoice_id: str = None):
+    sale_filter = _build_sale_filter(sale_id=sale_id, invoice_id=invoice_id)
+    if not sale_filter:
+        bad_request(Messages.SALE_NOT_FOUND)
+
+    sale = await sales_collection.find_one(sale_filter)
+    if not sale:
+        not_found(Messages.SALE_NOT_FOUND)
+
+    return sale
+
+
+def _transaction_filter(sale: dict):
+    filters = []
+    sale_id = str(sale.get("_id"))
+    invoice_id = sale.get("invoice_id")
+
+    if sale_id:
+        filters.append({"sale_id": sale_id})
+    if invoice_id:
+        filters.append({"invoice_id": invoice_id})
+
+    return {"$or": filters} if filters else {}
+
+
+async def _get_returnable_quantities(sale: dict):
+    quantities = {}
+    base_items = []
+
+    for item in sale.get("items", []):
+        sku = normalize_sku(item.get("sku"))
+        _add_quantity(quantities, sku, item.get("quantity", 0))
+        base_items.append(item)
+
+    transaction_filter = _transaction_filter(sale)
+
+    async for exchange in exchanges_collection.find(transaction_filter):
+        for item in exchange.get("returned_items", []):
+            _subtract_quantity(
+                quantities,
+                normalize_sku(item.get("sku")),
+                item.get("quantity", 0)
+            )
+        for item in exchange.get("replacement_items", []):
+            sku = normalize_sku(item.get("sku"))
+            _add_quantity(quantities, sku, item.get("quantity", 0))
+            base_items.append(item)
+
+    async for return_record in returns_collection.find(transaction_filter):
+        for item in return_record.get("items", []):
+            _subtract_quantity(
+                quantities,
+                normalize_sku(item.get("sku")),
+                item.get("quantity", 0)
+            )
+
+    return _available_items_from_quantities(base_items, quantities)
+
+
+async def _get_exchangeable_quantities(sale: dict):
+    quantities = {}
+
+    for item in sale.get("items", []):
+        _add_quantity(
+            quantities,
+            normalize_sku(item.get("sku")),
+            item.get("quantity", 0)
+        )
+
+    transaction_filter = _transaction_filter(sale)
+
+    async for return_record in returns_collection.find(transaction_filter):
+        for item in return_record.get("items", []):
+            _subtract_quantity(
+                quantities,
+                normalize_sku(item.get("sku")),
+                item.get("quantity", 0)
+            )
+
+    async for exchange in exchanges_collection.find(transaction_filter):
+        for item in exchange.get("returned_items", []):
+            _subtract_quantity(
+                quantities,
+                normalize_sku(item.get("sku")),
+                item.get("quantity", 0)
+            )
+
+    return _available_items_from_quantities(sale.get("items", []), quantities)
+
+
+def _validate_items_available(items: list, available_items: list, action: str):
+    available_by_sku = {
+        normalize_sku(item.get("sku")): item.get("quantity", 0)
+        for item in available_items
+    }
+
+    requested_by_sku = {}
+    for item in items:
+        _add_quantity(
+            requested_by_sku,
+            normalize_sku(item.get("sku")),
+            item.get("quantity", 0)
+        )
+
+    for sku, quantity in requested_by_sku.items():
+        if quantity > available_by_sku.get(sku, 0):
+            bad_request(
+                f"Item {sku} is not available to {action} again"
+            )
+
+
 async def _record_returned_item_stock(item: dict):
     if item.get("item_status") == RESELLABLE:
         await increase_stock(
@@ -124,10 +262,25 @@ async def _record_returned_item_stock(item: dict):
 async def create_return(auth_user: dict, return_data: dict):
     _can_mutate(auth_user)
 
+    return_id = (return_data.get("return_id") or "").strip()
+    if await returns_collection.find_one({"return_id": return_id}):
+        bad_request("Return id already exists")
+
+    sale = await _get_sale_for_transaction(
+        sale_id=return_data.get("sale_id"),
+        invoice_id=return_data.get("invoice_id")
+    )
+
     items = [
         await _prepare_item(item, auth_user)
         for item in return_data.get("items", [])
     ]
+
+    _validate_items_available(
+        items,
+        await _get_returnable_quantities(sale),
+        "return"
+    )
 
     total_quantity = sum(item.get("quantity", 0) for item in items)
     total_amount = round_final_amount(
@@ -135,6 +288,7 @@ async def create_return(auth_user: dict, return_data: dict):
     )
 
     document = {
+        "return_id": return_id,
         "sale_id": return_data.get("sale_id"),
         "invoice_id": return_data.get("invoice_id"),
         "items": items,
@@ -177,6 +331,15 @@ async def create_return(auth_user: dict, return_data: dict):
 async def create_exchange(auth_user: dict, exchange_data: dict):
     _can_mutate(auth_user)
 
+    exchange_id = (exchange_data.get("exchange_id") or "").strip()
+    if await exchanges_collection.find_one({"exchange_id": exchange_id}):
+        bad_request("Exchange id already exists")
+
+    sale = await _get_sale_for_transaction(
+        sale_id=exchange_data.get("sale_id"),
+        invoice_id=exchange_data.get("invoice_id")
+    )
+
     returned_items = [
         await _prepare_item(item, auth_user)
         for item in exchange_data.get("returned_items", [])
@@ -185,6 +348,12 @@ async def create_exchange(auth_user: dict, exchange_data: dict):
         await _prepare_item(item, auth_user)
         for item in exchange_data.get("replacement_items", [])
     ]
+
+    _validate_items_available(
+        returned_items,
+        await _get_exchangeable_quantities(sale),
+        "exchange"
+    )
 
     returned_quantity_by_sku = {}
     for item in returned_items:
@@ -208,6 +377,7 @@ async def create_exchange(auth_user: dict, exchange_data: dict):
     )
 
     document = {
+        "exchange_id": exchange_id,
         "sale_id": exchange_data.get("sale_id"),
         "invoice_id": exchange_data.get("invoice_id"),
         "returned_items": returned_items,
@@ -263,9 +433,11 @@ async def get_returns(auth_user: dict, return_id: str = None):
 
     filters = {}
     if return_id:
-        if not is_valid_object_id(return_id):
-            bad_request(Messages.INVALID_RETURN_ID)
-        filters["_id"] = ObjectId(return_id)
+        filters = (
+            {"_id": ObjectId(return_id)}
+            if is_valid_object_id(return_id)
+            else {"return_id": return_id}
+        )
 
     returns = []
     async for item in returns_collection.find(filters).sort("created_at", -1):
@@ -279,9 +451,11 @@ async def get_exchanges(auth_user: dict, exchange_id: str = None):
 
     filters = {}
     if exchange_id:
-        if not is_valid_object_id(exchange_id):
-            bad_request(Messages.INVALID_EXCHANGE_ID)
-        filters["_id"] = ObjectId(exchange_id)
+        filters = (
+            {"_id": ObjectId(exchange_id)}
+            if is_valid_object_id(exchange_id)
+            else {"exchange_id": exchange_id}
+        )
 
     exchanges = []
     async for item in exchanges_collection.find(filters).sort("created_at", -1):

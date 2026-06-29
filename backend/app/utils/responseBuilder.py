@@ -34,6 +34,7 @@ def build_product_response(product: dict):
         },
         "supplier_id": product["supplier_id"],
         "is_active": product["is_active"],
+        "is_manufactured": product.get("is_manufactured", False),
         "created_at": format_datetime_iso(product["created_at"]),
         "updated_at": format_datetime_iso(product["updated_at"])
     }
@@ -66,6 +67,25 @@ def build_purchase_response(purchase: dict):
     }
 
 
+def build_manufacturing_response(manufacturing: dict):
+    return {
+        "manufacturing_id": str(manufacturing.get("_id")),
+        "batch_no": manufacturing.get("batch_no"),
+        "sku": manufacturing.get("sku"),
+        "name": manufacturing.get("name"),
+        "quantity": manufacturing.get("quantity", 0),
+        "unit_cost": manufacturing.get("unit_cost", 0),
+        "other_charges": manufacturing.get("other_charges", 0),
+        "effective_unit_cost": manufacturing.get("effective_unit_cost", 0),
+        "total_cost": manufacturing.get("total_cost", 0),
+        "status": manufacturing.get("status"),
+        "notes": manufacturing.get("notes"),
+        "created_by": manufacturing.get("created_by"),
+        "created_at": format_datetime_iso(manufacturing.get("created_at")),
+        "updated_at": format_datetime_iso(manufacturing.get("updated_at"))
+    }
+
+
 def build_sales_response(sale: dict):
     return {
         "sale_id": str(sale.get("_id", "")),
@@ -76,6 +96,10 @@ def build_sales_response(sale: dict):
         "total_tax": sale.get("total_tax", 0),
         "total_discount": sale.get("total_discount", 0),
         "final_total_amount": sale.get("final_total_amount", 0),
+        "total_paid": sale.get("total_paid", sum(
+            payment.get("amount_paid", 0)
+            for payment in sale.get("payment_details", [])
+        )),
         "payment_details": sale.get("payment_details", []),
         "sale_status": sale.get("sale_status", ""),
         "notes": sale.get("notes"),
@@ -86,7 +110,7 @@ def build_sales_response(sale: dict):
 
 def build_return_response(return_record: dict):
     return {
-        "return_id": str(return_record.get("_id", "")),
+        "return_id": return_record.get("return_id") or str(return_record.get("_id", "")),
         "sale_id": return_record.get("sale_id"),
         "invoice_id": return_record.get("invoice_id"),
         "items": return_record.get("items", []),
@@ -102,7 +126,7 @@ def build_return_response(return_record: dict):
 
 def build_exchange_response(exchange: dict):
     return {
-        "exchange_id": str(exchange.get("_id", "")),
+        "exchange_id": exchange.get("exchange_id") or str(exchange.get("_id", "")),
         "sale_id": exchange.get("sale_id"),
         "invoice_id": exchange.get("invoice_id"),
         "returned_items": exchange.get("returned_items", []),
@@ -128,6 +152,7 @@ def build_stock_response(stock: dict):
         "quantity": stock.get("quantity"),
         "damaged_quantity": stock.get("damaged_quantity", 0),
         "lost_quantity": stock.get("lost_quantity", 0),
+        "tax_rate": stock.get("tax_rate", 0),
         "avg_price": stock.get("avg_price"),
         "inventory_value": stock.get("inventory_value"),
         "stock_status": stock.get("stock_status"),

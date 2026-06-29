@@ -10,12 +10,9 @@ const getItemSummary = (items = []) => {
   const firstItem = items[0];
   if (!firstItem) return "-";
 
-  const extraCount = items.length - 1;
-  const label = firstItem.sku
+  return firstItem.sku
     ? `${firstItem.sku} - ${firstItem.name || "Product"}`
     : firstItem.name || "Product";
-
-  return `${label}${extraCount > 0 ? ` +${extraCount}` : ""}`;
 };
 
 function SaleTable({ sales, onView }) {
@@ -57,33 +54,47 @@ function SaleTable({ sales, onView }) {
             </tr>
           </thead>
           <tbody>
-            {sales.map((sale) => (
-              <tr
-                key={sale.sale_id}
-                onClick={() => onView?.(sale)}
-                className="cursor-pointer border-b border-[var(--border)] transition-colors last:border-0 hover:bg-slate-50/70"
-              >
-                <td className="px-5 py-4 text-slate-700">
-                  {formatDateIST(sale.created_at)}
-                </td>
-                <td className="px-5 py-4 text-slate-700">{sale.invoice_id}</td>
-                <td className="px-5 py-4 font-medium text-slate-900">
-                  {getItemSummary(sale.items)}
-                </td>
-                <td className="px-5 py-4 text-slate-700">
-                  {sale.items?.length || 0}
-                </td>
-                <td className="px-5 py-4 text-slate-700">
-                  {getQuantity(sale)}
-                </td>
-                <td className="px-5 py-4 text-slate-700">
-                  Rs {sale.final_total_amount?.toLocaleString("en-IN")}
-                </td>
-                <td className="px-5 py-4 text-slate-700">
-                  <StatusBadge status={sale.sale_status} type="sale" />
-                </td>
-              </tr>
-            ))}
+            {sales.map((sale) => {
+              const itemSummary = getItemSummary(sale.items);
+              const extraCount = Math.max((sale.items?.length || 0) - 1, 0);
+
+              return (
+                <tr
+                  key={sale.sale_id}
+                  onClick={() => onView?.(sale)}
+                  className="cursor-pointer border-b border-[var(--border)] transition-colors last:border-0 hover:bg-slate-50/70"
+                >
+                  <td className="px-5 py-4 text-slate-700">
+                    {formatDateIST(sale.created_at)}
+                  </td>
+                  <td className="px-5 py-4 text-slate-700">{sale.invoice_id}</td>
+                  <td className="px-5 py-4 font-medium text-slate-900">
+                    <div className="flex max-w-[240px] items-center gap-2">
+                      <span className="truncate" title={itemSummary}>
+                        {itemSummary}
+                      </span>
+                      {extraCount > 0 && (
+                        <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700 ring-1 ring-slate-200">
+                          +{extraCount}
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-5 py-4 text-slate-700">
+                    {sale.items?.length || 0}
+                  </td>
+                  <td className="px-5 py-4 text-slate-700">
+                    {getQuantity(sale)}
+                  </td>
+                  <td className="px-5 py-4 text-slate-700">
+                    Rs {sale.final_total_amount?.toLocaleString("en-IN")}
+                  </td>
+                  <td className="px-5 py-4 text-slate-700">
+                    <StatusBadge status={sale.sale_status} type="sale" />
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
