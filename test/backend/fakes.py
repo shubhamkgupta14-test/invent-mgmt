@@ -56,6 +56,8 @@ class FakeCollection:
                     return False
                 if "$nin" in value and actual in value["$nin"]:
                     return False
+                if "$in" in value and actual not in value["$in"]:
+                    return False
                 if "$gte" in value and actual < value["$gte"]:
                     return False
                 if "$lte" in value and actual > value["$lte"]:

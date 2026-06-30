@@ -5,6 +5,7 @@ from app.utils.helpers import (
     hash_password,
     normalize_username
 )
+from app.utils.pagination import paginate_collection, regex_filter, validate_sort_field
 from app.utils.responseBuilder import build_user_response
 
 from app.models.auth import UserRole
@@ -132,23 +133,35 @@ async def get_me(auth_user: dict):
 # GET ALL USERS
 
 
-async def get_all_users(auth_user: dict):
+async def get_all_users(
+    auth_user: dict,
+    search: str = None,
+    sort_by: str = "created_at",
+    order: str = "desc",
+    page: int = 1,
+    limit: int = 10,
+):
 
-    users = []
+    allowed_sort_fields = [
+        "created_at",
+        "updated_at",
+        "username",
+        "firstname",
+        "lastname",
+        "email",
+        "role",
+        "active",
+    ]
+    validate_sort_field(sort_by, allowed_sort_fields)
     # superadmin can view all users including inactive users, superadmin and admin users
     # admin can view only active users and cannot view other admin and superadmin users, also can view own details
     # users cannot view all users.
 
     if auth_user.get("role") == UserRole.SUPERADMIN:
-        async for user in user_collection.find({}).sort("created_at", -1):
-            users.append(
-                build_user_response(user)
-            )
+        filters = {}
 
-        return users
-
-    if auth_user.get("role") == UserRole.ADMIN:
-        async for user in user_collection.find({
+    elif auth_user.get("role") == UserRole.ADMIN:
+        filters = {
             "$or": [
                 {
                     "username": auth_user.get("username")
@@ -158,14 +171,29 @@ async def get_all_users(auth_user: dict):
                     "role": UserRole.USER
                 }
             ]
-        }).sort("created_at", -1):
-            users.append(
-                build_user_response(user)
-            )
+        }
+    else:
+        forbidden()
 
-        return users
+    search_filter = regex_filter(search, [
+        "username",
+        "firstname",
+        "lastname",
+        "email",
+        "role",
+    ])
+    if search_filter:
+        filters = {"$and": [filters, search_filter]} if filters else search_filter
 
-    forbidden()
+    return await paginate_collection(
+        user_collection,
+        filters,
+        sort_by,
+        order,
+        page,
+        limit,
+        build_user_response,
+    )
 
 # DELETE USER SOFT AND PERMANENT
 

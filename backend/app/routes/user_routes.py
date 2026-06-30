@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from typing import Annotated
+from typing import Annotated, Optional
 
 from app.services.auth_service import get_current_user
 
@@ -67,14 +67,29 @@ async def get_user_details_api(auth_user: user_dependency, user: GetUserRequest)
 
 
 @router.get("/")
-async def get_users_api(auth_user: user_dependency):
+async def get_users_api(
+    auth_user: user_dependency,
+    search: Optional[str] = None,
+    sort_by: str = "created_at",
+    order: str = "desc",
+    page: int = 1,
+    limit: int = 10,
+):
 
-    users = await get_all_users(auth_user)
+    users = await get_all_users(
+        auth_user,
+        search=search,
+        sort_by=sort_by,
+        order=order,
+        page=page,
+        limit=limit,
+    )
 
     return success_response(
         message=Messages.USERS_FETCHED,
-        data=users,
-        count=len(users)
+        data=users["items"],
+        count=users["pagination"]["total"],
+        pagination=users["pagination"],
     )
 
 # GET ME

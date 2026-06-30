@@ -36,8 +36,8 @@ export const getUserDetails = async (username) => {
   return API.post("/users/details", { username });
 };
 
-export const getUsers = async () => {
-  return API.get("/users/");
+export const getUsers = async (params = {}) => {
+  return API.get("/users/", { params });
 };
 
 export const updateUserRole = async (username, role) => {

@@ -53,23 +53,29 @@ async def get_purchases_api(
     purchase_id: Optional[str] = None,
     invoice_id: Optional[str] = None,
     supplier_id: Optional[str] = None,
+    search: Optional[str] = None,
     sort_by: str = "created_at",
-    order: str = "desc"
+    order: str = "desc",
+    page: int = 1,
+    limit: int = 10
 ):
     purchases = await get_purchases(
         auth_user=auth_user,
         purchase_id=purchase_id,
         invoice_id=invoice_id,
         supplier_id=supplier_id,
+        search=search,
         sort_by=sort_by,
-        order=order
+        order=order,
+        page=page,
+        limit=limit,
     )
 
     return success_response(
-        message=Messages.PURCHASES_FETCHED if len(
-            purchases) != 0 else Messages.NO_PURCHASES_FOUND,
-        data=purchases,
-        count=len(purchases)
+        message=Messages.PURCHASES_FETCHED if purchases["items"] else Messages.NO_PURCHASES_FOUND,
+        data=purchases["items"],
+        count=purchases["pagination"]["total"],
+        pagination=purchases["pagination"],
     )
 
 

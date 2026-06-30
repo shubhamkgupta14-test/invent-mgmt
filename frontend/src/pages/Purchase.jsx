@@ -8,26 +8,34 @@ import Button from "../components/common/Button";
 import Card from "../components/common/Card";
 import Modal from "../components/common/Modal";
 import DetailModal from "../components/common/DetailModal";
+import TablePagination from "../components/common/TablePagination";
 import StatusBadge from "../components/common/StatusBadge";
 import { getProductOptions } from "../api/productApi";
 import { createPurchase, getPurchases } from "../api/purchaseApi";
 import { getMyDetails } from "../api/userApi";
 import { useToast } from "../context/useToast";
 import { formatDateIST, formatMoney } from "../utils/formatters";
+import { toggleSort } from "../utils/sortUtils";
+import { defaultPagination, listParams, parseListResponse } from "../utils/tableQuery";
 
 function Purchases() {
   const [purchases, setPurchases] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [pagination, setPagination] = useState(defaultPagination);
+  const [sortConfig, setSortConfig] = useState({ field: "created_at", order: "desc" });
   const [selectedPurchase, setSelectedPurchase] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [products, setProducts] = useState([]);
   const [purchaseFormOpen, setPurchaseFormOpen] = useState(false);
   const { addToast } = useToast();
+  const { page, limit } = pagination;
 
   const loadPurchases = async () => {
-    const response = await getPurchases();
-    setPurchases(response.data.data || []);
+    const response = await getPurchases(listParams({ search, sortConfig, pagination: { page, limit } }));
+    const parsed = parseListResponse(response);
+    setPurchases(parsed.items);
+    setPagination(parsed.pagination);
   };
 
   const loadProductOptions = async () => {
@@ -39,10 +47,12 @@ function Purchases() {
   useEffect(() => {
     let isActive = true;
 
-    Promise.all([getPurchases(), getMyDetails()])
+    Promise.all([getPurchases(listParams({ search, sortConfig, pagination: { page, limit } })), getMyDetails()])
       .then(([purchasesResponse, userResponse]) => {
         if (!isActive) return;
-        setPurchases(purchasesResponse.data.data);
+        const parsed = parseListResponse(purchasesResponse);
+        setPurchases(parsed.items);
+        setPagination(parsed.pagination);
         setCurrentUser(userResponse.data.data);
       })
       .catch((error) => {
@@ -55,7 +65,7 @@ function Purchases() {
     return () => {
       isActive = false;
     };
-  }, []);
+  }, [limit, page, search, sortConfig]);
 
   if (loading) {
     return (
@@ -67,12 +77,16 @@ function Purchases() {
     );
   }
 
-  const filteredPurchases = purchases.filter(
-    (purchase) =>
-      purchase.supplier_id?.toLowerCase().includes(search.toLowerCase()) ||
-      purchase.invoice_id?.toLowerCase().includes(search.toLowerCase()) ||
-      purchase.final_total_amount?.toString().includes(search),
-  );
+  const handleSearchChange = (value) => {
+    setSearch(value);
+    setPagination((current) => ({ ...current, page: 1 }));
+  };
+  const handleSort = (field) => {
+    setSortConfig((current) => toggleSort(current, field));
+    setPagination((current) => ({ ...current, page: 1 }));
+  };
+  const handlePageChange = (page) => setPagination((current) => ({ ...current, page }));
+  const handleLimitChange = (limit) => setPagination((current) => ({ ...current, limit, page: 1 }));
 
   const handleAddPurchase = async () => {
     try {
@@ -156,21 +170,25 @@ function Purchases() {
         <div className="mb-5">
           <SearchBar
             value={search}
-            onChange={setSearch}
-            placeholder="Search invoice, supplier, or total"
+            onChange={handleSearchChange}
+            placeholder="Search invoice, supplier, product, payment, or total"
           />
         </div>
 
         <PurchaseTable
-          purchases={filteredPurchases}
+          purchases={purchases}
           onView={setSelectedPurchase}
+          sortConfig={sortConfig}
+          handleSort={handleSort}
         />
 
-        <div className="mt-6 rounded-2xl border border-border bg-slate-50 p-4 text-sm text-slate-700">
-          Showing{" "}
-          <span className="font-semibold">{filteredPurchases.length}</span>{" "}
-          purchases.
-        </div>
+        <TablePagination
+          pagination={pagination}
+          label="purchases"
+          onPageChange={handlePageChange}
+          onLimitChange={handleLimitChange}
+          disabled={loading}
+        />
       </Card>
       <DetailModal
         isOpen={Boolean(selectedPurchase)}

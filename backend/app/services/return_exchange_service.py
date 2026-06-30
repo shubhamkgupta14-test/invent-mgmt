@@ -13,6 +13,7 @@ from app.services.stock_service import (
 )
 from app.utils.helpers import is_valid_object_id, normalize_sku, round_final_amount
 from app.utils.messages import Messages
+from app.utils.pagination import paginate_collection, regex_filter, validate_sort_field
 from app.utils.responseBuilder import build_exchange_response, build_return_response
 
 returns_collection = db.returns
@@ -428,8 +429,23 @@ async def create_exchange(auth_user: dict, exchange_data: dict):
     return build_exchange_response(created_exchange)
 
 
-async def get_returns(auth_user: dict, return_id: str = None):
+async def get_returns(
+    auth_user: dict,
+    return_id: str = None,
+    search: str = None,
+    sort_by: str = "created_at",
+    order: str = "desc",
+    page: int = 1,
+    limit: int = 10,
+):
     _can_view(auth_user)
+    validate_sort_field(sort_by, [
+        "created_at",
+        "updated_at",
+        "invoice_id",
+        "total_quantity",
+        "refund_amount",
+    ])
 
     filters = {}
     if return_id:
@@ -439,15 +455,44 @@ async def get_returns(auth_user: dict, return_id: str = None):
             else {"return_id": return_id}
         )
 
-    returns = []
-    async for item in returns_collection.find(filters).sort("created_at", -1):
-        returns.append(build_return_response(item))
+    filters.update(regex_filter(search, [
+        "return_id",
+        "sale_id",
+        "invoice_id",
+        "created_by",
+        "items.sku",
+        "items.name",
+    ]))
 
-    return returns
+    return await paginate_collection(
+        returns_collection,
+        filters,
+        sort_by,
+        order,
+        page,
+        limit,
+        build_return_response,
+    )
 
 
-async def get_exchanges(auth_user: dict, exchange_id: str = None):
+async def get_exchanges(
+    auth_user: dict,
+    exchange_id: str = None,
+    search: str = None,
+    sort_by: str = "created_at",
+    order: str = "desc",
+    page: int = 1,
+    limit: int = 10,
+):
     _can_view(auth_user)
+    validate_sort_field(sort_by, [
+        "created_at",
+        "updated_at",
+        "invoice_id",
+        "returned_quantity",
+        "replacement_quantity",
+        "adjustment_amount",
+    ])
 
     filters = {}
     if exchange_id:
@@ -457,8 +502,23 @@ async def get_exchanges(auth_user: dict, exchange_id: str = None):
             else {"exchange_id": exchange_id}
         )
 
-    exchanges = []
-    async for item in exchanges_collection.find(filters).sort("created_at", -1):
-        exchanges.append(build_exchange_response(item))
+    filters.update(regex_filter(search, [
+        "exchange_id",
+        "sale_id",
+        "invoice_id",
+        "created_by",
+        "returned_items.sku",
+        "returned_items.name",
+        "replacement_items.sku",
+        "replacement_items.name",
+    ]))
 
-    return exchanges
+    return await paginate_collection(
+        exchanges_collection,
+        filters,
+        sort_by,
+        order,
+        page,
+        limit,
+        build_exchange_response,
+    )

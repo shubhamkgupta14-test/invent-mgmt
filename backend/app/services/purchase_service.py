@@ -26,6 +26,7 @@ from app.utils.helpers import (
     round_final_amount
 )
 from app.utils.responseBuilder import build_purchase_response
+from app.utils.pagination import paginate_collection, regex_filter, validate_sort_field
 purchase_collection = db.purchases
 products_collection = db.products
 
@@ -240,8 +241,11 @@ async def get_purchases(
     purchase_id: str = None,
     invoice_id: str = None,
     supplier_id: str = None,
+    search: str = None,
     sort_by: str = "created_at",
-    order: str = "desc"
+    order: str = "desc",
+    page: int = 1,
+    limit: int = 10
 ):
     if auth_user.get("role") not in [
         UserRole.SUPERADMIN,
@@ -251,12 +255,15 @@ async def get_purchases(
         forbidden()
 
     filters = {}
-    purchases = []
     allowed_sort_fields = [
         "created_at",
         "updated_at",
         "invoice_id",
-        "supplier_id"
+        "supplier_id",
+        "total_quantity",
+        "final_total_amount",
+        "payment_status",
+        "purchase_status",
     ]
 
     if purchase_id:
@@ -271,21 +278,26 @@ async def get_purchases(
     if supplier_id:
         filters["supplier_id"] = supplier_id
 
-    if sort_by not in allowed_sort_fields:
-        bad_request(Messages.INVALID_SORT_FIELD)
+    validate_sort_field(sort_by, allowed_sort_fields)
+    filters.update(regex_filter(search, [
+        "invoice_id",
+        "supplier_id",
+        "payment_status",
+        "purchase_status",
+        "created_by",
+        "items.sku",
+        "items.name",
+    ]))
 
-    if order.lower() not in ["asc", "desc"]:
-        bad_request(Messages.INVALID_SORT_FIELD)
-
-    sort_order = -1 if order.lower() == "desc" else 1
-
-    async for purchase in purchase_collection.find(filters).sort(sort_by, sort_order):
-
-        purchases.append(
-            build_purchase_response(purchase)
-        )
-
-    return purchases
+    return await paginate_collection(
+        purchase_collection,
+        filters,
+        sort_by,
+        order,
+        page,
+        limit,
+        build_purchase_response,
+    )
 
 
 async def get_purchase_by_purchase_id(

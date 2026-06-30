@@ -42,22 +42,29 @@ async def get_manufacturing_api(
     manufacturing_id: Optional[str] = None,
     batch_no: Optional[str] = None,
     sku: Optional[str] = None,
+    search: Optional[str] = None,
     sort_by: str = "created_at",
-    order: str = "desc"
+    order: str = "desc",
+    page: int = 1,
+    limit: int = 10
 ):
     records = await get_manufacturing_records(
         auth_user=auth_user,
         manufacturing_id=manufacturing_id,
         batch_no=batch_no,
         sku=sku,
+        search=search,
         sort_by=sort_by,
-        order=order
+        order=order,
+        page=page,
+        limit=limit,
     )
 
     return success_response(
         message="Manufacturing records fetched successfully",
-        data=records,
-        count=len(records)
+        data=records["items"],
+        count=records["pagination"]["total"],
+        pagination=records["pagination"],
     )
 
 

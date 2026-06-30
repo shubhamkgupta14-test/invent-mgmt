@@ -8,13 +8,17 @@ import Button from "../components/common/Button";
 import Card from "../components/common/Card";
 import Modal from "../components/common/Modal";
 import DetailModal from "../components/common/DetailModal";
+import TablePagination from "../components/common/TablePagination";
 import StatusBadge from "../components/common/StatusBadge";
+import PlatformBadge from "../components/common/PlatformBadge";
 import { createSale, getSales } from "../api/salesApi";
 import { getMyDetails } from "../api/userApi";
 import { getProductOptions } from "../api/productApi";
 import { getStocks } from "../api/stockApi";
 import { useToast } from "../context/useToast";
 import { formatDateIST, formatMoney } from "../utils/formatters";
+import { toggleSort } from "../utils/sortUtils";
+import { defaultPagination, listParams, parseListResponse } from "../utils/tableQuery";
 
 const getSalePaidAmount = (sale) =>
   sale?.total_paid ??
@@ -28,22 +32,27 @@ function Sales() {
   const [sales, setSales] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [pagination, setPagination] = useState(defaultPagination);
+  const [sortConfig, setSortConfig] = useState({ field: "created_at", order: "desc" });
   const [selectedSale, setSelectedSale] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [products, setProducts] = useState([]);
   const [saleFormOpen, setSaleFormOpen] = useState(false);
   const { addToast } = useToast();
+  const { page, limit } = pagination;
 
   const loadSales = async () => {
-    const response = await getSales();
-    setSales(response.data.data || []);
+    const response = await getSales(listParams({ search, sortConfig, pagination: { page, limit } }));
+    const parsed = parseListResponse(response);
+    setSales(parsed.items);
+    setPagination(parsed.pagination);
   };
 
   const loadProductOptions = async () => {
     if (products.length) return;
     const [productResponse, stockResponse] = await Promise.all([
       getProductOptions({ activeOnly: true }),
-      getStocks(),
+      getStocks({ limit: 100, sort_by: "sku", sort_order: "asc" }),
     ]);
 
     const stockBySku = new Map(
@@ -58,6 +67,7 @@ function Sales() {
         ...product,
         quantity: stockBySku.get(product.sku)?.quantity || 0,
         stock_status: stockBySku.get(product.sku)?.stock_status,
+        min_selling_price: stockBySku.get(product.sku)?.min_selling_price,
       }));
 
     setProducts(sellableProducts);
@@ -66,10 +76,12 @@ function Sales() {
   useEffect(() => {
     let isActive = true;
 
-    Promise.all([getSales(), getMyDetails()])
+    Promise.all([getSales(listParams({ search, sortConfig, pagination: { page, limit } })), getMyDetails()])
       .then(([salesResponse, userResponse]) => {
         if (!isActive) return;
-        setSales(salesResponse.data.data);
+        const parsed = parseListResponse(salesResponse);
+        setSales(parsed.items);
+        setPagination(parsed.pagination);
         setCurrentUser(userResponse.data.data);
       })
       .catch((error) => {
@@ -82,14 +94,18 @@ function Sales() {
     return () => {
       isActive = false;
     };
-  }, []);
+  }, [limit, page, search, sortConfig]);
 
-  const filteredSales = sales.filter(
-    (sale) =>
-      sale.supplier_id?.toLowerCase().includes(search.toLowerCase()) ||
-      sale.invoice_id?.toLowerCase().includes(search.toLowerCase()) ||
-      sale.final_total_amount?.toString().includes(search),
-  );
+  const handleSearchChange = (value) => {
+    setSearch(value);
+    setPagination((current) => ({ ...current, page: 1 }));
+  };
+  const handleSort = (field) => {
+    setSortConfig((current) => toggleSort(current, field));
+    setPagination((current) => ({ ...current, page: 1 }));
+  };
+  const handlePageChange = (page) => setPagination((current) => ({ ...current, page }));
+  const handleLimitChange = (limit) => setPagination((current) => ({ ...current, limit, page: 1 }));
 
   if (loading) {
     return (
@@ -192,21 +208,29 @@ function Sales() {
         <div className="mb-5">
           <SearchBar
             value={search}
-            onChange={setSearch}
-            placeholder="Search invoice, supplier, or amount"
+            onChange={handleSearchChange}
+            placeholder="Search invoice, platform, product, status, or amount"
           />
         </div>
 
         {loading ? (
           <Loader fullScreen={false} message="Loading sales…" />
         ) : (
-          <SaleTable sales={filteredSales} onView={setSelectedSale} />
+          <SaleTable
+            sales={sales}
+            onView={setSelectedSale}
+            sortConfig={sortConfig}
+            handleSort={handleSort}
+          />
         )}
 
-        <div className="mt-6 rounded-2xl border border-border bg-slate-50 p-4 text-sm text-slate-700">
-          Showing <span className="font-semibold">{filteredSales.length}</span>{" "}
-          sales records.
-        </div>
+        <TablePagination
+          pagination={pagination}
+          label="sales records"
+          onPageChange={handlePageChange}
+          onLimitChange={handleLimitChange}
+          disabled={loading}
+        />
       </Card>
       <DetailModal
         isOpen={Boolean(selectedSale)}
@@ -218,6 +242,11 @@ function Sales() {
             title: "Sale",
             fields: [
               { label: "Invoice", value: selectedSale?.invoice_id },
+              {
+                label: "Sales Channel",
+                value: selectedSale?.platform || "Self Store",
+                render: (value) => <PlatformBadge platform={value} />,
+              },
               { label: "Date", value: formatDateIST(selectedSale?.created_at) },
               {
                 label: "Status",

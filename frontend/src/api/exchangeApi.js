@@ -1,7 +1,7 @@
 import API from "./apiClient";
 
-export const getExchanges = async () => {
-  return API.get("/exchanges/");
+export const getExchanges = async (params = {}) => {
+  return API.get("/exchanges/", { params });
 };
 
 export const createExchange = async (payload) => {

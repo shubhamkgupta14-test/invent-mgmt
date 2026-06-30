@@ -9,6 +9,7 @@ import Return from "./pages/Return";
 import Exchange from "./pages/Exchange";
 import Manufacturing from "./pages/Manufacturing";
 import Stock from "./pages/Stock";
+import SellingPriceCalculator from "./pages/SellingPriceCalculator";
 import Supplier from "./pages/Supplier";
 import SuperAdmin from "./pages/SuperAdmin";
 import AuditLogs from "./pages/AuditLogs";
@@ -43,6 +44,14 @@ function App() {
           element={
             <ProtectedRoute>
               <Stock />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/selling-price-calculator"
+          element={
+            <ProtectedRoute>
+              <SellingPriceCalculator />
             </ProtectedRoute>
           }
         />

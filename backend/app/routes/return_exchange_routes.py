@@ -30,13 +30,30 @@ async def create_return_api(auth_user: user_dependency, payload: ReturnCreate):
 
 
 @return_router.get("/")
-async def get_returns_api(auth_user: user_dependency, return_id: Optional[str] = None):
-    result = await get_returns(auth_user, return_id=return_id)
+async def get_returns_api(
+    auth_user: user_dependency,
+    return_id: Optional[str] = None,
+    search: Optional[str] = None,
+    sort_by: str = "created_at",
+    order: str = "desc",
+    page: int = 1,
+    limit: int = 10,
+):
+    result = await get_returns(
+        auth_user,
+        return_id=return_id,
+        search=search,
+        sort_by=sort_by,
+        order=order,
+        page=page,
+        limit=limit,
+    )
 
     return success_response(
-        message=Messages.RETURNS_FETCHED if result else Messages.NO_RETURNS_FOUND,
-        data=result,
-        count=len(result),
+        message=Messages.RETURNS_FETCHED if result["items"] else Messages.NO_RETURNS_FOUND,
+        data=result["items"],
+        count=result["pagination"]["total"],
+        pagination=result["pagination"],
     )
 
 
@@ -52,11 +69,28 @@ async def create_exchange_api(auth_user: user_dependency, payload: ExchangeCreat
 
 
 @exchange_router.get("/")
-async def get_exchanges_api(auth_user: user_dependency, exchange_id: Optional[str] = None):
-    result = await get_exchanges(auth_user, exchange_id=exchange_id)
+async def get_exchanges_api(
+    auth_user: user_dependency,
+    exchange_id: Optional[str] = None,
+    search: Optional[str] = None,
+    sort_by: str = "created_at",
+    order: str = "desc",
+    page: int = 1,
+    limit: int = 10,
+):
+    result = await get_exchanges(
+        auth_user,
+        exchange_id=exchange_id,
+        search=search,
+        sort_by=sort_by,
+        order=order,
+        page=page,
+        limit=limit,
+    )
 
     return success_response(
-        message=Messages.EXCHANGES_FETCHED if result else Messages.NO_EXCHANGES_FOUND,
-        data=result,
-        count=len(result),
+        message=Messages.EXCHANGES_FETCHED if result["items"] else Messages.NO_EXCHANGES_FOUND,
+        data=result["items"],
+        count=result["pagination"]["total"],
+        pagination=result["pagination"],
     )

@@ -16,6 +16,7 @@ from app.utils.helpers import (
     round_price,
 )
 from app.utils.messages import Messages
+from app.utils.pagination import paginate_collection, regex_filter, validate_sort_field
 from app.utils.responseBuilder import build_manufacturing_response
 
 manufacturing_collection = db.manufacturing
@@ -109,8 +110,11 @@ async def get_manufacturing_records(
     manufacturing_id: str = None,
     batch_no: str = None,
     sku: str = None,
+    search: str = None,
     sort_by: str = "created_at",
-    order: str = "desc"
+    order: str = "desc",
+    page: int = 1,
+    limit: int = 10
 ):
     if auth_user.get("role") not in [
         UserRole.SUPERADMIN,
@@ -119,12 +123,17 @@ async def get_manufacturing_records(
     ]:
         forbidden()
 
-    allowed_sort_fields = ["created_at", "updated_at", "batch_no", "sku"]
-    if sort_by not in allowed_sort_fields:
-        bad_request(Messages.INVALID_SORT_FIELD)
-
-    if order.lower() not in ["asc", "desc"]:
-        bad_request(Messages.INVALID_SORT_FIELD)
+    allowed_sort_fields = [
+        "created_at",
+        "updated_at",
+        "batch_no",
+        "sku",
+        "name",
+        "quantity",
+        "status",
+        "total_cost",
+    ]
+    validate_sort_field(sort_by, allowed_sort_fields)
 
     filters = {}
 
@@ -139,13 +148,17 @@ async def get_manufacturing_records(
     if sku:
         filters["sku"] = normalize_sku(sku)
 
-    sort_order = -1 if order.lower() == "desc" else 1
+    filters.update(regex_filter(search, ["batch_no", "sku", "name", "status", "created_by"]))
 
-    records = []
-    async for record in manufacturing_collection.find(filters).sort(sort_by, sort_order):
-        records.append(build_manufacturing_response(record))
-
-    return records
+    return await paginate_collection(
+        manufacturing_collection,
+        filters,
+        sort_by,
+        order,
+        page,
+        limit,
+        build_manufacturing_response,
+    )
 
 
 async def get_manufacturing_by_id(auth_user: dict, manufacturing_id: str):

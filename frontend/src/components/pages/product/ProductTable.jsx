@@ -1,4 +1,5 @@
 import ActionButtons from "../../common/ActionButtons";
+import SortableHeader from "../../common/SortableHeader";
 
 function ProductTable({
   products,
@@ -9,6 +10,8 @@ function ProductTable({
   canEdit = false,
   canDelete = false,
   canToggleActive = false,
+  sortConfig,
+  handleSort,
 }) {
   const hasActions = canEdit || canDelete;
 
@@ -29,25 +32,13 @@ function ProductTable({
           <thead>
             <tr className="border-b border-[var(--border)] bg-slate-50/70">
               {canToggleActive && (
-                <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                  Active
-                </th>
+                <SortableHeader label="Active" field="is_active" sortConfig={sortConfig} onSort={handleSort} />
               )}
-              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                SKU
-              </th>
-              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                Name
-              </th>
-              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                Category
-              </th>
-              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                GST
-              </th>
-              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                Supplier
-              </th>
+              <SortableHeader label="SKU" field="sku" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Name" field="name" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Category" field="category" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableHeader label="GST" field="tax_rate" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Supplier" field="supplier_id" sortConfig={sortConfig} onSort={handleSort} />
               <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
                 Manufactured
               </th>

@@ -11,6 +11,7 @@ from app.utils.helpers import (
     round_final_amount,
     round_price)
 from app.utils.responseBuilder import build_sales_response
+from app.utils.pagination import paginate_collection, regex_filter, validate_sort_field
 from app.core.exceptions import (
     forbidden,
     not_found,
@@ -122,6 +123,7 @@ async def create_sale(auth_user: dict, sale_data: dict):
 
     sale_document = {
         "invoice_id": sale_data.get("invoice_id"),
+        "platform": sale_data.get("platform", "Self Store"),
         "user_info": sale_data.get("user_info"),
         "items": sale_items,
         "subtotal": subtotal,
@@ -169,6 +171,7 @@ async def create_sale(auth_user: dict, sale_data: dict):
             "invoice_id": sale_data.get(
                 "invoice_id"
             ),
+            "platform": sale_data.get("platform", "Self Store"),
             "final_total_amount": final_total_amount,
             "total_items": len(
                 sale_items
@@ -191,8 +194,11 @@ async def get_sales(
     auth_user: dict,
     sale_id: str = None,
     invoice_id: str = None,
+    search: str = None,
     sort_by: str = "created_at",
-    order: str = "desc"
+    order: str = "desc",
+    page: int = 1,
+    limit: int = 10
 ):
     if auth_user.get("role") not in [
         UserRole.SUPERADMIN,
@@ -202,11 +208,14 @@ async def get_sales(
         forbidden()
 
     filters = {}
-    sales = []
     allowed_sort_fields = [
         "created_at",
         "updated_at",
         "invoice_id",
+        "platform",
+        "final_total_amount",
+        "total_paid",
+        "sale_status",
     ]
 
     if sale_id:
@@ -218,18 +227,34 @@ async def get_sales(
     if invoice_id:
         filters["invoice_id"] = invoice_id
 
-    if sort_by not in allowed_sort_fields:
-        bad_request(Messages.INVALID_SORT_FIELD)
+    validate_sort_field(sort_by, allowed_sort_fields)
+    search_filter = regex_filter(search, [
+        "invoice_id",
+        "platform",
+        "sale_status",
+        "created_by",
+        "items.sku",
+        "items.name",
+    ])
 
-    if order.lower() not in ["asc", "desc"]:
-        bad_request(Messages.INVALID_SORT_FIELD)
-
-    sort_order = -1 if order.lower() == "desc" else 1
-
-    async for sale in sales_collection.find(filters).sort(sort_by, sort_order):
-
-        sales.append(
-            build_sales_response(sale)
+    normalized_search = (search or "").lower().replace(" ", "").replace("_", "").replace("-", "")
+    if (
+        len(normalized_search) >= 2
+        and (
+            "selfstore".startswith(normalized_search)
+            or "store".startswith(normalized_search)
         )
+    ):
+        search_filter.setdefault("$or", []).append({"platform": {"$in": [None, ""]}})
 
-    return sales
+    filters.update(search_filter)
+
+    return await paginate_collection(
+        sales_collection,
+        filters,
+        sort_by,
+        order,
+        page,
+        limit,
+        build_sales_response,
+    )

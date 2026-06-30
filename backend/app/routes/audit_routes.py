@@ -27,7 +27,12 @@ async def get_audits_api(
     module_name: Optional[str] = None,
     event_type: Optional[str] = None,
     reference_id: Optional[str] = None,
-    sku: Optional[str] = None
+    sku: Optional[str] = None,
+    search: Optional[str] = None,
+    sort_by: str = "created_at",
+    order: str = "desc",
+    page: int = 1,
+    limit: int = 20,
 ):
 
     result = await get_audit_logs(
@@ -35,11 +40,17 @@ async def get_audits_api(
         module_name=module_name,
         event_type=event_type,
         reference_id=reference_id,
-        sku=sku
+        sku=sku,
+        search=search,
+        sort_by=sort_by,
+        order=order,
+        page=page,
+        limit=limit,
     )
 
     return success_response(
         message=Messages.AUDIT_LOGS_FETCHED,
-        count=len(result),
-        data=result
+        count=result["pagination"]["total"],
+        data=result["items"],
+        pagination=result["pagination"],
     )

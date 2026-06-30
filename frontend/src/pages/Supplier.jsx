@@ -7,11 +7,15 @@ import Input from "../components/common/Input";
 import Loader from "../components/common/Loader";
 import Modal from "../components/common/Modal";
 import SearchBar from "../components/common/SearchBar";
+import SortableHeader from "../components/common/SortableHeader";
+import TablePagination from "../components/common/TablePagination";
 import Textarea from "../components/common/Textarea";
 import { addSupplier, getSuppliers, updateSupplier } from "../api/supplierApi";
 import { getMyDetails } from "../api/userApi";
 import { useToast } from "../context/useToast";
 import MainLayout from "../layouts/MainLayout";
+import { toggleSort } from "../utils/sortUtils";
+import { defaultPagination, listParams, parseListResponse } from "../utils/tableQuery";
 
 const defaultSupplier = {
   name: "",
@@ -91,7 +95,7 @@ function SupplierForm({ supplier, onSubmit, onCancel, loading }) {
   );
 }
 
-function SupplierTable({ suppliers, canEdit, onView, onEdit }) {
+function SupplierTable({ suppliers, canEdit, onView, onEdit, sortConfig, handleSort }) {
   if (!suppliers.length) {
     return (
       <div className="rounded-2xl border border-border bg-white p-5 text-center text-sm text-slate-500">
@@ -108,18 +112,10 @@ function SupplierTable({ suppliers, canEdit, onView, onEdit }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-slate-50/70">
-              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                Supplier
-              </th>
-              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                Contact
-              </th>
-              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                Phone
-              </th>
-              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                Email
-              </th>
+              <SortableHeader label="Supplier" field="name" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Contact" field="contact_person" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Phone" field="phone" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Email" field="email" sortConfig={sortConfig} onSort={handleSort} />
               {hasActions && (
                 <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
                   Action
@@ -172,25 +168,32 @@ function Supplier() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
+  const [pagination, setPagination] = useState(defaultPagination);
+  const [sortConfig, setSortConfig] = useState({ field: "created_at", order: "desc" });
   const [selectedSupplier, setSelectedSupplier] = useState(null);
   const [editingSupplier, setEditingSupplier] = useState(null);
   const [formOpen, setFormOpen] = useState(false);
   const { addToast } = useToast();
+  const { page, limit } = pagination;
 
   const canMutateSuppliers = ["admin", "superadmin"].includes(currentUser?.role);
 
   const loadSuppliers = async () => {
-    const response = await getSuppliers();
-    setSuppliers(response.data.data || []);
+    const response = await getSuppliers(listParams({ search, sortConfig, pagination: { page, limit } }));
+    const parsed = parseListResponse(response);
+    setSuppliers(parsed.items);
+    setPagination(parsed.pagination);
   };
 
   useEffect(() => {
     let isActive = true;
 
-    Promise.all([getSuppliers(), getMyDetails()])
+    Promise.all([getSuppliers(listParams({ search, sortConfig, pagination: { page, limit } })), getMyDetails()])
       .then(([suppliersResponse, userResponse]) => {
         if (!isActive) return;
-        setSuppliers(suppliersResponse.data.data || []);
+        const parsed = parseListResponse(suppliersResponse);
+        setSuppliers(parsed.items);
+        setPagination(parsed.pagination);
         setCurrentUser(userResponse.data.data);
       })
       .catch((error) => {
@@ -203,18 +206,18 @@ function Supplier() {
     return () => {
       isActive = false;
     };
-  }, [addToast]);
+  }, [addToast, limit, page, search, sortConfig]);
 
-  const filteredSuppliers = suppliers.filter((supplier) => {
-    const value = search.toLowerCase();
-    return (
-      supplier.name?.toLowerCase().includes(value) ||
-      supplier.supplier_id?.toLowerCase().includes(value) ||
-      supplier.contact_person?.toLowerCase().includes(value) ||
-      supplier.phone?.includes(search) ||
-      supplier.gst_number?.toLowerCase().includes(value)
-    );
-  });
+  const handleSearchChange = (value) => {
+    setSearch(value);
+    setPagination((current) => ({ ...current, page: 1 }));
+  };
+  const handleSort = (field) => {
+    setSortConfig((current) => toggleSort(current, field));
+    setPagination((current) => ({ ...current, page: 1 }));
+  };
+  const handlePageChange = (page) => setPagination((current) => ({ ...current, page }));
+  const handleLimitChange = (limit) => setPagination((current) => ({ ...current, limit, page: 1 }));
 
   const openAdd = () => {
     setEditingSupplier(null);
@@ -283,22 +286,27 @@ function Supplier() {
         <div className="mb-5">
           <SearchBar
             value={search}
-            onChange={setSearch}
+            onChange={handleSearchChange}
             placeholder="Search supplier, contact, or phone"
           />
         </div>
 
         <SupplierTable
-          suppliers={filteredSuppliers}
+          suppliers={suppliers}
           canEdit={canMutateSuppliers}
           onView={setSelectedSupplier}
           onEdit={openEdit}
+          sortConfig={sortConfig}
+          handleSort={handleSort}
         />
 
-        <div className="mt-6 rounded-2xl border border-border bg-slate-50 p-4 text-sm text-slate-700">
-          Showing <span className="font-semibold">{filteredSuppliers.length}</span>{" "}
-          suppliers.
-        </div>
+        <TablePagination
+          pagination={pagination}
+          label="suppliers"
+          onPageChange={handlePageChange}
+          onLimitChange={handleLimitChange}
+          disabled={loading}
+        />
       </Card>
 
       <DetailModal

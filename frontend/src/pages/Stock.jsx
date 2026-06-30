@@ -6,26 +6,34 @@ import Loader from "../components/common/Loader";
 import Button from "../components/common/Button";
 import Card from "../components/common/Card";
 import DetailModal from "../components/common/DetailModal";
+import TablePagination from "../components/common/TablePagination";
 import StockStatusBadge from "../components/common/StockStatusBadge";
 import { getStocks } from "../api/stockApi";
 import { formatDateIST } from "../utils/formatters";
+import { toggleSort } from "../utils/sortUtils";
+import { defaultPagination, listParams, parseListResponse } from "../utils/tableQuery";
 
 function Stocks() {
   const [stocks, setStocks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedStock, setSelectedStock] = useState(null);
+  const [pagination, setPagination] = useState(defaultPagination);
   const [sortConfig, setSortConfig] = useState({
-    field: "sku",
-    order: "asc",
+    field: "created_at",
+    order: "desc",
   });
+  const { page, limit } = pagination;
 
   useEffect(() => {
     let isActive = true;
 
-    getStocks()
+    getStocks(listParams({ search, sortConfig, pagination: { page, limit } }))
       .then((stocksResponse) => {
-        if (isActive) setStocks(stocksResponse.data.data);
+        if (!isActive) return;
+        const parsed = parseListResponse(stocksResponse);
+        setStocks(parsed.items);
+        setPagination(parsed.pagination);
       })
       .catch((error) => {
         console.error(error);
@@ -37,41 +45,18 @@ function Stocks() {
     return () => {
       isActive = false;
     };
-  }, []);
+  }, [limit, page, search, sortConfig]);
 
-  const searchText = search.toLowerCase().replace(/[_\s]/g, "");
-
-  const filteredStocks = stocks.filter((stock) => {
-    const normalizedStatus = stock.stock_status
-      ?.toLowerCase()
-      .replace(/[_\s]/g, "");
-
-    return (
-      stock.sku?.toLowerCase().includes(search.toLowerCase()) ||
-      stock.name?.toLowerCase().includes(search.toLowerCase()) ||
-      normalizedStatus?.includes(searchText)
-    );
-  });
-
-  const handleSort = (field) => {
-    setSortConfig((prev) => ({
-      field,
-      order: prev.field === field && prev.order === "asc" ? "desc" : "asc",
-    }));
+  const handleSearchChange = (value) => {
+    setSearch(value);
+    setPagination((current) => ({ ...current, page: 1 }));
   };
-
-  const sortedStocks = [...filteredStocks].sort((a, b) => {
-    const { field, order } = sortConfig;
-    let comparison = 0;
-
-    if (field === "sku") {
-      comparison = a.sku.localeCompare(b.sku);
-    } else if (field === "inventory_value") {
-      comparison = a.inventory_value - b.inventory_value;
-    }
-
-    return order === "desc" ? comparison : -comparison;
-  });
+  const handleSort = (field) => {
+    setSortConfig((current) => toggleSort(current, field));
+    setPagination((current) => ({ ...current, page: 1 }));
+  };
+  const handlePageChange = (page) => setPagination((current) => ({ ...current, page }));
+  const handleLimitChange = (limit) => setPagination((current) => ({ ...current, limit, page: 1 }));
 
   if (loading) {
     return (
@@ -101,8 +86,8 @@ function Stocks() {
         <div className="mb-5">
           <SearchBar
             value={search}
-            onChange={setSearch}
-            placeholder="Search SKU, product name, or status"
+            onChange={handleSearchChange}
+            placeholder="Search stock items"
           />
         </div>
 
@@ -110,17 +95,20 @@ function Stocks() {
           <Loader fullScreen={false} message="Loading stock data..." />
         ) : (
           <StockTable
-            stocks={sortedStocks}
+            stocks={stocks}
             sortConfig={sortConfig}
             handleSort={handleSort}
             onView={setSelectedStock}
           />
         )}
 
-        <div className="mt-6 rounded-2xl border border-border bg-slate-50 p-4 text-sm text-slate-700">
-          Showing <span className="font-semibold">{sortedStocks.length}</span>{" "}
-          stock items.
-        </div>
+        <TablePagination
+          pagination={pagination}
+          label="stock items"
+          onPageChange={handlePageChange}
+          onLimitChange={handleLimitChange}
+          disabled={loading}
+        />
       </Card>
       <DetailModal
         isOpen={Boolean(selectedStock)}
@@ -135,6 +123,7 @@ function Stocks() {
               { label: "Quantity", value: selectedStock?.quantity },
               { label: "Tax", value: `${selectedStock?.tax_rate ?? 0}%` },
               { label: "Avg Purchase Price", value: selectedStock?.avg_price, money: true },
+              { label: "Min Selling Price", value: selectedStock?.min_selling_price, money: true },
               { label: "Inventory Value", value: selectedStock?.inventory_value, money: true },
               {
                 label: "Status",

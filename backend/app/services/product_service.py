@@ -4,6 +4,7 @@ from datetime import datetime, UTC
 from app.database.mongodb import db
 from app.utils.helpers import normalize_product_name, normalize_sku
 from app.utils.responseBuilder import build_product_response
+from app.utils.pagination import paginate_collection, regex_filter, validate_sort_field
 from app.models.auth import UserRole
 from app.core.exceptions import (
     forbidden,
@@ -59,26 +60,48 @@ async def add_product(product_data: dict, auth_user: dict):
 
 
 # GET ALL PRODUCTS
-async def get_all_products(auth_user: dict):
-    products = []
+async def get_all_products(
+    auth_user: dict,
+    search: str = None,
+    sort_by: str = "created_at",
+    order: str = "desc",
+    page: int = 1,
+    limit: int = 10
+):
+    allowed_sort_fields = [
+        "created_at",
+        "updated_at",
+        "sku",
+        "name",
+        "category",
+        "supplier_id",
+        "tax_rate",
+        "reorder_level",
+        "is_active",
+    ]
+    validate_sort_field(sort_by, allowed_sort_fields)
 
     # superadmin can get all products, while admin and users can get active products
     if auth_user.get("role") == UserRole.SUPERADMIN:
-        async for product in products_collection.find().sort("created_at", -1):
-            products.append(
-                build_product_response(product)
-            )
-        return products
+        filters = {}
 
-    if auth_user.get("role") in [UserRole.ADMIN, UserRole.USER]:
-        async for product in products_collection.find({"is_active": True}).sort("created_at", -1):
-            products.append(
-                build_product_response(product)
-            )
+    elif auth_user.get("role") in [UserRole.ADMIN, UserRole.USER]:
+        filters = {"is_active": True}
 
-        return products
+    else:
+        forbidden()
 
-    forbidden()
+    filters.update(regex_filter(search, ["sku", "name", "category", "supplier_id"]))
+
+    return await paginate_collection(
+        products_collection,
+        filters,
+        sort_by,
+        order,
+        page,
+        limit,
+        build_product_response,
+    )
 
 
 async def get_product_options(auth_user: dict, active_only: bool = False):

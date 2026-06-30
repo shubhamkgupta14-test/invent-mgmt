@@ -1,7 +1,7 @@
 import API from "./apiClient";
 
-export const getManufacturingRecords = async () => {
-  return API.get("/manufacturing/");
+export const getManufacturingRecords = async (params = {}) => {
+  return API.get("/manufacturing/", { params });
 };
 
 export const createManufacturingRecord = async (payload) => {

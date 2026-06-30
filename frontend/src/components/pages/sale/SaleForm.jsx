@@ -1,13 +1,23 @@
 import { useState } from "react";
 import Button from "../../common/Button";
 import Input from "../../common/Input";
+import Select from "../../common/Select";
 import Textarea from "../../common/Textarea";
 import PaymentDetailsRow from "../purchase/PaymentDetailsRow";
 import SaleItemRow from "./SaleItemRow";
 
+const platformOptions = [
+  { label: "Flipkart", value: "Flipkart" },
+  { label: "Amazon", value: "Amazon" },
+  { label: "Meesho", value: "Meesho" },
+  { label: "Self Store", value: "Self Store" },
+  { label: "Other", value: "Other" },
+];
+
 function SaleForm({ products, onSubmit }) {
   const [form, setForm] = useState({
     invoice_id: "",
+    platform: "Self Store",
     user_info: {
       name: "",
       phone: "",
@@ -99,6 +109,14 @@ function SaleForm({ products, onSubmit }) {
             placeholder="Enter invoice number"
             value={form.invoice_id || ""}
             onChange={(value) => updateForm("invoice_id", value)}
+            required
+          />
+          <Select
+            label="Sales Channel"
+            value={form.platform}
+            onChange={(value) => updateForm("platform", value)}
+            options={platformOptions}
+            placeholder="Select sales channel"
             required
           />
           <Input
