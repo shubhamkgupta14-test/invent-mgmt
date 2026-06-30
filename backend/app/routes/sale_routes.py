@@ -42,20 +42,26 @@ async def get_sales_api(
     auth_user: user_dependency,
     sale_id: Optional[str] = None,
     invoice_id: Optional[str] = None,
+    search: Optional[str] = None,
     sort_by: str = "created_at",
-    order: str = "desc"
+    order: str = "desc",
+    page: int = 1,
+    limit: int = 10
 ):
     sales = await get_sales(
         auth_user=auth_user,
         sale_id=sale_id,
         invoice_id=invoice_id,
+        search=search,
         sort_by=sort_by,
-        order=order
+        order=order,
+        page=page,
+        limit=limit,
     )
 
     return success_response(
-        message=Messages.SALES_FETCHED if len(
-            sales) != 0 else Messages.NO_SALES_FOUND,
-        data=sales,
-        count=len(sales)
+        message=Messages.SALES_FETCHED if sales["items"] else Messages.NO_SALES_FOUND,
+        data=sales["items"],
+        count=sales["pagination"]["total"],
+        pagination=sales["pagination"],
     )

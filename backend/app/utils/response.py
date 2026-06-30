@@ -6,7 +6,8 @@ def success_response(
     message: str,
     data=None,
     status_code: int = 200,
-    count: int = None
+    count: int = None,
+    pagination: dict = None
 ):
 
     response = {
@@ -17,6 +18,9 @@ def success_response(
 
     if count is not None:
         response["count"] = count
+
+    if pagination is not None:
+        response["pagination"] = pagination
 
     return JSONResponse(
         status_code=status_code,

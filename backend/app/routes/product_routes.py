@@ -54,15 +54,29 @@ async def add_product_api(auth_user: user_dependency, product: ProductCreate):
 
 # GET ALL PRODUCTS
 @router.get("/")
-async def get_products_api(auth_user: user_dependency):
+async def get_products_api(
+    auth_user: user_dependency,
+    search: Optional[str] = None,
+    sort_by: str = "created_at",
+    order: str = "desc",
+    page: int = 1,
+    limit: int = 10
+):
 
-    products = await get_all_products(auth_user)
+    result = await get_all_products(
+        auth_user,
+        search=search,
+        sort_by=sort_by,
+        order=order,
+        page=page,
+        limit=limit,
+    )
 
     return success_response(
-        message=Messages.PRODUCTS_FETCHED if len(
-            products) != 0 else Messages.NO_PRODUCTS_FOUND,
-        data=products,
-        count=len(products)
+        message=Messages.PRODUCTS_FETCHED if result["items"] else Messages.NO_PRODUCTS_FOUND,
+        data=result["items"],
+        count=result["pagination"]["total"],
+        pagination=result["pagination"],
     )
 
 

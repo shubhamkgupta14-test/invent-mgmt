@@ -7,6 +7,8 @@ import Loader from "../components/common/Loader";
 import Modal from "../components/common/Modal";
 import SearchBar from "../components/common/SearchBar";
 import SelectDropdown from "../components/common/SelectDropdown";
+import SortableHeader from "../components/common/SortableHeader";
+import TablePagination from "../components/common/TablePagination";
 import Textarea from "../components/common/Textarea";
 import TransactionItemRows from "../components/pages/transactions/TransactionItemRows";
 import { createExchange, getExchanges } from "../api/exchangeApi";
@@ -17,6 +19,8 @@ import { getMyDetails } from "../api/userApi";
 import { useToast } from "../context/useToast";
 import MainLayout from "../layouts/MainLayout";
 import { formatDateIST, formatMoney } from "../utils/formatters";
+import { toggleSort } from "../utils/sortUtils";
+import { defaultPagination, listParams, parseListResponse } from "../utils/tableQuery";
 
 const defaultForm = {
   exchange_id: "",
@@ -31,7 +35,7 @@ const defaultForm = {
 const itemLabel = (item = {}) =>
   item.sku ? `${item.sku} - ${item.name || "Product"}` : item.name || "-";
 
-function ExchangeTable({ exchanges, onView }) {
+function ExchangeTable({ exchanges, onView, sortConfig, handleSort }) {
   if (!exchanges.length) {
     return (
       <div className="rounded-2xl border border-border bg-white p-5 text-center text-sm text-slate-500">
@@ -46,14 +50,13 @@ function ExchangeTable({ exchanges, onView }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-slate-50/70">
-              {["Date", "Exchange ID", "Invoice", "Returned", "Replacement", "Qty", "Adjustment"].map((label) => (
-                <th
-                  key={label}
-                  className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500"
-                >
-                  {label}
-                </th>
-              ))}
+              <SortableHeader label="Date" field="created_at" sortConfig={sortConfig} onSort={handleSort} />
+              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">Exchange ID</th>
+              <SortableHeader label="Invoice" field="invoice_id" sortConfig={sortConfig} onSort={handleSort} />
+              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">Returned</th>
+              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">Replacement</th>
+              <SortableHeader label="Qty" field="returned_quantity" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Adjustment" field="adjustment_amount" sortConfig={sortConfig} onSort={handleSort} />
             </tr>
           </thead>
           <tbody>
@@ -115,16 +118,21 @@ function ExchangePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
+  const [pagination, setPagination] = useState(defaultPagination);
+  const [sortConfig, setSortConfig] = useState({ field: "created_at", order: "desc" });
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState(defaultForm);
   const [selectedExchange, setSelectedExchange] = useState(null);
   const { addToast } = useToast();
+  const { page, limit } = pagination;
 
   const canAdd = ["admin", "superadmin"].includes(currentUser?.role);
 
   const loadExchanges = async () => {
-    const response = await getExchanges();
-    setExchanges(response.data.data || []);
+    const response = await getExchanges(listParams({ search, sortConfig, pagination: { page, limit } }));
+    const parsed = parseListResponse(response);
+    setExchanges(parsed.items);
+    setPagination(parsed.pagination);
   };
 
   const loadProducts = async () => {
@@ -135,23 +143,25 @@ function ExchangePage() {
 
   const loadSales = async () => {
     if (sales.length) return;
-    const response = await getSales();
+    const response = await getSales({ limit: 100 });
     setSales(response.data.data || []);
   };
 
   const loadReturns = async () => {
     if (returns.length) return;
-    const response = await getReturns();
+    const response = await getReturns({ limit: 100 });
     setReturns(response.data.data || []);
   };
 
   useEffect(() => {
     let isActive = true;
 
-    Promise.all([getExchanges(), getMyDetails()])
+    Promise.all([getExchanges(listParams({ search, sortConfig, pagination: { page, limit } })), getMyDetails()])
       .then(([exchangesResponse, userResponse]) => {
         if (!isActive) return;
-        setExchanges(exchangesResponse.data.data || []);
+        const parsed = parseListResponse(exchangesResponse);
+        setExchanges(parsed.items);
+        setPagination(parsed.pagination);
         setCurrentUser(userResponse.data.data);
       })
       .catch((error) => {
@@ -164,17 +174,18 @@ function ExchangePage() {
     return () => {
       isActive = false;
     };
-  }, [addToast]);
+  }, [addToast, limit, page, search, sortConfig]);
 
-  const filteredExchanges = exchanges.filter((exchange) => {
-    const value = search.toLowerCase();
-    return (
-      exchange.exchange_id?.toLowerCase().includes(value) ||
-      exchange.invoice_id?.toLowerCase().includes(value) ||
-      exchange.returned_items?.some((item) => item.name?.toLowerCase().includes(value)) ||
-      exchange.replacement_items?.some((item) => item.name?.toLowerCase().includes(value))
-    );
-  });
+  const handleSearchChange = (value) => {
+    setSearch(value);
+    setPagination((current) => ({ ...current, page: 1 }));
+  };
+  const handleSort = (field) => {
+    setSortConfig((current) => toggleSort(current, field));
+    setPagination((current) => ({ ...current, page: 1 }));
+  };
+  const handlePageChange = (page) => setPagination((current) => ({ ...current, page }));
+  const handleLimitChange = (limit) => setPagination((current) => ({ ...current, limit, page: 1 }));
 
   const updateForm = (key, value) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -305,14 +316,23 @@ function ExchangePage() {
         <div className="mb-5">
           <SearchBar
             value={search}
-            onChange={setSearch}
+            onChange={handleSearchChange}
             placeholder="Search exchange, invoice, or product"
           />
         </div>
-        <ExchangeTable exchanges={filteredExchanges} onView={setSelectedExchange} />
-        <div className="mt-6 rounded-2xl border border-border bg-slate-50 p-4 text-sm text-slate-700">
-          Showing <span className="font-semibold">{filteredExchanges.length}</span> exchanges.
-        </div>
+        <ExchangeTable
+          exchanges={exchanges}
+          onView={setSelectedExchange}
+          sortConfig={sortConfig}
+          handleSort={handleSort}
+        />
+        <TablePagination
+          pagination={pagination}
+          label="exchanges"
+          onPageChange={handlePageChange}
+          onLimitChange={handleLimitChange}
+          disabled={loading}
+        />
       </Card>
 
       <DetailModal

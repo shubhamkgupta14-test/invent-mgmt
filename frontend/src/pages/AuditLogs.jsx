@@ -8,8 +8,12 @@ import Input from "../components/common/Input";
 import Loader from "../components/common/Loader";
 import Modal from "../components/common/Modal";
 import Select from "../components/common/Select";
+import SortableHeader from "../components/common/SortableHeader";
+import TablePagination from "../components/common/TablePagination";
 import { useToast } from "../context/useToast";
 import MainLayout from "../layouts/MainLayout";
+import { toggleSort } from "../utils/sortUtils";
+import { defaultPagination, parseListResponse } from "../utils/tableQuery";
 
 const moduleOptions = [
   { label: "All modules", value: "" },
@@ -94,17 +98,32 @@ function eventBadgeClass(eventType) {
 function AuditLogs() {
   const [currentUser, setCurrentUser] = useState(null);
   const [logs, setLogs] = useState([]);
+  const [pagination, setPagination] = useState({ ...defaultPagination, limit: 20 });
+  const [sortConfig, setSortConfig] = useState({ field: "created_at", order: "desc" });
   const [filters, setFilters] = useState(emptyFilters);
   const [loading, setLoading] = useState(true);
   const [filtering, setFiltering] = useState(false);
   const [selectedLog, setSelectedLog] = useState(null);
   const { addToast } = useToast();
 
-  const loadLogs = useCallback(async (nextFilters = emptyFilters, showInlineLoading = false) => {
+  const loadLogs = useCallback(async (
+    nextFilters = emptyFilters,
+    showInlineLoading = false,
+    nextPagination = { page: 1, limit: 20 },
+    nextSort = { field: "created_at", order: "desc" },
+  ) => {
     try {
       if (showInlineLoading) setFiltering(true);
-      const response = await getAuditLogs(nextFilters);
-      setLogs(response.data.data || []);
+      const response = await getAuditLogs({
+        ...nextFilters,
+        sort_by: nextSort.field,
+        order: nextSort.order,
+        page: nextPagination.page,
+        limit: nextPagination.limit,
+      });
+      const parsed = parseListResponse(response);
+      setLogs(parsed.items);
+      setPagination(parsed.pagination);
     } catch (error) {
       addToast(error.response?.data?.message || "Failed to load audit logs", "error");
     } finally {
@@ -123,7 +142,12 @@ function AuditLogs() {
         setCurrentUser(user);
 
         if (user?.role === "superadmin") {
-          await loadLogs(emptyFilters);
+          await loadLogs(
+            emptyFilters,
+            false,
+            { page: 1, limit: 20 },
+            { field: "created_at", order: "desc" },
+          );
         } else {
           setLoading(false);
         }
@@ -155,12 +179,30 @@ function AuditLogs() {
 
   const applyFilters = (event) => {
     event.preventDefault();
-    loadLogs(filters, true);
+    loadLogs(filters, true, { ...pagination, page: 1 }, sortConfig);
   };
 
   const clearFilters = () => {
     setFilters(emptyFilters);
-    loadLogs(emptyFilters, true);
+    loadLogs(emptyFilters, true, { ...pagination, page: 1 }, sortConfig);
+  };
+
+  const handleSort = (field) => {
+    const nextSort = toggleSort(sortConfig, field);
+    const nextPagination = { ...pagination, page: 1 };
+    setSortConfig(nextSort);
+    setPagination(nextPagination);
+    loadLogs(filters, true, nextPagination, nextSort);
+  };
+  const handlePageChange = (page) => {
+    const nextPagination = { ...pagination, page };
+    setPagination(nextPagination);
+    loadLogs(filters, true, nextPagination, sortConfig);
+  };
+  const handleLimitChange = (limit) => {
+    const nextPagination = { ...pagination, limit, page: 1 };
+    setPagination(nextPagination);
+    loadLogs(filters, true, nextPagination, sortConfig);
   };
 
   if (loading) {
@@ -190,7 +232,9 @@ function AuditLogs() {
       <div className="space-y-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">Audit Logs</h1>
+            <h1 className="text-3xl font-bold text-slate-900">
+              Activity Audit Trail
+            </h1>
             <p className="mt-1 text-slate-600">
               Review system activity across stock, purchases, and sales.
             </p>
@@ -200,7 +244,7 @@ function AuditLogs() {
             variant="secondary"
             icon={FaSyncAlt}
             loading={filtering}
-            onClick={() => loadLogs(filters, true)}
+            onClick={() => loadLogs(filters, true, pagination, sortConfig)}
           >
             Refresh
           </Button>
@@ -271,24 +315,12 @@ function AuditLogs() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-slate-50/70">
-                    <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                      Time
-                    </th>
-                    <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                      Module
-                    </th>
-                    <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                      Event
-                    </th>
-                    <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                      Reference
-                    </th>
-                    <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                      SKU
-                    </th>
-                    <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                      Actor
-                    </th>
+                    <SortableHeader label="Time" field="created_at" sortConfig={sortConfig} onSort={handleSort} />
+                    <SortableHeader label="Module" field="module_name" sortConfig={sortConfig} onSort={handleSort} />
+                    <SortableHeader label="Event" field="event_type" sortConfig={sortConfig} onSort={handleSort} />
+                    <SortableHeader label="Reference" field="reference_id" sortConfig={sortConfig} onSort={handleSort} />
+                    <SortableHeader label="SKU" field="sku" sortConfig={sortConfig} onSort={handleSort} />
+                    <SortableHeader label="Actor" field="performed_by" sortConfig={sortConfig} onSort={handleSort} />
                   </tr>
                 </thead>
                 <tbody>
@@ -340,6 +372,13 @@ function AuditLogs() {
               </table>
             </div>
           </div>
+          <TablePagination
+            pagination={pagination}
+            label="audit logs"
+            onPageChange={handlePageChange}
+            onLimitChange={handleLimitChange}
+            disabled={filtering}
+          />
         </Card>
       </div>
 

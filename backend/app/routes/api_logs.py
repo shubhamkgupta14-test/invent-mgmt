@@ -32,7 +32,7 @@ async def get_api_logs_api(
     min_duration_ms: Optional[float] = None,
     success: Optional[bool] = None,
     page: int = 1,
-    limit: int = 20,
+    limit: int = 10,
 ):
     result = await get_api_logs(
         auth_user=auth_user,

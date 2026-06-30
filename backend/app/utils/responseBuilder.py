@@ -90,6 +90,7 @@ def build_sales_response(sale: dict):
     return {
         "sale_id": str(sale.get("_id", "")),
         "invoice_id": sale.get("invoice_id"),
+        "platform": sale.get("platform", "Self Store"),
         "user_info": sale.get("user_info"),
         "items": sale.get("items", []),
         "subtotal": sale.get("subtotal", 0),
@@ -154,6 +155,7 @@ def build_stock_response(stock: dict):
         "lost_quantity": stock.get("lost_quantity", 0),
         "tax_rate": stock.get("tax_rate", 0),
         "avg_price": stock.get("avg_price"),
+        "min_selling_price": stock.get("min_selling_price"),
         "inventory_value": stock.get("inventory_value"),
         "stock_status": stock.get("stock_status"),
         "created_at": format_datetime_iso(stock.get("created_at")),

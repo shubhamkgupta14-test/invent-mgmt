@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from typing import Annotated
+from typing import Annotated, Optional
 
 from app.services.auth_service import get_current_user
 from app.models.supplier import (
@@ -39,13 +39,27 @@ async def add_supplier_api(auth_user: user_dependency, supplier: SupplierCreate)
 
 
 @router.get("/")
-async def get_suppliers_api(auth_user: user_dependency):
-    suppliers = await get_all_suppliers(auth_user)
+async def get_suppliers_api(
+    auth_user: user_dependency,
+    search: Optional[str] = None,
+    sort_by: str = "created_at",
+    order: str = "desc",
+    page: int = 1,
+    limit: int = 10,
+):
+    suppliers = await get_all_suppliers(
+        auth_user,
+        search=search,
+        sort_by=sort_by,
+        order=order,
+        page=page,
+        limit=limit,
+    )
     return success_response(
-        message=Messages.SUPPLIERS_FETCHED if len(
-            suppliers) != 0 else Messages.NO_SUPPLIERS_FOUND,
-        data=suppliers,
-        count=len(suppliers)
+        message=Messages.SUPPLIERS_FETCHED if suppliers["items"] else Messages.NO_SUPPLIERS_FOUND,
+        data=suppliers["items"],
+        count=suppliers["pagination"]["total"],
+        pagination=suppliers["pagination"],
     )
 
 

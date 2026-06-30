@@ -1,6 +1,5 @@
-import { useState } from "react";
-import { FaSortDown, FaSortUp } from "react-icons/fa";
 import StatusBadge from "../../common/StatusBadge";
+import SortableHeader from "../../common/SortableHeader";
 import { formatDateIST } from "../../../utils/formatters";
 
 const getItemSummary = (items = []) => {
@@ -12,18 +11,8 @@ const getItemSummary = (items = []) => {
     : firstItem.name || "Product";
 };
 
-function PurchaseTable({ purchases, onView }) {
-  const [sortOrder, setSortOrder] = useState("asc");
-
-  const sorted = [...purchases].sort((a, b) => {
-    if (sortOrder === "desc") {
-      return a.created_at.localeCompare(b.created_at);
-    }
-
-    return b.created_at.localeCompare(a.created_at);
-  });
-
-  if (!sorted?.length) {
+function PurchaseTable({ purchases, onView, sortConfig, handleSort }) {
+  if (!purchases?.length) {
     return (
       <div className="rounded-2xl border border-[var(--border)] bg-white p-5 shadow-sm">
         <p className="py-8 text-center text-slate-500">
@@ -39,46 +28,18 @@ function PurchaseTable({ purchases, onView }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-[var(--border)] bg-slate-50/70">
-              <th
-                className="cursor-pointer select-none px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500"
-                onClick={() =>
-                  setSortOrder(sortOrder === "asc" ? "desc" : "asc")
-                }
-              >
-                <div className="inline-flex items-center gap-2">
-                  Order Date
-                  {sortOrder === "asc" ? (
-                    <FaSortUp size={12} className="text-slate-500" />
-                  ) : (
-                    <FaSortDown size={12} className="text-slate-500" />
-                  )}
-                </div>
-              </th>
-              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                Invoice Id
-              </th>
-              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                Supplier
-              </th>
-              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                Product
-              </th>
-              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                Items
-              </th>
-              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                Quantity
-              </th>
-              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                Total
-              </th>
-              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                Payment
-              </th>
+              <SortableHeader label="Order Date" field="created_at" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Invoice Id" field="invoice_id" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Supplier" field="supplier_id" sortConfig={sortConfig} onSort={handleSort} />
+              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">Product</th>
+              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">Items</th>
+              <SortableHeader label="Quantity" field="total_quantity" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Total" field="final_total_amount" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Payment" field="payment_status" sortConfig={sortConfig} onSort={handleSort} />
             </tr>
           </thead>
           <tbody>
-            {sorted.map((purchase) => {
+            {purchases.map((purchase) => {
               const itemSummary = getItemSummary(purchase.items);
               const extraCount = Math.max((purchase.items?.length || 0) - 1, 0);
 

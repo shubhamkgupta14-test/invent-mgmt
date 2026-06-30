@@ -96,7 +96,7 @@ async def get_api_logs(auth_user: dict, filters: dict, pagination: dict):
         query["status_code"] = {"$gte": 400}
 
     page = max(pagination.get("page", 1), 1)
-    limit = min(max(pagination.get("limit", 20), 1), 100)
+    limit = min(max(pagination.get("limit", 10), 1), 100)
     skip = (page - 1) * limit
 
     total = await api_logs_collection.count_documents(query)
@@ -111,7 +111,9 @@ async def get_api_logs(auth_user: dict, filters: dict, pagination: dict):
             "page": page,
             "limit": limit,
             "total": total,
-            "pages": (total + limit - 1) // limit if total else 0,
+            "pages": max((total + limit - 1) // limit, 1),
+            "has_prev": page > 1,
+            "has_next": page * limit < total,
         }
     }
 

@@ -7,6 +7,8 @@ import Loader from "../components/common/Loader";
 import Modal from "../components/common/Modal";
 import SearchBar from "../components/common/SearchBar";
 import SelectDropdown from "../components/common/SelectDropdown";
+import SortableHeader from "../components/common/SortableHeader";
+import TablePagination from "../components/common/TablePagination";
 import Textarea from "../components/common/Textarea";
 import TransactionItemRows from "../components/pages/transactions/TransactionItemRows";
 import { getExchanges } from "../api/exchangeApi";
@@ -17,6 +19,8 @@ import { getMyDetails } from "../api/userApi";
 import { useToast } from "../context/useToast";
 import MainLayout from "../layouts/MainLayout";
 import { formatDateIST, formatMoney } from "../utils/formatters";
+import { toggleSort } from "../utils/sortUtils";
+import { defaultPagination, listParams, parseListResponse } from "../utils/tableQuery";
 
 const defaultForm = {
   return_id: "",
@@ -30,7 +34,7 @@ const defaultForm = {
 const itemLabel = (item = {}) =>
   item.sku ? `${item.sku} - ${item.name || "Product"}` : item.name || "-";
 
-function ReturnTable({ returns, onView }) {
+function ReturnTable({ returns, onView, sortConfig, handleSort }) {
   if (!returns.length) {
     return (
       <div className="rounded-2xl border border-border bg-white p-5 text-center text-sm text-slate-500">
@@ -45,14 +49,13 @@ function ReturnTable({ returns, onView }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-slate-50/70">
-              {["Date", "Return ID", "Invoice", "Product", "Items", "Qty", "Refund"].map((label) => (
-                <th
-                  key={label}
-                  className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500"
-                >
-                  {label}
-                </th>
-              ))}
+              <SortableHeader label="Date" field="created_at" sortConfig={sortConfig} onSort={handleSort} />
+              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">Return ID</th>
+              <SortableHeader label="Invoice" field="invoice_id" sortConfig={sortConfig} onSort={handleSort} />
+              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">Product</th>
+              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">Items</th>
+              <SortableHeader label="Qty" field="total_quantity" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Refund" field="refund_amount" sortConfig={sortConfig} onSort={handleSort} />
             </tr>
           </thead>
           <tbody>
@@ -98,16 +101,21 @@ function ReturnPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
+  const [pagination, setPagination] = useState(defaultPagination);
+  const [sortConfig, setSortConfig] = useState({ field: "created_at", order: "desc" });
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState(defaultForm);
   const [selectedReturn, setSelectedReturn] = useState(null);
   const { addToast } = useToast();
+  const { page, limit } = pagination;
 
   const canAdd = ["admin", "superadmin"].includes(currentUser?.role);
 
   const loadReturns = async () => {
-    const response = await getReturns();
-    setReturns(response.data.data || []);
+    const response = await getReturns(listParams({ search, sortConfig, pagination: { page, limit } }));
+    const parsed = parseListResponse(response);
+    setReturns(parsed.items);
+    setPagination(parsed.pagination);
   };
 
   const loadProducts = async () => {
@@ -118,23 +126,25 @@ function ReturnPage() {
 
   const loadSales = async () => {
     if (sales.length) return;
-    const response = await getSales();
+    const response = await getSales({ limit: 100 });
     setSales(response.data.data || []);
   };
 
   const loadExchanges = async () => {
     if (exchanges.length) return;
-    const response = await getExchanges();
+    const response = await getExchanges({ limit: 100 });
     setExchanges(response.data.data || []);
   };
 
   useEffect(() => {
     let isActive = true;
 
-    Promise.all([getReturns(), getMyDetails()])
+    Promise.all([getReturns(listParams({ search, sortConfig, pagination: { page, limit } })), getMyDetails()])
       .then(([returnsResponse, userResponse]) => {
         if (!isActive) return;
-        setReturns(returnsResponse.data.data || []);
+        const parsed = parseListResponse(returnsResponse);
+        setReturns(parsed.items);
+        setPagination(parsed.pagination);
         setCurrentUser(userResponse.data.data);
       })
       .catch((error) => {
@@ -147,16 +157,18 @@ function ReturnPage() {
     return () => {
       isActive = false;
     };
-  }, [addToast]);
+  }, [addToast, limit, page, search, sortConfig]);
 
-  const filteredReturns = returns.filter((item) => {
-    const value = search.toLowerCase();
-    return (
-      item.return_id?.toLowerCase().includes(value) ||
-      item.invoice_id?.toLowerCase().includes(value) ||
-      item.items?.some((product) => product.name?.toLowerCase().includes(value))
-    );
-  });
+  const handleSearchChange = (value) => {
+    setSearch(value);
+    setPagination((current) => ({ ...current, page: 1 }));
+  };
+  const handleSort = (field) => {
+    setSortConfig((current) => toggleSort(current, field));
+    setPagination((current) => ({ ...current, page: 1 }));
+  };
+  const handlePageChange = (page) => setPagination((current) => ({ ...current, page }));
+  const handleLimitChange = (limit) => setPagination((current) => ({ ...current, limit, page: 1 }));
 
   const updateForm = (key, value) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -296,14 +308,23 @@ function ReturnPage() {
         <div className="mb-5">
           <SearchBar
             value={search}
-            onChange={setSearch}
+            onChange={handleSearchChange}
             placeholder="Search return, invoice, or product"
           />
         </div>
-        <ReturnTable returns={filteredReturns} onView={setSelectedReturn} />
-        <div className="mt-6 rounded-2xl border border-border bg-slate-50 p-4 text-sm text-slate-700">
-          Showing <span className="font-semibold">{filteredReturns.length}</span> returns.
-        </div>
+        <ReturnTable
+          returns={returns}
+          onView={setSelectedReturn}
+          sortConfig={sortConfig}
+          handleSort={handleSort}
+        />
+        <TablePagination
+          pagination={pagination}
+          label="returns"
+          onPageChange={handlePageChange}
+          onLimitChange={handleLimitChange}
+          disabled={loading}
+        />
       </Card>
 
       <DetailModal

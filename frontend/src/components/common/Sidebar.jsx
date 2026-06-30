@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   FaBox,
   FaChartBar,
@@ -11,9 +11,11 @@ import {
   FaIndustry,
   FaSignOutAlt,
   FaTimes,
-  FaUserShield,
   FaClipboardList,
   FaServer,
+  FaCalculator,
+  FaBell,
+  FaDatabase,
 } from "react-icons/fa";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { getMyDetails } from "../../api/userApi";
@@ -24,6 +26,7 @@ function Sidebar({ onNavigate, onClose }) {
   const [displayName, setDisplayName] = useState("");
   const [role, setRole] = useState("");
   const [logoMissing, setLogoMissing] = useState(false);
+  const navRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -40,7 +43,7 @@ function Sidebar({ onNavigate, onClose }) {
           .join(" ");
 
         setDisplayName(fullName || user.username || "User");
-        setRole(user.role || "User");
+        setRole(String(user.role || "user").toLowerCase());
       })
       .catch((error) => {
         console.error("Failed to load user details:", error);
@@ -51,6 +54,10 @@ function Sidebar({ onNavigate, onClose }) {
     };
   }, []);
 
+  useEffect(() => {
+    navRef.current?.scrollTo({ top: 0 });
+  }, [role]);
+
   const handleLogout = () => {
     clearToken(`${location.pathname}${location.search}${location.hash}`);
     navigate("/");
@@ -60,6 +67,15 @@ function Sidebar({ onNavigate, onClose }) {
     { icon: FaChartBar, label: "Dashboard", path: "/dashboard" },
     { icon: FaBoxes, label: "Inventory", path: "/inventory" },
     { icon: FaBox, label: "Stock", path: "/stocks" },
+    ...(role === "superadmin" || role === "admin"
+      ? [
+          {
+            icon: FaCalculator,
+            label: "Price Calculator",
+            path: "/selling-price-calculator",
+          },
+        ]
+      : []),
     { icon: FaTruck, label: "Purchases", path: "/purchases" },
     { icon: FaShoppingCart, label: "Sales", path: "/sales" },
     { icon: FaIndustry, label: "Manufacturing", path: "/manufacturing" },
@@ -67,6 +83,53 @@ function Sidebar({ onNavigate, onClose }) {
     { icon: FaExchangeAlt, label: "Exchange", path: "/exchanges" },
     { icon: FaUsers, label: "Suppliers", path: "/suppliers" },
   ];
+
+  const superAdminItems = [
+    {
+      icon: FaUsers,
+      label: "User Management",
+      path: "/superadmin?tab=users",
+      isActive:
+        location.pathname === "/superadmin" &&
+        (new URLSearchParams(location.search).get("tab") === "users" ||
+          !new URLSearchParams(location.search).get("tab")),
+    },
+    {
+      icon: FaBell,
+      label: "Notification Center",
+      path: "/superadmin?tab=notifications",
+      isActive:
+        location.pathname === "/superadmin" &&
+        new URLSearchParams(location.search).get("tab") === "notifications",
+    },
+    {
+      icon: FaClipboardList,
+      label: "Activity Audit Trail",
+      path: "/audits",
+      isActive: location.pathname === "/audits",
+    },
+    {
+      icon: FaServer,
+      label: "API Request Logs",
+      path: "/api-logs",
+      isActive: location.pathname === "/api-logs",
+    },
+    {
+      icon: FaDatabase,
+      label: "Data Maintenance",
+      path: "/superadmin?tab=cleanup",
+      isActive:
+        location.pathname === "/superadmin" &&
+        new URLSearchParams(location.search).get("tab") === "cleanup",
+    },
+  ];
+
+  const navLinkClass = (isActive) =>
+    `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
+      isActive
+        ? "bg-[var(--primary)] text-white shadow-lg shadow-indigo-950/20"
+        : "text-slate-400 hover:bg-white/5 hover:text-white"
+    }`;
 
   const roleBadge =
     {
@@ -77,13 +140,13 @@ function Sidebar({ onNavigate, onClose }) {
 
   const roleLabel =
     {
-      superadmin: "SuperAdmin",
+      superadmin: "Super Admin",
       admin: "Admin",
       user: "User",
     }[role] || role;
 
   return (
-    <aside className="flex h-full flex-col bg-[var(--sidebar)] text-white md:h-screen md:overflow-hidden">
+    <aside className="flex h-full min-h-0 flex-col bg-[var(--sidebar)] text-white md:h-screen md:overflow-hidden">
       <div className="border-b border-white/10 px-5 py-5">
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
@@ -116,20 +179,14 @@ function Sidebar({ onNavigate, onClose }) {
         </div>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 py-4">
+      <nav ref={navRef} className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
         <ul className="space-y-1">
           {menuItems.map((item) => (
             <li key={item.path}>
               <NavLink
                 to={item.path}
                 onClick={onNavigate}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
-                    isActive
-                      ? "bg-[var(--primary)] text-white shadow-lg shadow-indigo-950/20"
-                      : "text-slate-400 hover:bg-white/5 hover:text-white"
-                  }`
-                }
+                className={({ isActive }) => navLinkClass(isActive)}
               >
                 <item.icon size={18} className="flex-shrink-0" />
                 <span>{item.label}</span>
@@ -137,56 +194,25 @@ function Sidebar({ onNavigate, onClose }) {
             </li>
           ))}
           {role === "superadmin" && (
-            <>
-              <li>
-                <NavLink
-                  to="/audits"
-                  onClick={onNavigate}
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
-                      isActive
-                        ? "bg-[var(--primary)] text-white shadow-lg shadow-indigo-950/20"
-                        : "text-slate-400 hover:bg-white/5 hover:text-white"
-                    }`
-                  }
-                >
-                  <FaClipboardList size={18} className="flex-shrink-0" />
-                  <span>Audit Logs</span>
-                </NavLink>
-              </li>
-              <li>
-                <NavLink
-                  to="/api-logs"
-                  onClick={onNavigate}
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
-                      isActive
-                        ? "bg-[var(--primary)] text-white shadow-lg shadow-indigo-950/20"
-                        : "text-slate-400 hover:bg-white/5 hover:text-white"
-                    }`
-                  }
-                >
-                  <FaServer size={18} className="flex-shrink-0" />
-                  <span>API Logs</span>
-                </NavLink>
-              </li>
-              <li>
-                <NavLink
-                  to="/superadmin"
-                  onClick={onNavigate}
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
-                      isActive
-                        ? "bg-[var(--primary)] text-white shadow-lg shadow-indigo-950/20"
-                        : "text-slate-400 hover:bg-white/5 hover:text-white"
-                    }`
-                  }
-                >
-                  <FaUserShield size={18} className="flex-shrink-0" />
-                  <span>SuperAdmin</span>
-                </NavLink>
-              </li>
-            </>
+            <li className="pt-3">
+              <div className="px-3 pb-2 text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                Administration
+              </div>
+              <ul className="space-y-1">
+                {superAdminItems.map((item) => (
+                  <li key={item.path}>
+                    <NavLink
+                      to={item.path}
+                      onClick={onNavigate}
+                      className={() => navLinkClass(item.isActive)}
+                    >
+                      <item.icon size={18} className="flex-shrink-0" />
+                      <span>{item.label}</span>
+                    </NavLink>
+                  </li>
+                ))}
+              </ul>
+            </li>
           )}
         </ul>
       </nav>

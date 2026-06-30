@@ -1,5 +1,5 @@
 import StockStatusBadge from "../../common/StockStatusBadge";
-import { FaSortDown, FaSortUp } from "react-icons/fa";
+import SortableHeader from "../../common/SortableHeader";
 
 function quantityBadgeClass(stock) {
   if (stock.stock_status === "OUT_OF_STOCK" || Number(stock.quantity || 0) <= 0) {
@@ -30,58 +30,14 @@ function StockTable({ stocks, sortConfig, handleSort, onView }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-[var(--border)] bg-slate-50/70">
-              <th
-                className="cursor-pointer select-none px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500"
-                onClick={() => handleSort("sku")}
-              >
-                <div className="inline-flex items-center gap-2">
-                  SKU
-                  {sortConfig.field === "sku" ? (
-                    sortConfig.order === "asc" ? (
-                      <FaSortUp size={12} className="text-slate-500" />
-                    ) : (
-                      <FaSortDown size={12} className="text-slate-500" />
-                    )
-                  ) : (
-                    <FaSortDown size={12} className="text-slate-300" />
-                  )}
-                </div>
-              </th>
-              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                Product Name
-              </th>
-              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                Quantity
-              </th>
-              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                Tax
-              </th>
-              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                Avg Purchase Price
-              </th>
-              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                Min Selling Price
-              </th>
-              <th
-                className="cursor-pointer select-none px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500"
-                onClick={() => handleSort("inventory_value")}
-              >
-                <div className="inline-flex items-center gap-2">
-                  Inventory Value
-                  {sortConfig.field === "inventory_value" ? (
-                    sortConfig.order === "asc" ? (
-                      <FaSortUp size={12} className="text-slate-500" />
-                    ) : (
-                      <FaSortDown size={12} className="text-slate-500" />
-                    )
-                  ) : (
-                    <FaSortDown size={12} className="text-slate-300" />
-                  )}
-                </div>
-              </th>
-              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                Stock Status
-              </th>
+              <SortableHeader label="SKU" field="sku" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Product Name" field="name" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Quantity" field="quantity" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Tax" field="tax_rate" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Avg Purchase Price" field="avg_price" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Min Selling Price" field="min_selling_price" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Inventory Value" field="inventory_value" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Stock Status" field="stock_status" sortConfig={sortConfig} onSort={handleSort} />
             </tr>
           </thead>
           <tbody>
@@ -106,7 +62,11 @@ function StockTable({ stocks, sortConfig, handleSort, onView }) {
                 <td className="px-5 py-4 text-slate-700">
                   Rs {stock.avg_price?.toLocaleString("en-IN")}
                 </td>
-                <td className="px-5 py-4 text-slate-700">TBC</td>
+                <td className="px-5 py-4 text-slate-700">
+                  {stock.min_selling_price
+                    ? `Rs ${stock.min_selling_price.toLocaleString("en-IN")}`
+                    : "-"}
+                </td>
                 <td className="px-5 py-4 text-slate-700">
                   Rs {stock.inventory_value?.toLocaleString("en-IN")}
                 </td>

@@ -4,6 +4,7 @@ from datetime import datetime, UTC
 from app.database.mongodb import db
 from app.core.exceptions import forbidden
 from app.models.auth import UserRole
+from app.utils.pagination import paginate_collection, regex_filter, validate_sort_field
 
 audit_collection = db.audits
 
@@ -41,7 +42,12 @@ async def get_audit_logs(
     module_name: str = None,
     event_type: str = None,
     reference_id: str = None,
-    sku: str = None
+    sku: str = None,
+    search: str = None,
+    sort_by: str = "created_at",
+    order: str = "desc",
+    page: int = 1,
+    limit: int = 20,
 ):
     if auth_user.get("role") != UserRole.SUPERADMIN:
         forbidden()
@@ -60,14 +66,31 @@ async def get_audit_logs(
     if sku:
         filters["sku"] = sku
 
-    audits = []
+    validate_sort_field(sort_by, [
+        "created_at",
+        "module_name",
+        "event_type",
+        "reference_id",
+        "sku",
+        "performed_by",
+    ])
 
-    async for audit in audit_collection.find(
-        filters
-    ).sort("created_at", -1):
+    search_filter = regex_filter(search, [
+        "module_name",
+        "event_type",
+        "reference_id",
+        "sku",
+        "performed_by",
+    ])
+    if search_filter:
+        filters = {"$and": [filters, search_filter]} if filters else search_filter
 
-        audits.append(
-            build_audit_response(audit)
-        )
-
-    return audits
+    return await paginate_collection(
+        audit_collection,
+        filters,
+        sort_by,
+        order,
+        page,
+        limit,
+        build_audit_response,
+    )

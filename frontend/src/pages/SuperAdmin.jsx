@@ -31,12 +31,12 @@ import { formatDateTimeIST } from "../utils/formatters";
 const roleOptions = [
   { label: "User", value: "user" },
   { label: "Admin", value: "admin" },
-  { label: "SuperAdmin", value: "superadmin" },
+  { label: "Super Admin", value: "superadmin" },
 ];
 
 const cleanOptions = [
-  { label: "API Logs", value: "api-logs" },
-  { label: "Audits", value: "audits" },
+  { label: "API Request Logs", value: "api-logs" },
+  { label: "Activity Audit Trail", value: "audits" },
   { label: "Exchanges", value: "exchanges" },
   { label: "Manufacturing", value: "manufacturing" },
   { label: "Notifications", value: "notifications" },
@@ -81,6 +81,8 @@ const audienceOptions = [
   { label: "Specific Users", value: "USERS" },
 ];
 
+const adminTabs = ["users", "notifications", "cleanup"];
+
 const typeBorderClasses = {
   INFO: "border-l-sky-500",
   WARNING: "border-l-amber-500",
@@ -95,7 +97,7 @@ function toSentenceCase(value) {
 }
 
 function SuperAdmin() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [savingUser, setSavingUser] = useState(false);
@@ -119,9 +121,9 @@ function SuperAdmin() {
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [confirmCleanOpen, setConfirmCleanOpen] = useState(false);
   const [usersModalOpen, setUsersModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState(
-    searchParams.get("tab") === "notifications" ? "notifications" : "users",
-  );
+  const activeTab = adminTabs.includes(searchParams.get("tab"))
+    ? searchParams.get("tab")
+    : "users";
   const [notificationForm, setNotificationForm] = useState(emptyNotificationForm);
   const [sendingNotification, setSendingNotification] = useState(false);
   const [sentNotifications, setSentNotifications] = useState([]);
@@ -309,11 +311,6 @@ function SuperAdmin() {
     setNotificationForm((current) => ({ ...current, [key]: value }));
   };
 
-  const switchTab = (tab) => {
-    setActiveTab(tab);
-    setSearchParams(tab === "notifications" ? { tab: "notifications" } : {});
-  };
-
   const toggleNotificationRole = (role) => {
     setNotificationForm((current) => ({
       ...current,
@@ -406,33 +403,12 @@ function SuperAdmin() {
     <MainLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">SuperAdmin</h1>
-          <p className="mt-1 text-slate-600">Manage users, roles, and database tools.</p>
-        </div>
-
-        <div className="inline-flex rounded-2xl border border-border bg-white p-1 shadow-sm">
-          <button
-            type="button"
-            onClick={() => switchTab("users")}
-            className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
-              activeTab === "users"
-                ? "bg-indigo-600 text-white shadow-sm"
-                : "text-slate-600 hover:bg-slate-50"
-            }`}
-          >
-            User Control
-          </button>
-          <button
-            type="button"
-            onClick={() => switchTab("notifications")}
-            className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
-              activeTab === "notifications"
-                ? "bg-indigo-600 text-white shadow-sm"
-                : "text-slate-600 hover:bg-slate-50"
-            }`}
-          >
-            Notification Manager
-          </button>
+          <h1 className="text-3xl font-bold text-slate-900">
+            Administration Console
+          </h1>
+          <p className="mt-1 text-slate-600">
+            Manage access, operational messaging, and controlled data maintenance.
+          </p>
         </div>
 
         {activeTab === "users" ? (
@@ -665,48 +641,9 @@ function SuperAdmin() {
               </form>
             </Card>
 
-            <Card title="Clean DB">
-              <div className="space-y-5">
-                <label className="flex items-center gap-3 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm font-bold text-indigo-800">
-                  <input
-                    type="checkbox"
-                    checked={allCollectionsSelected}
-                    onChange={toggleAllCollections}
-                    className="h-4 w-4 rounded border-indigo-300 text-[var(--primary)] focus:ring-[var(--primary)]"
-                  />
-                  Select All
-                </label>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {cleanOptions.map((option) => (
-                    <label
-                      key={option.value}
-                      className="flex items-center gap-3 rounded-xl border border-border bg-white px-4 py-3 text-sm font-semibold text-slate-700"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedCollections.includes(option.value)}
-                        onChange={() => toggleCollection(option.value)}
-                        className="h-4 w-4 rounded border-slate-300 text-[var(--primary)] focus:ring-[var(--primary)]"
-                      />
-                      {option.label}
-                    </label>
-                  ))}
-                </div>
-
-                <Button
-                  type="button"
-                  variant="danger"
-                  className="bg-rose-600 text-white hover:bg-rose-700"
-                  disabled={!selectedCollections.length}
-                  onClick={() => setConfirmCleanOpen(true)}
-                >
-                  Clean Selected
-                </Button>
-              </div>
-            </Card>
           </div>
         </div>
-        ) : (
+        ) : activeTab === "notifications" ? (
           <div className="grid gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
             <Card title="Send Notification">
               <form onSubmit={handleSendNotification} className="space-y-5">
@@ -861,6 +798,52 @@ function SuperAdmin() {
               </div>
             </Card>
           </div>
+        ) : (
+          <div className="max-w-4xl">
+            <Card title="Data Maintenance">
+              <div className="space-y-5">
+                <p className="text-sm text-slate-600">
+                  Select the records that should be cleaned from operational storage.
+                  This action should be used only for planned maintenance.
+                </p>
+                <label className="flex items-center gap-3 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm font-bold text-indigo-800">
+                  <input
+                    type="checkbox"
+                    checked={allCollectionsSelected}
+                    onChange={toggleAllCollections}
+                    className="h-4 w-4 rounded border-indigo-300 text-[var(--primary)] focus:ring-[var(--primary)]"
+                  />
+                  Select All Data Sets
+                </label>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {cleanOptions.map((option) => (
+                    <label
+                      key={option.value}
+                      className="flex items-center gap-3 rounded-xl border border-border bg-white px-4 py-3 text-sm font-semibold text-slate-700"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedCollections.includes(option.value)}
+                        onChange={() => toggleCollection(option.value)}
+                        className="h-4 w-4 rounded border-slate-300 text-[var(--primary)] focus:ring-[var(--primary)]"
+                      />
+                      {option.label}
+                    </label>
+                  ))}
+                </div>
+
+                <Button
+                  type="button"
+                  variant="danger"
+                  className="bg-rose-600 text-white hover:bg-rose-700"
+                  disabled={!selectedCollections.length}
+                  onClick={() => setConfirmCleanOpen(true)}
+                >
+                  Clean Selected Data
+                </Button>
+              </div>
+            </Card>
+          </div>
         )}
       </div>
 
@@ -984,7 +967,7 @@ function SuperAdmin() {
       <Modal
         isOpen={confirmCleanOpen}
         onClose={() => setConfirmCleanOpen(false)}
-        title="Confirm Clean DB"
+        title="Confirm Data Cleanup"
       >
         <div className="space-y-5">
           <p className="text-sm text-slate-700">

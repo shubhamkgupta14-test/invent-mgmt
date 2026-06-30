@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import MainLayout from "../layouts/MainLayout";
 import SearchBar from "../components/common/SearchBar";
 import ProductTable from "../components/pages/product/ProductTable";
@@ -8,6 +8,7 @@ import Card from "../components/common/Card";
 import Modal from "../components/common/Modal";
 import ProductForm from "../components/pages/product/ProductForm";
 import DetailModal from "../components/common/DetailModal";
+import TablePagination from "../components/common/TablePagination";
 import {
   addProduct,
   deleteProduct,
@@ -17,6 +18,8 @@ import {
 } from "../api/productApi";
 import { getMyDetails } from "../api/userApi";
 import { useToast } from "../context/useToast";
+import { toggleSort } from "../utils/sortUtils";
+import { defaultPagination, listParams, parseListResponse } from "../utils/tableQuery";
 
 function Inventory() {
   const [products, setProducts] = useState([]);
@@ -26,19 +29,42 @@ function Inventory() {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [sortConfig, setSortConfig] = useState({ field: "created_at", order: "desc" });
+  const [pagination, setPagination] = useState(defaultPagination);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [editingProduct, setEditingProduct] = useState(null);
   const [productFormOpen, setProductFormOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState(null);
   const { addToast } = useToast();
+  const { page, limit } = pagination;
+
+  const loadProducts = useCallback(async (next = {}) => {
+    const nextPagination = next.pagination || pagination;
+    const nextSort = next.sortConfig || sortConfig;
+    const nextSearch = next.search ?? search;
+
+    const productsResponse = await getProducts(listParams({
+      search: nextSearch,
+      sortConfig: nextSort,
+      pagination: { page: nextPagination.page, limit: nextPagination.limit },
+    }));
+    const parsed = parseListResponse(productsResponse);
+    setProducts(parsed.items);
+    setPagination(parsed.pagination);
+  }, [pagination, search, sortConfig]);
 
   useEffect(() => {
     let isActive = true;
 
-    Promise.all([getProducts(), getMyDetails()])
+    Promise.all([
+      getProducts(listParams({ search, sortConfig, pagination: { page, limit } })),
+      getMyDetails(),
+    ])
       .then(([productsResponse, userResponse]) => {
         if (!isActive) return;
-        setProducts(productsResponse.data.data);
+        const parsed = parseListResponse(productsResponse);
+        setProducts(parsed.items);
+        setPagination(parsed.pagination);
         setCurrentUser(userResponse.data.data);
       })
       .catch((error) => {
@@ -51,19 +77,7 @@ function Inventory() {
     return () => {
       isActive = false;
     };
-  }, []);
-
-  const loadProducts = async () => {
-    try {
-      setLoading(true);
-      const products_response = await getProducts();
-      setProducts(products_response.data.data);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [limit, page, search, sortConfig]);
 
   if (loading) {
     return (
@@ -103,27 +117,17 @@ function Inventory() {
     await loadProductFormOptions();
   };
 
-  const filteredProducts = products.filter(
-    (product) => {
-      const searchText = search.trim().toLowerCase();
-      const productNameSearch = search
-        .trim()
-        .split(/\s+/)
-        .filter(Boolean)
-        .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-        .join(" ")
-        .toLowerCase();
-
-      return (
-        product.name?.toLowerCase().includes(productNameSearch || searchText) ||
-        product.sku?.toLowerCase().includes(searchText) ||
-        product.supplier_id?.toLowerCase().includes(searchText) ||
-        product.category?.toLowerCase().includes(searchText)
-      );
-    },
-  );
-
   const canMutateProducts = ["admin", "superadmin"].includes(currentUser?.role);
+  const handleSearchChange = (value) => {
+    setSearch(value);
+    setPagination((current) => ({ ...current, page: 1 }));
+  };
+  const handleSort = (field) => {
+    setSortConfig((current) => toggleSort(current, field));
+    setPagination((current) => ({ ...current, page: 1 }));
+  };
+  const handlePageChange = (page) => setPagination((current) => ({ ...current, page }));
+  const handleLimitChange = (limit) => setPagination((current) => ({ ...current, limit, page: 1 }));
 
   const handleSubmitProduct = async (payload) => {
     try {
@@ -209,12 +213,12 @@ function Inventory() {
         <div className="mb-5">
           <SearchBar
             value={search}
-            onChange={setSearch}
+            onChange={handleSearchChange}
             placeholder="Search SKU, product name, category or supplier"
           />
         </div>
         <ProductTable
-          products={filteredProducts}
+          products={products}
           onView={setSelectedProduct}
           onEdit={handleEditProduct}
           onDelete={setProductToDelete}
@@ -222,12 +226,16 @@ function Inventory() {
           canEdit={canMutateProducts}
           canDelete={canMutateProducts}
           canToggleActive={currentUser?.role === "superadmin"}
+          sortConfig={sortConfig}
+          handleSort={handleSort}
         />
-        <div className="mt-6 rounded-2xl border border-border bg-slate-50 p-4 text-sm text-slate-700">
-          Showing{" "}
-          <span className="font-semibold">{filteredProducts.length}</span>{" "}
-          products.
-        </div>
+        <TablePagination
+          pagination={pagination}
+          label="products"
+          onPageChange={handlePageChange}
+          onLimitChange={handleLimitChange}
+          disabled={loading}
+        />
       </Card>
 
       <DetailModal

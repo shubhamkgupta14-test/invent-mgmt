@@ -11,6 +11,7 @@ from app.utils.helpers import (
     normalize_sku
 )
 from app.utils.responseBuilder import build_stock_response
+from app.utils.pagination import page_bounds, regex_filter, sort_direction, validate_sort_field
 
 from app.utils.messages import Messages
 from app.models.auth import UserRole
@@ -31,6 +32,21 @@ stocks_collection = db.stocks
 products_collection = db.products
 suppliers_collection = db.suppliers
 
+PACKAGING_CHARGES = {
+    "Cardbox": {"S": 8, "M": 12, "L": 15},
+    "Pollybag": {"S": 5, "M": 7, "L": 10},
+}
+MAX_PACKAGING_CHARGE = 15
+
+PERCENTAGE_CHARGES = {
+    "platform_fees": {"percent": 5, "min": 10, "max": 25},
+    "return_rto": {"percent": 10},
+    "margin": {"percent": 30},
+    "misc": {"percent": 5},
+    "advertisement": {"percent": 2},
+    "promotion": {"percent": 5},
+}
+
 
 def calculate_stock_status(quantity: int):
 
@@ -41,6 +57,167 @@ def calculate_stock_status(quantity: int):
         return StockStatus.LOW_QUANTITY
 
     return StockStatus.IN_STOCK
+
+
+def _shipping_charge(weight: float):
+    if weight <= 500:
+        return 35
+    if weight <= 1000:
+        return 70
+    return 100
+
+
+def _packaging_charge(packing_types: list[str], packing_size: str):
+    total = sum(
+        PACKAGING_CHARGES.get(packing_type, {}).get(packing_size, 0)
+        for packing_type in packing_types
+    )
+    return min(total, MAX_PACKAGING_CHARGE)
+
+
+def _percentage_amount(base_price: float, key: str):
+    config = PERCENTAGE_CHARGES[key]
+    amount = round_price(base_price * (config["percent"] / 100))
+    if "min" in config:
+        amount = max(amount, config["min"])
+    if "max" in config:
+        amount = min(amount, config["max"])
+    return round_price(amount)
+
+
+def _charge_row(label: str, default_value: float, custom_value=None):
+    return {
+        "label": label,
+        "default": round_price(default_value),
+        "custom": round_price(custom_value) if custom_value is not None else None,
+    }
+
+
+def _total_price(base_price: float, charges: dict, use_custom: bool):
+    total = base_price
+    for key, charge in charges.items():
+        if key == "gst":
+            total += charge["default"]
+            continue
+        total += (
+            charge["custom"]
+            if use_custom and charge["custom"] is not None
+            else charge["default"]
+        )
+    return round_final_amount(total)
+
+
+async def calculate_selling_price(auth_user: dict, calculation_data: dict):
+    if auth_user.get("role") not in [UserRole.SUPERADMIN, UserRole.ADMIN]:
+        forbidden()
+
+    sku = normalize_sku(calculation_data.get("sku"))
+    stock = await stocks_collection.find_one({"sku": sku})
+    if not stock:
+        not_found(Messages.STOCK_NOT_FOUND)
+
+    product = await products_collection.find_one({"sku": sku}) or {}
+    base_price = round_price(stock.get("avg_price", 0))
+    tax_rate = product.get("tax_rate", stock.get("tax_rate", 0) or 0)
+    dead_weight = calculation_data.get("dead_weight", 0) or 0
+    volumetric_weight = calculation_data.get("volumetric_weight", 0) or 0
+    chargeable_weight = max(dead_weight, volumetric_weight)
+    packing_types = calculation_data.get("packing_types") or []
+    packing_size = calculation_data.get("packing_size") or "S"
+    overrides = calculation_data.get("overrides") or {}
+
+    charges = {
+        "marketplace_commission": _charge_row(
+            "Marketplace referral fee",
+            0,
+            overrides.get("marketplace_commission"),
+        ),
+        "shipping_charges": _charge_row(
+            "Courier shipping fee",
+            _shipping_charge(chargeable_weight),
+            overrides.get("shipping_charges"),
+        ),
+        "platform_fees": _charge_row(
+            "Platform payment fee",
+            _percentage_amount(base_price, "platform_fees"),
+            overrides.get("platform_fees"),
+        ),
+        "packaging_charges": _charge_row(
+            "Packing material cost",
+            _packaging_charge(packing_types, packing_size),
+            overrides.get("packaging_charges"),
+        ),
+        "gst": _charge_row(
+            "GST",
+            round_price(base_price * (tax_rate / 100)),
+        ),
+        "return_rto": _charge_row(
+            "Return and RTO provision",
+            _percentage_amount(base_price, "return_rto"),
+            overrides.get("return_rto"),
+        ),
+        "margin": _charge_row(
+            "Target profit margin",
+            _percentage_amount(base_price, "margin"),
+            overrides.get("margin"),
+        ),
+        "misc": _charge_row(
+            "Operational overhead buffer",
+            _percentage_amount(base_price, "misc"),
+            overrides.get("misc"),
+        ),
+        "advertisement": _charge_row(
+            "Advertising allocation",
+            _percentage_amount(base_price, "advertisement"),
+            overrides.get("advertisement"),
+        ),
+        "promotion": _charge_row(
+            "Promotion discount buffer",
+            _percentage_amount(base_price, "promotion"),
+            overrides.get("promotion"),
+        ),
+    }
+
+    default_selling_price = _total_price(base_price, charges, use_custom=False)
+    custom_selling_price = _total_price(base_price, charges, use_custom=True)
+
+    if calculation_data.get("save_default"):
+        await stocks_collection.update_one(
+            {"sku": sku},
+            {
+                "$set": {
+                    "min_selling_price": default_selling_price,
+                    "selling_price_calculation": {
+                        "base_price": base_price,
+                        "tax_rate": tax_rate,
+                        "dead_weight": dead_weight,
+                        "volumetric_weight": volumetric_weight,
+                        "chargeable_weight": chargeable_weight,
+                        "packing_types": packing_types,
+                        "packing_size": packing_size,
+                        "charges": charges,
+                        "default_selling_price": default_selling_price,
+                    },
+                    "updated_at": datetime.now(UTC),
+                }
+            }
+        )
+
+    return {
+        "sku": sku,
+        "name": stock.get("name"),
+        "base_price": base_price,
+        "tax_rate": tax_rate,
+        "dead_weight": dead_weight,
+        "volumetric_weight": volumetric_weight,
+        "chargeable_weight": chargeable_weight,
+        "packing_types": packing_types,
+        "packing_size": packing_size,
+        "charges": charges,
+        "default_selling_price": default_selling_price,
+        "custom_selling_price": custom_selling_price,
+        "saved": bool(calculation_data.get("save_default")),
+    }
 
 
 async def increase_stock(
@@ -320,9 +497,12 @@ async def record_unsellable_stock(
 async def get_stocks(
     auth_user: dict,
     sku: str = None,
+    search: str = None,
     stock_status: str = None,
     sort_by: str = "created_at",
-    sort_order: str = "desc"
+    sort_order: str = "desc",
+    page: int = 1,
+    limit: int = 10
 ):
 
     if auth_user.get("role") not in [
@@ -339,14 +519,13 @@ async def get_stocks(
         "sku",
         "name",
         "quantity",
-        "stock_status"
+        "stock_status",
+        "avg_price",
+        "min_selling_price",
+        "inventory_value",
     ]
 
-    if sort_by not in allowed_sort_fields:
-        bad_request(Messages.INVALID_SORT_FIELD)
-
-    if sort_order.lower() not in ["asc", "desc"]:
-        bad_request(Messages.INVALID_SORT_FIELD)
+    validate_sort_field(sort_by, allowed_sort_fields)
 
     if sku:
         filters["sku"] = normalize_sku(sku)
@@ -359,13 +538,17 @@ async def get_stocks(
 
         filters["stock_status"] = stock_status
 
+    filters.update(regex_filter(search, ["sku", "name", "supplier_id", "stock_status"]))
+
     stock_records = []
 
-    sort_order = -1 if sort_order.lower() == "desc" else 1
+    page, limit, skip = page_bounds(page, limit)
+    sort_order = sort_direction(sort_order)
+    total = await stocks_collection.count_documents(filters)
 
     async for stock in stocks_collection.find(
         filters
-    ).sort(sort_by, sort_order):
+    ).sort(sort_by, sort_order).skip(skip).limit(limit):
         stock_records.append(stock)
 
     skus = [stock.get("sku") for stock in stock_records if stock.get("sku")]
@@ -381,4 +564,14 @@ async def get_stocks(
         stock["tax_rate"] = tax_rate_by_sku.get(stock.get("sku"), 0)
         stocks.append(build_stock_response(stock))
 
-    return stocks
+    return {
+        "items": stocks,
+        "pagination": {
+            "page": page,
+            "limit": limit,
+            "total": total,
+            "pages": max((total + limit - 1) // limit, 1),
+            "has_prev": page > 1,
+            "has_next": page * limit < total,
+        },
+    }

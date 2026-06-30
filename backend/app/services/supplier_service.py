@@ -1,6 +1,7 @@
 from datetime import datetime, UTC
 from app.database.mongodb import db
 from app.utils.helpers import generate_supplier_id
+from app.utils.pagination import paginate_collection, regex_filter, validate_sort_field
 from app.utils.responseBuilder import build_supplier_response
 from app.models.auth import UserRole
 from app.utils.messages import Messages
@@ -46,20 +47,52 @@ async def add_supplier(supplier_data: dict, auth_user: dict):
     return build_supplier_response(created_supplier)
 
 
-async def get_all_suppliers(auth_user: dict):
-    suppliers = []
+async def get_all_suppliers(
+    auth_user: dict,
+    search: str = None,
+    sort_by: str = "created_at",
+    order: str = "desc",
+    page: int = 1,
+    limit: int = 10,
+):
+    allowed_sort_fields = [
+        "created_at",
+        "updated_at",
+        "supplier_id",
+        "name",
+        "email",
+        "phone",
+        "contact_person",
+        "is_active",
+    ]
+    validate_sort_field(sort_by, allowed_sort_fields)
 
     if auth_user.get("role") == UserRole.SUPERADMIN:
-        async for supplier in suppliers_collection.find().sort("created_at", -1):
-            suppliers.append(build_supplier_response(supplier))
-        return suppliers
+        filters = {}
+    elif auth_user.get("role") in [UserRole.ADMIN, UserRole.USER]:
+        filters = {"is_active": True}
+    else:
+        forbidden()
 
-    if auth_user.get("role") in [UserRole.ADMIN, UserRole.USER]:
-        async for supplier in suppliers_collection.find({"is_active": True}).sort("created_at", -1):
-            suppliers.append(build_supplier_response(supplier))
-        return suppliers
+    filters.update(regex_filter(search, [
+        "supplier_id",
+        "name",
+        "email",
+        "phone",
+        "address",
+        "gst_number",
+        "contact_person",
+    ]))
 
-    forbidden()
+    return await paginate_collection(
+        suppliers_collection,
+        filters,
+        sort_by,
+        order,
+        page,
+        limit,
+        build_supplier_response,
+    )
 
 
 async def get_supplier_by_id(supplier_id: str, auth_user: dict):

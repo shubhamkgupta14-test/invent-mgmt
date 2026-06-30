@@ -8,6 +8,7 @@ import Input from "../components/common/Input";
 import Loader from "../components/common/Loader";
 import Modal from "../components/common/Modal";
 import Select from "../components/common/Select";
+import TablePagination from "../components/common/TablePagination";
 import { useToast } from "../context/useToast";
 import MainLayout from "../layouts/MainLayout";
 import { formatDateTimeIST } from "../utils/formatters";
@@ -22,7 +23,7 @@ const emptyFilters = {
   min_duration_ms: "",
   success: "",
   page: 1,
-  limit: 20,
+  limit: 10,
 };
 
 const methodOptions = [
@@ -78,7 +79,7 @@ function methodClass(method) {
 function ApiLogs() {
   const [currentUser, setCurrentUser] = useState(null);
   const [logs, setLogs] = useState([]);
-  const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, pages: 0 });
+  const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, pages: 1 });
   const [filters, setFilters] = useState(emptyFilters);
   const [loading, setLoading] = useState(true);
   const [filtering, setFiltering] = useState(false);
@@ -94,20 +95,20 @@ function ApiLogs() {
     return params;
   }, []);
 
-  const loadLogs = useCallback(async (nextFilters = filters, showInlineLoading = false) => {
+  const loadLogs = useCallback(async (nextFilters = emptyFilters, showInlineLoading = false) => {
     try {
       if (showInlineLoading) setFiltering(true);
       const response = await getApiLogs(buildParams(nextFilters));
       const data = response.data.data || {};
       setLogs(data.items || []);
-      setPagination(data.pagination || { page: 1, limit: 20, total: 0, pages: 0 });
+      setPagination(data.pagination || { page: 1, limit: 10, total: 0, pages: 1 });
     } catch (error) {
       addToast(error.response?.data?.message || "Failed to load API logs", "error");
     } finally {
       setFiltering(false);
       setLoading(false);
     }
-  }, [addToast, buildParams, filters]);
+  }, [addToast, buildParams]);
 
   useEffect(() => {
     let isActive = true;
@@ -165,6 +166,12 @@ function ApiLogs() {
     loadLogs(nextFilters, true);
   };
 
+  const changeLimit = (limit) => {
+    const nextFilters = { ...filters, limit, page: 1 };
+    setFilters(nextFilters);
+    loadLogs(nextFilters, true);
+  };
+
   const openLog = async (log) => {
     try {
       setDetailLoading(true);
@@ -204,7 +211,9 @@ function ApiLogs() {
       <div className="space-y-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">API Logs</h1>
+            <h1 className="text-3xl font-bold text-slate-900">
+              API Request Logs
+            </h1>
             <p className="mt-1 text-slate-600">
               Monitor request timing, status codes, callers, and payload details.
             </p>
@@ -346,31 +355,13 @@ function ApiLogs() {
             </div>
           </div>
 
-          <div className="mt-5 flex flex-col gap-3 rounded-2xl border border-border bg-slate-50 p-4 text-sm text-slate-700 sm:flex-row sm:items-center sm:justify-between">
-            <span>
-              Page <span className="font-semibold">{pagination.page}</span> of{" "}
-              <span className="font-semibold">{pagination.pages || 1}</span>{" "}
-              ({pagination.total} logs)
-            </span>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={pagination.page <= 1 || filtering}
-                onClick={() => goToPage(pagination.page - 1)}
-              >
-                Previous
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={pagination.page >= pagination.pages || filtering}
-                onClick={() => goToPage(pagination.page + 1)}
-              >
-                Next
-              </Button>
-            </div>
-          </div>
+          <TablePagination
+            pagination={pagination}
+            label="API logs"
+            onPageChange={goToPage}
+            onLimitChange={changeLimit}
+            disabled={filtering}
+          />
         </Card>
       </div>
 

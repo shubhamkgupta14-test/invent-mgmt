@@ -100,6 +100,7 @@ class ModelValidationTests(unittest.TestCase):
         )
 
         self.assertIsNone(sale.user_info)
+        self.assertEqual(sale.platform, "Self Store")
         self.assertEqual(sale.sale_status, "SOLD")
 
 

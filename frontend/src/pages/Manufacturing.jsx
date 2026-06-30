@@ -7,6 +7,8 @@ import Loader from "../components/common/Loader";
 import Modal from "../components/common/Modal";
 import SearchBar from "../components/common/SearchBar";
 import SelectDropdown from "../components/common/SelectDropdown";
+import SortableHeader from "../components/common/SortableHeader";
+import TablePagination from "../components/common/TablePagination";
 import Textarea from "../components/common/Textarea";
 import MainLayout from "../layouts/MainLayout";
 import { createManufacturingRecord, getManufacturingRecords } from "../api/manufacturingApi";
@@ -14,6 +16,8 @@ import { getProductOptions } from "../api/productApi";
 import { getMyDetails } from "../api/userApi";
 import { useToast } from "../context/useToast";
 import { formatDateIST, formatMoney } from "../utils/formatters";
+import { toggleSort } from "../utils/sortUtils";
+import { defaultPagination, listParams, parseListResponse } from "../utils/tableQuery";
 
 const emptyForm = {
   batch_no: "",
@@ -33,12 +37,17 @@ function Manufacturing() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
+  const [pagination, setPagination] = useState(defaultPagination);
+  const [sortConfig, setSortConfig] = useState({ field: "created_at", order: "desc" });
   const [selectedRecord, setSelectedRecord] = useState(null);
   const { addToast } = useToast();
+  const { page, limit } = pagination;
 
   const loadRecords = async () => {
-    const response = await getManufacturingRecords();
-    setRecords(response.data.data || []);
+    const response = await getManufacturingRecords(listParams({ search, sortConfig, pagination: { page, limit } }));
+    const parsed = parseListResponse(response);
+    setRecords(parsed.items);
+    setPagination(parsed.pagination);
   };
 
   const loadProducts = async () => {
@@ -50,10 +59,12 @@ function Manufacturing() {
   useEffect(() => {
     let isActive = true;
 
-    Promise.all([getManufacturingRecords(), getMyDetails()])
+    Promise.all([getManufacturingRecords(listParams({ search, sortConfig, pagination: { page, limit } })), getMyDetails()])
       .then(([manufacturingResponse, userResponse]) => {
         if (!isActive) return;
-        setRecords(manufacturingResponse.data.data || []);
+        const parsed = parseListResponse(manufacturingResponse);
+        setRecords(parsed.items);
+        setPagination(parsed.pagination);
         setCurrentUser(userResponse.data.data);
       })
       .catch((error) => {
@@ -66,7 +77,18 @@ function Manufacturing() {
     return () => {
       isActive = false;
     };
-  }, [addToast]);
+  }, [addToast, limit, page, search, sortConfig]);
+
+  const handleSearchChange = (value) => {
+    setSearch(value);
+    setPagination((current) => ({ ...current, page: 1 }));
+  };
+  const handleSort = (field) => {
+    setSortConfig((current) => toggleSort(current, field));
+    setPagination((current) => ({ ...current, page: 1 }));
+  };
+  const handlePageChange = (page) => setPagination((current) => ({ ...current, page }));
+  const handleLimitChange = (limit) => setPagination((current) => ({ ...current, limit, page: 1 }));
 
   const updateForm = (key, value) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -110,16 +132,6 @@ function Manufacturing() {
     }
   };
 
-  const filteredRecords = records.filter((record) => {
-    const term = search.toLowerCase();
-    return (
-      record.batch_no?.toLowerCase().includes(term) ||
-      record.sku?.toLowerCase().includes(term) ||
-      record.name?.toLowerCase().includes(term) ||
-      record.total_cost?.toString().includes(search)
-    );
-  });
-
   if (loading) {
     return (
       <MainLayout>
@@ -150,7 +162,7 @@ function Manufacturing() {
         <div className="mb-5">
           <SearchBar
             value={search}
-            onChange={setSearch}
+            onChange={handleSearchChange}
             placeholder="Search batch, SKU, product, or total"
           />
         </div>
@@ -160,18 +172,16 @@ function Manufacturing() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-slate-50/70">
-                  {["Date", "Batch No", "Product", "Qty", "Status", "Total Cost"].map((label) => (
-                    <th
-                      key={label}
-                      className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500"
-                    >
-                      {label}
-                    </th>
-                  ))}
+                  <SortableHeader label="Date" field="created_at" sortConfig={sortConfig} onSort={handleSort} />
+                  <SortableHeader label="Batch No" field="batch_no" sortConfig={sortConfig} onSort={handleSort} />
+                  <SortableHeader label="Product" field="name" sortConfig={sortConfig} onSort={handleSort} />
+                  <SortableHeader label="Qty" field="quantity" sortConfig={sortConfig} onSort={handleSort} />
+                  <SortableHeader label="Status" field="status" sortConfig={sortConfig} onSort={handleSort} />
+                  <SortableHeader label="Total Cost" field="total_cost" sortConfig={sortConfig} onSort={handleSort} />
                 </tr>
               </thead>
               <tbody>
-                {filteredRecords.map((record) => (
+                {records.map((record) => (
                   <tr
                     key={record.manufacturing_id}
                     onClick={() => setSelectedRecord(record)}
@@ -197,7 +207,7 @@ function Manufacturing() {
                     </td>
                   </tr>
                 ))}
-                {!filteredRecords.length && (
+                {!records.length && (
                   <tr>
                     <td colSpan={6} className="px-5 py-8 text-center text-sm text-slate-500">
                       No manufacturing records found.
@@ -209,9 +219,13 @@ function Manufacturing() {
           </div>
         </div>
 
-        <div className="mt-6 rounded-2xl border border-border bg-slate-50 p-4 text-sm text-slate-700">
-          Showing <span className="font-semibold">{filteredRecords.length}</span> manufacturing records.
-        </div>
+        <TablePagination
+          pagination={pagination}
+          label="manufacturing records"
+          onPageChange={handlePageChange}
+          onLimitChange={handleLimitChange}
+          disabled={loading}
+        />
       </Card>
 
       <DetailModal

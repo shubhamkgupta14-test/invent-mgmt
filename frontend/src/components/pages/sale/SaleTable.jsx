@@ -1,4 +1,6 @@
 import StatusBadge from "../../common/StatusBadge";
+import PlatformBadge from "../../common/PlatformBadge";
+import SortableHeader from "../../common/SortableHeader";
 import { formatDateIST } from "../../../utils/formatters";
 
 const getQuantity = (sale) =>
@@ -15,7 +17,7 @@ const getItemSummary = (items = []) => {
     : firstItem.name || "Product";
 };
 
-function SaleTable({ sales, onView }) {
+function SaleTable({ sales, onView, sortConfig, handleSort }) {
   if (!sales?.length) {
     return (
       <div className="rounded-2xl border border-[var(--border)] bg-white p-5 shadow-sm">
@@ -30,27 +32,14 @@ function SaleTable({ sales, onView }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-[var(--border)] bg-slate-50/70">
-              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                Order Date
-              </th>
-              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                Invoice Id
-              </th>
-              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                Product
-              </th>
-              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                Items
-              </th>
-              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                Quantity
-              </th>
-              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                Total
-              </th>
-              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                Status
-              </th>
+              <SortableHeader label="Order Date" field="created_at" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Invoice Id" field="invoice_id" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Platform" field="platform" sortConfig={sortConfig} onSort={handleSort} />
+              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">Product</th>
+              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">Items</th>
+              <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">Quantity</th>
+              <SortableHeader label="Total" field="final_total_amount" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Status" field="sale_status" sortConfig={sortConfig} onSort={handleSort} />
             </tr>
           </thead>
           <tbody>
@@ -68,6 +57,9 @@ function SaleTable({ sales, onView }) {
                     {formatDateIST(sale.created_at)}
                   </td>
                   <td className="px-5 py-4 text-slate-700">{sale.invoice_id}</td>
+                  <td className="px-5 py-4 text-slate-700">
+                    <PlatformBadge platform={sale.platform || "Self Store"} />
+                  </td>
                   <td className="px-5 py-4 font-medium text-slate-900">
                     <div className="flex max-w-[240px] items-center gap-2">
                       <span className="truncate" title={itemSummary}>

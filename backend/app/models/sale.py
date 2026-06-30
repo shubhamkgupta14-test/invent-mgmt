@@ -10,6 +10,14 @@ class SaleStatus(str, Enum):
     RETURN = "RETURN"
 
 
+class SalePlatform(str, Enum):
+    FLIPKART = "Flipkart"
+    AMAZON = "Amazon"
+    MEESHO = "Meesho"
+    SELF_STORE = "Self Store"
+    OTHER = "Other"
+
+
 class SaleItem(BaseModel):
     sku: str = Field(..., description="Product SKU")
     quantity: int = Field(..., gt=0)
@@ -33,6 +41,7 @@ class PaymentDetail(BaseModel):
 
 class SaleCreate(BaseModel):
     invoice_id: str = Field(..., description="Sale invoice id")
+    platform: SalePlatform = SalePlatform.SELF_STORE
     user_info: Optional[UserInfo] = None
     items: List[SaleItem]
     # subtotal: Optional[float] = None

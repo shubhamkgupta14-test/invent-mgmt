@@ -1,7 +1,7 @@
 import API from "./apiClient";
 
-export const getSuppliers = async () => {
-  return API.get("/suppliers/");
+export const getSuppliers = async (params = {}) => {
+  return API.get("/suppliers/", { params });
 };
 
 export const addSupplier = async (payload) => {
