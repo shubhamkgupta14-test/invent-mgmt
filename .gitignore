@@ -63,3 +63,4 @@ figma-code/
 figma-code*.zip
 codex-frontend/
 .agents/
+.codex*

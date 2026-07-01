@@ -1,6 +1,7 @@
 import { Routes, Route } from "react-router-dom";
 import { ToastProvider } from "./context/ToastContext";
 import Login from "./pages/Login";
+import ForgotPassword from "./pages/ForgotPassword";
 import Dashboard from "./pages/Dashboard";
 import Inventory from "./pages/Inventory";
 import Purchase from "./pages/Purchase";
@@ -15,14 +16,19 @@ import SuperAdmin from "./pages/SuperAdmin";
 import AuditLogs from "./pages/AuditLogs";
 import ApiLogs from "./pages/ApiLogs";
 import Notifications from "./pages/Notifications";
+import UserSettings from "./pages/UserSettings";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./routes/ProtectedRoute";
+import useCompanySettings from "./hooks/useCompanySettings";
 
 function App() {
+  useCompanySettings();
+
   return (
     <ToastProvider>
       <Routes>
         <Route path="/" element={<Login />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route
           path="/dashboard"
           element={
@@ -132,6 +138,14 @@ function App() {
           element={
             <ProtectedRoute>
               <Notifications />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <UserSettings />
             </ProtectedRoute>
           }
         />

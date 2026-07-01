@@ -1,14 +1,17 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, File, UploadFile
 from typing import Annotated, Optional
 
 from app.services.auth_service import get_current_user
 
 from app.models.auth import (
+    ChangePasswordRequest,
     CreateUserRequest,
     GetUserRequest,
     ActivateUserRequest,
     DeleteUserRequest,
     UpdateUserRoleRequest,
+    UpdateProfileRequest,
+    VerifyEmailRequest,
     CleanDatabaseRequest
 )
 
@@ -20,7 +23,12 @@ from app.services.user_service import (
     delete_user,
     get_me,
     update_user_role,
-    clean_database_collections
+    clean_database_collections,
+    change_password,
+    update_my_profile,
+    update_my_profile_image,
+    request_email_verification,
+    verify_email,
 )
 
 from app.utils.messages import Messages
@@ -102,6 +110,72 @@ async def get_me_api(auth_user: user_dependency):
     return success_response(
         message=Messages.USER_DETAILS_FETCHED,
         data=user
+    )
+
+
+@router.patch("/me")
+async def update_me_api(
+    auth_user: user_dependency,
+    request: UpdateProfileRequest,
+):
+    user = await update_my_profile(auth_user, request.model_dump())
+
+    return success_response(
+        message=Messages.USER_DETAILS_FETCHED,
+        data=user,
+    )
+
+
+@router.post("/me/profile-image")
+async def update_my_profile_image_api(
+    auth_user: user_dependency,
+    file: UploadFile = File(...),
+):
+    user = await update_my_profile_image(auth_user, file)
+
+    return success_response(
+        message=Messages.USER_DETAILS_FETCHED,
+        data=user,
+    )
+
+
+@router.post("/email-verification/request")
+async def request_email_verification_api(auth_user: user_dependency):
+    result = await request_email_verification(auth_user)
+
+    return success_response(
+        message=Messages.EMAIL_VERIFICATION_OTP_SENT,
+        data=result,
+    )
+
+
+@router.post("/email-verification/verify")
+async def verify_email_api(
+    auth_user: user_dependency,
+    request: VerifyEmailRequest,
+):
+    user = await verify_email(auth_user, request.otp)
+
+    return success_response(
+        message=Messages.EMAIL_VERIFIED,
+        data=user,
+    )
+
+
+@router.patch("/password")
+async def change_password_api(
+    auth_user: user_dependency,
+    request: ChangePasswordRequest,
+):
+    result = await change_password(
+        auth_user=auth_user,
+        current_password=request.current_password,
+        new_password=request.new_password,
+    )
+
+    return success_response(
+        message=Messages.USER_PASSWORD_UPDATED,
+        data=result,
     )
 
 # ACTIVATE USER

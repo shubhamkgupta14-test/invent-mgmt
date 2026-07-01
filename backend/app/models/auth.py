@@ -55,9 +55,38 @@ class CleanDatabaseRequest(BaseModel):
     collections: List[str] = Field(..., min_length=1)
 
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(..., min_length=5)
+    new_password: str = Field(..., min_length=5)
+
+
+class UpdateProfileRequest(BaseModel):
+    firstname: str = Field(..., min_length=1, max_length=50)
+    lastname: Optional[str] = Field(default="", max_length=50)
+    email: str = Field(..., pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+class VerifyEmailRequest(BaseModel):
+    otp: str = Field(..., min_length=4, max_length=10)
+
+
 class LoginRequest(BaseModel):
     username: str = Field(..., min_length=3, max_length=50)
     password: str = Field(..., min_length=5)
+
+
+class PasswordResetRequest(BaseModel):
+    identifier: str = Field(..., min_length=3, max_length=100)
+
+
+class PasswordResetVerifyOtpRequest(BaseModel):
+    identifier: str = Field(..., min_length=3, max_length=100)
+    otp: str = Field(..., min_length=4, max_length=10)
+
+
+class PasswordResetConfirmRequest(BaseModel):
+    reset_token: str = Field(..., min_length=20)
+    new_password: str = Field(..., min_length=5)
 
 
 class UserResponse(Users):

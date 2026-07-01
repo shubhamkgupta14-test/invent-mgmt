@@ -2,7 +2,7 @@ import { FaSearch } from "react-icons/fa";
 
 function SearchBar({ value, onChange, placeholder = "Search..." }) {
   return (
-    <div className="relative rounded-xl border border-border bg-white shadow-sm transition-all duration-200 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
+    <div className="app-control relative rounded-xl transition-all duration-200">
       <div className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-slate-400">
         <FaSearch size={14} />
       </div>

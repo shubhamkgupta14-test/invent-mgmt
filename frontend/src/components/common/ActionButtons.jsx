@@ -13,7 +13,7 @@ export function ActionButtons({
           <button
             onClick={onEdit}
             disabled={loading}
-            className="flex items-center gap-2 px-3 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-xl transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 rounded-xl bg-[var(--secondary)] px-3 py-2 text-[var(--secondary-foreground)] transition-colors hover:bg-[var(--secondary-hover)] disabled:cursor-not-allowed disabled:opacity-60"
             title="Edit"
           >
             <FaPencilAlt size={16} />
@@ -24,7 +24,7 @@ export function ActionButtons({
           <button
             onClick={onDelete}
             disabled={loading}
-            className="flex items-center gap-2 px-3 py-2 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-xl transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 rounded-xl bg-rose-50 px-3 py-2 text-rose-700 transition-colors hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
             title="Delete"
           >
             <FaTrash size={16} />
@@ -42,7 +42,7 @@ export function ActionButtons({
         <button
           onClick={onEdit}
           disabled={loading}
-          className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          className="rounded-lg p-2 text-[var(--link)] transition-colors hover:bg-[var(--secondary)] hover:text-[var(--link-hover)] disabled:cursor-not-allowed disabled:opacity-60"
           title="Edit"
         >
           <FaPencilAlt size={16} />
@@ -52,7 +52,7 @@ export function ActionButtons({
         <button
           onClick={onDelete}
           disabled={loading}
-          className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          className="rounded-lg p-2 text-[var(--destructive)] transition-colors hover:bg-rose-50 hover:text-[var(--destructive-hover)] disabled:cursor-not-allowed disabled:opacity-60"
           title="Delete"
         >
           <FaTrash size={16} />

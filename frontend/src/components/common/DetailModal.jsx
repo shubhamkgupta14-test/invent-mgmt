@@ -1,6 +1,5 @@
 import Modal from "./Modal";
-
-const money = (value = 0) => `Rs ${Number(value || 0).toLocaleString("en-IN")}`;
+import { formatMoney } from "../../utils/formatters";
 
 function formatValue(value) {
   if (value === null || value === undefined || value === "") return "-";
@@ -30,7 +29,7 @@ function DetailModal({ isOpen, onClose, title, sections = [], size = "2xl" }) {
                       {field.render
                         ? field.render(field.value)
                         : field.money
-                          ? money(field.value)
+                          ? formatMoney(field.value)
                           : formatValue(field.value)}
                     </div>
                   </div>

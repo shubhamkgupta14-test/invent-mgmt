@@ -13,18 +13,18 @@ function Button({
   ...props
 }) {
   const baseStyles =
-    "inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-all duration-200 font-sans disabled:opacity-60 disabled:cursor-not-allowed";
+    "inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl font-semibold transition-all duration-200 font-sans disabled:cursor-not-allowed disabled:opacity-60";
 
   const variants = {
     primary:
-      "bg-[var(--primary)] text-white hover:bg-indigo-700 active:scale-95 shadow-sm hover:shadow-md",
+      "bg-[var(--primary)] text-[var(--primary-foreground)] hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)] active:scale-95 shadow-sm hover:shadow-md",
     secondary:
-      "border border-border bg-white text-slate-900 hover:bg-slate-50 active:scale-95 shadow-sm",
+      "border border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-hover)] active:scale-95 shadow-sm",
     danger:
-      "bg-destructive text-destructive-foreground hover:bg-rose-700 active:scale-95 shadow-sm hover:shadow-md",
+      "bg-[var(--destructive)] text-[var(--destructive-foreground)] hover:bg-[var(--destructive-hover)] active:bg-[var(--destructive-active)] active:scale-95 shadow-sm hover:shadow-md",
     success:
-      "bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95 shadow-sm hover:shadow-md",
-    ghost: "text-slate-700 hover:bg-slate-100 active:scale-95",
+      "bg-[var(--accent)] text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)] active:scale-95 shadow-sm hover:shadow-md",
+    ghost: "text-[var(--foreground-subtle)] hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)] active:scale-95",
   };
 
   const sizes = {

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   FaBox,
   FaChartBar,
@@ -20,19 +20,20 @@ import {
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { getMyDetails } from "../../api/userApi";
 import { clearToken } from "../../utils/authUtils";
-import { APP_TITLE, BRAND_INITIAL, BRAND_NAME } from "../../config/brand";
+import useCompanySettings from "../../hooks/useCompanySettings";
 
 function Sidebar({ onNavigate, onClose }) {
   const [displayName, setDisplayName] = useState("");
+  const [initials, setInitials] = useState("");
+  const [profileImageUrl, setProfileImageUrl] = useState("");
   const [role, setRole] = useState("");
-  const [logoMissing, setLogoMissing] = useState(false);
+  const [failedLogoUrl, setFailedLogoUrl] = useState("");
   const navRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
+  const { brand } = useCompanySettings();
 
-  useEffect(() => {
-    let isActive = true;
-
+  const loadUser = useCallback((isActive = true) => {
     getMyDetails()
       .then((response) => {
         if (!isActive) return;
@@ -41,18 +42,34 @@ function Sidebar({ onNavigate, onClose }) {
         const fullName = [user.firstname, user.lastname]
           .filter(Boolean)
           .join(" ");
+        const nextInitials = [user.firstname, user.lastname]
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((part) => part.charAt(0).toUpperCase())
+          .join("") || (user.username || "U").charAt(0).toUpperCase();
 
         setDisplayName(fullName || user.username || "User");
+        setInitials(nextInitials);
+        setProfileImageUrl(user.profile_image_url || "");
         setRole(String(user.role || "user").toLowerCase());
       })
       .catch((error) => {
         console.error("Failed to load user details:", error);
       });
+  }, []);
+
+  useEffect(() => {
+    let isActive = true;
+    const handleUserChange = () => loadUser(isActive);
+
+    loadUser(isActive);
+    window.addEventListener("user:changed", handleUserChange);
 
     return () => {
       isActive = false;
+      window.removeEventListener("user:changed", handleUserChange);
     };
-  }, []);
+  }, [loadUser]);
 
   useEffect(() => {
     navRef.current?.scrollTo({ top: 0 });
@@ -151,19 +168,19 @@ function Sidebar({ onNavigate, onClose }) {
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <div className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg bg-[var(--primary)] text-base font-bold text-white shadow-lg shadow-indigo-950/30">
-              {!logoMissing && (
+              {failedLogoUrl !== brand.logoUrl && (
                 <img
-                  src="/brand-logo.png"
-                  alt={BRAND_NAME}
+                  src={brand.logoUrl}
+                  alt={brand.name}
                   className="h-full w-full object-cover"
-                  onError={() => setLogoMissing(true)}
+                  onError={() => setFailedLogoUrl(brand.logoUrl)}
                 />
               )}
-              {logoMissing && <span className="absolute">{BRAND_INITIAL}</span>}
+              {failedLogoUrl === brand.logoUrl && <span className="absolute">{brand.initial}</span>}
             </div>
             <div className="min-w-0">
               <h1 className="truncate text-base font-bold tracking-tight">
-                {APP_TITLE}
+                {brand.name}
               </h1>
               <p className="text-xs text-slate-400">Inventory dashboard</p>
             </div>
@@ -219,8 +236,16 @@ function Sidebar({ onNavigate, onClose }) {
 
       <div className="border-t border-white/10 px-3 py-4">
         <div className="flex items-center gap-3 px-3 py-2">
-          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-[var(--primary)] text-sm font-semibold text-white">
-            {displayName ? displayName.charAt(0).toUpperCase() : ""}
+          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--primary)] text-sm font-semibold text-white">
+            {profileImageUrl ? (
+              <img
+                src={profileImageUrl}
+                alt={displayName || "User"}
+                className="h-full w-full rounded-full object-cover"
+              />
+            ) : (
+              initials
+            )}
           </div>
           <div className="min-w-0">
             <p className="text-sm font-semibold text-white truncate">

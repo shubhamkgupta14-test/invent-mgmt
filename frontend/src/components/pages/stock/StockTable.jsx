@@ -1,5 +1,6 @@
 import StockStatusBadge from "../../common/StockStatusBadge";
 import SortableHeader from "../../common/SortableHeader";
+import { formatMoney } from "../../../utils/formatters";
 
 function quantityBadgeClass(stock) {
   if (stock.stock_status === "OUT_OF_STOCK" || Number(stock.quantity || 0) <= 0) {
@@ -60,15 +61,15 @@ function StockTable({ stocks, sortConfig, handleSort, onView }) {
                 </td>
                 <td className="px-5 py-4 text-slate-700">{stock.tax_rate ?? 0}%</td>
                 <td className="px-5 py-4 text-slate-700">
-                  Rs {stock.avg_price?.toLocaleString("en-IN")}
+                  {formatMoney(stock.avg_price)}
                 </td>
                 <td className="px-5 py-4 text-slate-700">
                   {stock.min_selling_price
-                    ? `Rs ${stock.min_selling_price.toLocaleString("en-IN")}`
+                    ? formatMoney(stock.min_selling_price)
                     : "-"}
                 </td>
                 <td className="px-5 py-4 text-slate-700">
-                  Rs {stock.inventory_value?.toLocaleString("en-IN")}
+                  {formatMoney(stock.inventory_value)}
                 </td>
                 <td className="px-5 py-4">
                   <StockStatusBadge status={stock.stock_status} />

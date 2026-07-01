@@ -8,6 +8,8 @@ def build_user_response(user: dict):
         "firstname": user.get("firstname", ""),
         "lastname": user.get("lastname", ""),
         "email": user.get("email", ""),
+        "email_verified": user.get("email_verified", False),
+        "profile_image_url": user.get("profile_image_url", ""),
         "role": user["role"],
         "active": user["active"],
         "created_at": format_datetime_iso(user["created_at"]),

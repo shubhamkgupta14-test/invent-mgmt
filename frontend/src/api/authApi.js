@@ -11,3 +11,18 @@ export const loginUser = async (data) => {
     },
   });
 };
+
+export const requestPasswordResetOtp = async (identifier) => {
+  return API.post("/auth/password-reset/request", { identifier });
+};
+
+export const verifyPasswordResetOtp = async (identifier, otp) => {
+  return API.post("/auth/password-reset/verify-otp", { identifier, otp });
+};
+
+export const confirmPasswordReset = async (resetToken, newPassword) => {
+  return API.post("/auth/password-reset/confirm", {
+    reset_token: resetToken,
+    new_password: newPassword,
+  });
+};
