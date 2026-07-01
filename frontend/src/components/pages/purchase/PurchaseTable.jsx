@@ -1,6 +1,6 @@
 import StatusBadge from "../../common/StatusBadge";
 import SortableHeader from "../../common/SortableHeader";
-import { formatDateIST } from "../../../utils/formatters";
+import { formatDateIST, formatMoney } from "../../../utils/formatters";
 
 const getItemSummary = (items = []) => {
   const firstItem = items[0];
@@ -77,7 +77,7 @@ function PurchaseTable({ purchases, onView, sortConfig, handleSort }) {
                     {purchase.total_quantity}
                   </td>
                   <td className="px-5 py-4 text-slate-700">
-                    Rs {purchase.final_total_amount?.toLocaleString("en-IN")}
+                    {formatMoney(purchase.final_total_amount)}
                   </td>
                   <td className="px-5 py-4 text-slate-700">
                     <StatusBadge status={purchase.payment_status} type="payment" />

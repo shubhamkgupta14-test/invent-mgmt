@@ -9,6 +9,7 @@ import { calculateSellingPrice, getStocks } from "../api/stockApi";
 import { getMyDetails } from "../api/userApi";
 import { useToast } from "../context/useToast";
 import { FaChevronDown, FaChevronUp } from "react-icons/fa";
+import { formatMoney } from "../utils/formatters";
 
 const chargeFields = [
   ["marketplace_commission", "Marketplace referral fee"],
@@ -22,7 +23,7 @@ const chargeFields = [
   ["promotion", "Promotion discount buffer"],
 ];
 
-const money = (value = 0) => `Rs ${Number(value || 0).toLocaleString("en-IN")}`;
+const money = (value = 0) => formatMoney(value);
 const roundPrice = (value) => Math.round(Number(value || 0) * 100) / 100;
 
 const packagingCharges = {
@@ -34,21 +35,6 @@ const packagingLabels = {
   Cardbox: "Corrugated box",
   Pollybag: "Poly mailer",
 };
-
-const defaultChargeInfo = [
-  "Marketplace referral fee: Rs 0 by default",
-  "Courier shipping fee: Rs 35 up to 500g, Rs 70 from 501g to 1000g, Rs 100 above 1000g",
-  "Platform payment fee: Rs 10 minimum, then 5% of unit cost capped at Rs 25",
-  "Corrugated box: S Rs 8, M Rs 12, L Rs 15",
-  "Poly mailer: S Rs 5, M Rs 7, L Rs 10",
-  "Packing material total is capped at Rs 15",
-  "GST: product tax rate applied to unit cost",
-  "Return and RTO provision: 10%",
-  "Target profit margin: 30%",
-  "Operational overhead buffer: 5%",
-  "Advertising allocation: 2%",
-  "Promotion discount buffer: 5%",
-];
 
 function shippingCharge(weight) {
   if (weight <= 500) return 35;
@@ -139,6 +125,21 @@ function SellingPriceCalculator() {
     form.packing_types,
     form.packing_size,
   ]);
+
+  const defaultChargeInfo = [
+    `Marketplace referral fee: ${money(0)} by default`,
+    `Courier shipping fee: ${money(35)} up to 500g, ${money(70)} from 501g to 1000g, ${money(100)} above 1000g`,
+    `Platform payment fee: ${money(10)} minimum, then 5% of unit cost capped at ${money(25)}`,
+    `Corrugated box: S ${money(8)}, M ${money(12)}, L ${money(15)}`,
+    `Poly mailer: S ${money(5)}, M ${money(7)}, L ${money(10)}`,
+    `Packing material total is capped at ${money(15)}`,
+    "GST: product tax rate applied to unit cost",
+    "Return and RTO provision: 10%",
+    "Target profit margin: 30%",
+    "Operational overhead buffer: 5%",
+    "Advertising allocation: 2%",
+    "Promotion discount buffer: 5%",
+  ];
 
   const getDefaultCharge = (key) =>
     result?.charges?.[key]?.default ?? defaultCharges[key] ?? 0;
@@ -455,7 +456,7 @@ function SellingPriceCalculator() {
                           onChange={(event) =>
                             updateOverride(key, event.target.value)
                           }
-                          placeholder="Custom Rs"
+                          placeholder="Custom amount"
                           className="w-32 rounded-lg border border-border bg-white px-3 py-2 text-right text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25"
                         />
                       </td>

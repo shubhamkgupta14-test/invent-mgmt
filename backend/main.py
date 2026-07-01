@@ -38,7 +38,9 @@ from app.routes.dashboard_routes import router as dashboard_router
 from app.routes.supplier_routes import router as supplier_router
 from app.routes.notification_routes import router as notification_router
 from app.routes.api_logs import router as api_logs_router
+from app.routes.company_routes import router as company_router
 from app.middleware.api_logger import ApiLoggingMiddleware
+from app.services.company_service import get_company_brand_name
 from app.utils.settings import Settings
 from app.utils.response import failure_response
 from fastapi.responses import JSONResponse
@@ -51,15 +53,18 @@ STARTED_AT = datetime.now(UTC)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # create_default_superadmin()
-    print(f"Starting up the {Settings.APP_BRAND_NAME} Inventory API...")
+    brand_name = await get_company_brand_name()
+    app.title = f"{brand_name} Inventory API"
+    print(f"Starting up the {brand_name} Inventory API...")
     await create_indexes()
     await create_default_superadmin()
     yield
-    print(f"Shutting down the {Settings.APP_BRAND_NAME} Inventory API...")
+    brand_name = await get_company_brand_name()
+    print(f"Shutting down the {brand_name} Inventory API...")
 
 
 app = FastAPI(
-    title=f"{Settings.APP_BRAND_NAME} Inventory API",
+    title=f"{Settings.DEFAULT_BRAND_NAME} Inventory API",
     lifespan=lifespan
 )
 
@@ -109,6 +114,7 @@ app.include_router(return_router)
 app.include_router(exchange_router)
 app.include_router(audit_router)
 app.include_router(api_logs_router)
+app.include_router(company_router)
 app.include_router(user_router)
 app.include_router(notification_router)
 app.include_router(auth_router)
@@ -118,8 +124,9 @@ app.include_router(auth_router)
 
 @app.get("/")
 async def root():
+    brand_name = await get_company_brand_name()
     return {
-        "message": f"Welcome to the {Settings.APP_BRAND_NAME} Inventory API!",
+        "message": f"Welcome to the {brand_name} Inventory API!",
         "documentation": "Use /docs for API documentation."
     }
 
@@ -147,7 +154,7 @@ async def health_check():
         status_code=status_code,
         content={
             "status": status,
-            "service": f"{Settings.APP_BRAND_NAME} Inventory API",
+            "service": f"{await get_company_brand_name()} Inventory API",
             "environment": Settings.ENVIRONMENT,
             "timestamp": now.isoformat(),
             "uptime_seconds": int((now - STARTED_AT).total_seconds()),

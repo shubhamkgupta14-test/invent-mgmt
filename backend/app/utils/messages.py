@@ -23,6 +23,15 @@ class Messages:
     LOGIN_SUCCESS = "Login successful"
     LOGOUT_SUCCESS = "Logout successful"
     AUTHENTICATION_FAILED = "Authentication failed"
+    PASSWORD_RESET_OTP_SENT = "If the account exists, a password reset OTP has been sent"
+    PASSWORD_RESET_OTP_VERIFIED = "OTP verified successfully"
+    PASSWORD_RESET_SUCCESS = "Password updated successfully"
+    INVALID_OTP = "Invalid or expired OTP"
+    OTP_ATTEMPTS_EXCEEDED = "Maximum OTP attempts exceeded"
+    OTP_USER_BLOCKED = "Too many wrong OTP attempts. Contact SuperAdmin for activating your account."
+    OTP_INVALID_WITH_ATTEMPTS = "Invalid OTP. {remaining} attempt(s) remaining."
+    OTP_RESEND_TOO_SOON = "Please wait before requesting another OTP"
+    INVALID_RESET_TOKEN = "Invalid or expired reset token"
 
     # USER
     USER_NOT_FOUND = "User not found"
@@ -42,8 +51,17 @@ class Messages:
     USER_PROMOTED_TO_ADMIN = "User promoted to admin successfully"
     USER_ALREADY_ADMIN = "User is already an admin"
     USER_ROLE_UPDATED = "User role updated successfully"
+    USER_PASSWORD_UPDATED = "Password updated successfully"
+    CURRENT_PASSWORD_INVALID = "Current password is incorrect"
+    NEW_PASSWORD_SAME_AS_CURRENT = "New password must be different from current password"
     DATABASE_CLEANED = "Database cleaned successfully"
     INVALID_COLLECTION = "Invalid collection selected"
+
+    # COMPANY
+    COMPANY_SETTINGS_FETCHED = "Company settings fetched successfully"
+    COMPANY_SETTINGS_UPDATED = "Company settings updated successfully"
+    EMAIL_VERIFICATION_OTP_SENT = "Verification code sent to your email"
+    EMAIL_VERIFIED = "Email verified successfully"
 
     # PRODUCT
     PRODUCT_ADDED = "Product added successfully"

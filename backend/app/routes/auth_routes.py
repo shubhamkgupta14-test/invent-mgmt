@@ -1,10 +1,20 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, status
 from typing import Annotated
 from fastapi.security import OAuth2PasswordRequestForm
-from app.models.auth import Token
+from app.models.auth import (
+    PasswordResetConfirmRequest,
+    PasswordResetRequest,
+    PasswordResetVerifyOtpRequest,
+    Token,
+)
 
 from app.services.auth_service import (
     get_token_service
+)
+from app.services.password_reset_service import (
+    confirm_password_reset,
+    request_password_reset_otp,
+    verify_password_reset_otp,
 )
 
 from app.utils.messages import Messages
@@ -27,4 +37,47 @@ async def login_api(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
 async def logout():
     return success_response(
         message=Messages.LOGOUT_SUCCESS
+    )
+
+
+@router.post("/password-reset/request")
+async def request_password_reset_api(
+    payload: PasswordResetRequest,
+    request: Request,
+):
+    result = await request_password_reset_otp(
+        identifier=payload.identifier,
+        request_ip=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
+    return success_response(
+        message=Messages.PASSWORD_RESET_OTP_SENT,
+        data=result,
+    )
+
+
+@router.post("/password-reset/verify-otp")
+async def verify_password_reset_otp_api(payload: PasswordResetVerifyOtpRequest):
+    result = await verify_password_reset_otp(
+        identifier=payload.identifier,
+        otp=payload.otp,
+    )
+
+    return success_response(
+        message=Messages.PASSWORD_RESET_OTP_VERIFIED,
+        data=result,
+    )
+
+
+@router.post("/password-reset/confirm")
+async def confirm_password_reset_api(payload: PasswordResetConfirmRequest):
+    result = await confirm_password_reset(
+        reset_token=payload.reset_token,
+        new_password=payload.new_password,
+    )
+
+    return success_response(
+        message=Messages.PASSWORD_RESET_SUCCESS,
+        data=result,
     )

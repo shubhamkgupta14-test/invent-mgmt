@@ -31,12 +31,11 @@ function Input({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
-          className={`w-full px-4 py-2.5 ${Icon ? "pl-10" : ""} rounded-xl border border-[var(--border)]
-            bg-white text-sm text-slate-900 placeholder-slate-400 font-sans shadow-sm
-            focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary
-            disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed
+          className={`app-control w-full px-4 py-2.5 ${Icon ? "pl-10" : ""} rounded-xl
+            text-sm placeholder-slate-400 font-sans
+            disabled:cursor-not-allowed
             transition-all duration-200
-            ${error ? "border-rose-500 focus:ring-rose-500" : ""}
+            ${error ? "border-[var(--destructive)] focus:ring-[var(--destructive)]/25" : ""}
             ${className}`}
           {...props}
         />

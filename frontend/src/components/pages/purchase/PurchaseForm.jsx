@@ -4,6 +4,7 @@ import Input from "../../common/Input";
 import Textarea from "../../common/Textarea";
 import PaymentDetailsRow from "./PaymentDetailsRow";
 import PurchaseItemRow from "./PurchaseItemRow";
+import { formatMoney } from "../../../utils/formatters";
 
 function PurchaseForm({ products, onSubmit }) {
   const [form, setForm] = useState({
@@ -177,7 +178,7 @@ function PurchaseForm({ products, onSubmit }) {
       <div className="flex flex-col gap-4 border-t border-[var(--border)] pt-5 md:flex-row md:items-center md:justify-between">
         <div className="rounded-xl bg-indigo-50 px-4 py-3 text-sm text-indigo-800">
           <span className="font-semibold">Estimated total:</span>{" "}
-          <span className="font-mono">Rs {calculateTotal().toLocaleString("en-IN")}</span>
+          <span className="font-mono">{formatMoney(calculateTotal())}</span>
         </div>
         <Button type="submit" variant="primary">
           Save Purchase

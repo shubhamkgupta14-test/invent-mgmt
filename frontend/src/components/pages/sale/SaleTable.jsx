@@ -1,7 +1,7 @@
 import StatusBadge from "../../common/StatusBadge";
 import PlatformBadge from "../../common/PlatformBadge";
 import SortableHeader from "../../common/SortableHeader";
-import { formatDateIST } from "../../../utils/formatters";
+import { formatDateIST, formatMoney } from "../../../utils/formatters";
 
 const getQuantity = (sale) =>
   sale.total_quantity ||
@@ -79,7 +79,7 @@ function SaleTable({ sales, onView, sortConfig, handleSort }) {
                     {getQuantity(sale)}
                   </td>
                   <td className="px-5 py-4 text-slate-700">
-                    Rs {sale.final_total_amount?.toLocaleString("en-IN")}
+                    {formatMoney(sale.final_total_amount)}
                   </td>
                   <td className="px-5 py-4 text-slate-700">
                     <StatusBadge status={sale.sale_status} type="sale" />

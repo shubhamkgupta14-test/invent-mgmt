@@ -5,6 +5,7 @@ import Select from "../../common/Select";
 import Textarea from "../../common/Textarea";
 import PaymentDetailsRow from "../purchase/PaymentDetailsRow";
 import SaleItemRow from "./SaleItemRow";
+import { formatMoney } from "../../../utils/formatters";
 
 const platformOptions = [
   { label: "Flipkart", value: "Flipkart" },
@@ -210,7 +211,7 @@ function SaleForm({ products, onSubmit }) {
       <div className="flex flex-col gap-4 border-t border-[var(--border)] pt-5 md:flex-row md:items-center md:justify-between">
         <div className="rounded-xl bg-indigo-50 px-4 py-3 text-sm text-indigo-800">
           <span className="font-semibold">Estimated total:</span>{" "}
-          <span className="font-mono">Rs {calculateTotal().toLocaleString("en-IN")}</span>
+          <span className="font-mono">{formatMoney(calculateTotal())}</span>
         </div>
         <Button type="submit" variant="primary">
           Save Sale

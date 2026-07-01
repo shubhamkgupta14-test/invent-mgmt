@@ -1,4 +1,14 @@
-from datetime import datetime, UTC
+import hmac
+import secrets
+from datetime import datetime, UTC, timedelta
+from pathlib import Path
+from uuid import uuid4
+
+from fastapi import UploadFile
+
+from app.services.auth_service import bcrypt_context
+from app.services.email_service import send_email_verification_otp
+from app.services.password_reset_service import _secret_hash, _utc_naive
 
 from app.database.mongodb import db
 from app.utils.helpers import (
@@ -18,6 +28,15 @@ from app.core.exceptions import (
 )
 
 user_collection = db.users
+password_otps_collection = db.password_otps
+EMAIL_VERIFICATION_PURPOSE = "EMAIL_VERIFICATION"
+ALLOWED_IMAGE_TYPES = {
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
+}
+UPLOAD_DIR = Path(__file__).resolve().parents[3] / "frontend" / "public" / "uploads"
 
 SUPERADMIN_CLEANABLE_COLLECTIONS = {
     "api-logs": db.api_logs,
@@ -66,6 +85,7 @@ async def create_user(auth_user: dict, user_data: dict):
     user_data["created_at"] = datetime.now(UTC)
     user_data["updated_at"] = datetime.now(UTC)
     user_data["active"] = user_data.get("active", True)
+    user_data["email_verified"] = False
     user_data["password"] = hash_password(user_data.get("password"))
 
     result = await user_collection.insert_one(user_data)
@@ -351,3 +371,195 @@ async def clean_database_collections(auth_user: dict, collections: list[str]):
             result["notification_reads"] = read_delete_result.deleted_count
 
     return result
+
+
+async def change_password(auth_user: dict, current_password: str, new_password: str):
+    username = normalize_username(auth_user.get("username"))
+    user = await user_collection.find_one({
+        "username": username,
+        "active": True,
+    })
+
+    if not user:
+        not_found(Messages.USER_NOT_FOUND)
+
+    if not bcrypt_context.verify(current_password, user.get("password", "")):
+        bad_request(Messages.CURRENT_PASSWORD_INVALID)
+
+    if bcrypt_context.verify(new_password, user.get("password", "")):
+        bad_request(Messages.NEW_PASSWORD_SAME_AS_CURRENT)
+
+    await user_collection.update_one(
+        {"username": username},
+        {
+            "$set": {
+                "password": hash_password(new_password),
+                "updated_at": datetime.now(UTC),
+            }
+        },
+    )
+
+    return {"updated": True}
+
+
+async def update_my_profile(auth_user: dict, profile_data: dict):
+    username = normalize_username(auth_user.get("username"))
+    user = await user_collection.find_one({"username": username, "active": True})
+    if not user:
+        not_found(Messages.USER_NOT_FOUND)
+
+    email = (profile_data.get("email") or "").strip().lower()
+    existing_email = await user_collection.find_one({
+        "email": email,
+        "username": {"$ne": username},
+    })
+    if existing_email:
+        conflict(Messages.USER_ALREADY_PRESENT)
+
+    email_changed = email != (user.get("email") or "").lower()
+    update_data = {
+        "firstname": (profile_data.get("firstname") or "").strip().title(),
+        "lastname": (profile_data.get("lastname") or "").strip().title(),
+        "email": email,
+        "updated_at": datetime.now(UTC),
+    }
+    if email_changed:
+        update_data["email_verified"] = False
+
+    await user_collection.update_one(
+        {"username": username},
+        {"$set": update_data},
+    )
+
+    updated_user = await user_collection.find_one({"username": username})
+    return build_user_response(updated_user)
+
+
+async def update_my_profile_image(auth_user: dict, file: UploadFile):
+    username = normalize_username(auth_user.get("username"))
+    user = await user_collection.find_one({"username": username, "active": True})
+    if not user:
+        not_found(Messages.USER_NOT_FOUND)
+
+    extension = ALLOWED_IMAGE_TYPES.get(file.content_type)
+    if not extension:
+        bad_request("Only JPG, PNG, WEBP, or GIF images are allowed")
+
+    contents = await file.read()
+    if len(contents) > 2 * 1024 * 1024:
+        bad_request("Image size must be 2MB or less")
+
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    filename = f"user-profile-{username}-{uuid4().hex}{extension}"
+    target = UPLOAD_DIR / filename
+    target.write_bytes(contents)
+
+    await user_collection.update_one(
+        {"username": username},
+        {
+            "$set": {
+                "profile_image_url": f"/uploads/{filename}",
+                "updated_at": datetime.now(UTC),
+            }
+        },
+    )
+
+    updated_user = await user_collection.find_one({"username": username})
+    return build_user_response(updated_user)
+
+
+async def _latest_pending_email_otp(user_id: str):
+    cursor = password_otps_collection.find({
+        "user_id": user_id,
+        "purpose": EMAIL_VERIFICATION_PURPOSE,
+        "status": "PENDING",
+    }).sort("created_at", -1).limit(1)
+    docs = await cursor.to_list(length=1)
+    return docs[0] if docs else None
+
+
+async def request_email_verification(auth_user: dict):
+    username = normalize_username(auth_user.get("username"))
+    user = await user_collection.find_one({"username": username, "active": True})
+    if not user:
+        not_found(Messages.USER_NOT_FOUND)
+
+    if user.get("email_verified"):
+        return {"sent": False, "verified": True}
+
+    now = datetime.now(UTC).replace(tzinfo=None)
+    user_id = str(user.get("_id"))
+    pending = await _latest_pending_email_otp(user_id)
+    if pending and pending.get("last_sent_at"):
+        elapsed = (now - _utc_naive(pending.get("last_sent_at"))).total_seconds()
+        if elapsed < 60:
+            bad_request(Messages.OTP_RESEND_TOO_SOON)
+
+    await password_otps_collection.update_many(
+        {
+            "user_id": user_id,
+            "purpose": EMAIL_VERIFICATION_PURPOSE,
+            "status": "PENDING",
+        },
+        {"$set": {"status": "EXPIRED", "updated_at": now}},
+    )
+
+    otp = f"{secrets.randbelow(1_000_000):06d}"
+    await password_otps_collection.insert_one({
+        "user_id": user_id,
+        "username": user.get("username"),
+        "email": user.get("email"),
+        "purpose": EMAIL_VERIFICATION_PURPOSE,
+        "otp_hash": _secret_hash(otp),
+        "status": "PENDING",
+        "expires_at": now + timedelta(minutes=10),
+        "attempts": 0,
+        "max_attempts": 5,
+        "last_sent_at": now,
+        "created_at": now,
+        "updated_at": now,
+    })
+
+    await send_email_verification_otp(user.get("email"), otp)
+    return {"sent": True, "verified": False}
+
+
+async def verify_email(auth_user: dict, otp: str):
+    username = normalize_username(auth_user.get("username"))
+    user = await user_collection.find_one({"username": username, "active": True})
+    if not user:
+        not_found(Messages.USER_NOT_FOUND)
+
+    now = datetime.now(UTC).replace(tzinfo=None)
+    record = await _latest_pending_email_otp(str(user.get("_id")))
+    if not record or _utc_naive(record.get("expires_at")) <= now:
+        bad_request(Messages.INVALID_OTP)
+
+    if not hmac.compare_digest(record.get("otp_hash", ""), _secret_hash((otp or "").strip())):
+        attempts = int(record.get("attempts", 0)) + 1
+        max_attempts = int(record.get("max_attempts", 5))
+        is_blocked = attempts >= max_attempts
+        status = "BLOCKED" if is_blocked else "PENDING"
+        await password_otps_collection.update_one(
+            {"_id": record.get("_id")},
+            {"$set": {"attempts": attempts, "status": status, "updated_at": now}},
+        )
+        if is_blocked:
+            await user_collection.update_one(
+                {"username": username},
+                {"$set": {"active": False, "updated_at": datetime.now(UTC)}},
+            )
+            bad_request(Messages.OTP_USER_BLOCKED)
+        remaining = max(max_attempts - attempts, 0)
+        bad_request(Messages.OTP_INVALID_WITH_ATTEMPTS.format(remaining=remaining))
+
+    await user_collection.update_one(
+        {"username": username},
+        {"$set": {"email_verified": True, "updated_at": datetime.now(UTC)}},
+    )
+    await password_otps_collection.update_one(
+        {"_id": record.get("_id")},
+        {"$set": {"status": "USED", "used_at": now, "updated_at": now}},
+    )
+    updated_user = await user_collection.find_one({"username": username})
+    return build_user_response(updated_user)

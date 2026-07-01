@@ -28,7 +28,10 @@ API.interceptors.request.use(
 API.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const requestUrl = error.config?.url || "";
+    const isLoginRequest = requestUrl.includes("/auth/login");
+
+    if (error.response?.status === 401 && !isLoginRequest) {
       // Clear token and redirect to login
       clearToken();
       window.location.href = "/";

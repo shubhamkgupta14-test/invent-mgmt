@@ -68,3 +68,12 @@ async def create_indexes():
     await db.api_logs.create_index("path")
     await db.api_logs.create_index("status_code")
     await db.api_logs.create_index("duration_ms")
+
+    await db.password_otps.create_index("user_id")
+    await db.password_otps.create_index("username")
+    await db.password_otps.create_index("email")
+    await db.password_otps.create_index("status")
+    await db.password_otps.create_index("expires_at")
+    await db.password_otps.create_index("reset_token_hash", sparse=True)
+
+    await db.company_settings.create_index("settings_key", unique=True)

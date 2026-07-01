@@ -23,14 +23,14 @@ export function Modal({ isOpen, onClose, title, children, size = "md" }) {
 
       {/* Modal */}
       <div
-        className={`relative max-h-[90vh] w-full ${sizeClass} overflow-y-auto rounded-2xl bg-white shadow-xl animate-fadeIn`}
+        className={`relative max-h-[90vh] w-full ${sizeClass} animate-fadeIn overflow-y-auto rounded-2xl bg-[var(--surface)] shadow-xl`}
       >
         {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+        <div className="sticky top-0 flex items-center justify-between border-b border-[var(--border)] bg-[var(--surface)] px-6 py-4">
           <h2 className="text-xl font-bold text-slate-900">{title}</h2>
           <button
             onClick={onClose}
-            className="text-slate-500 hover:text-slate-700 transition-colors p-1 hover:bg-slate-100 rounded-lg"
+            className="rounded-lg p-1 text-[var(--foreground-subtle)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)]"
           >
             <FaTimes size={20} />
           </button>

@@ -1,3 +1,3 @@
-Place the brand logo image here as `brand-logo.png`.
+`brand-logo.png` is the fallback logo.
 
-The sidebar loads it from `/brand-logo.png`.
+Uploaded company logos and user profile images are saved under `uploads/` and loaded with `/uploads/...` URLs.

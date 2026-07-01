@@ -17,8 +17,8 @@ test("formatDateTimeIST returns IST date and time output", () => {
 });
 
 test("formatMoney formats Indian currency text", () => {
-  assert.equal(formatMoney(123456.7), "Rs 1,23,456.7");
-  assert.equal(formatMoney(null), "Rs 0");
+  assert.equal(formatMoney(123456.7), "\u20b9 1,23,456.70");
+  assert.equal(formatMoney(null), "\u20b9 0");
 });
 
 test("formatters handle empty values", () => {

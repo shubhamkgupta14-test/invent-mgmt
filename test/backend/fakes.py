@@ -60,6 +60,8 @@ class FakeCollection:
                     return False
                 if "$gte" in value and actual < value["$gte"]:
                     return False
+                if "$gt" in value and actual <= value["$gt"]:
+                    return False
                 if "$lte" in value and actual > value["$lte"]:
                     return False
                 if "$lt" in value and actual >= value["$lt"]:
@@ -99,6 +101,15 @@ class FakeCollection:
             self.docs.append(doc)
             return SimpleNamespace(modified_count=0, upserted_id=doc.get("_id"))
         return SimpleNamespace(modified_count=1 if doc else 0)
+
+    async def update_many(self, query, update):
+        modified = 0
+        for doc in self.docs:
+            if self._matches(doc, query):
+                if "$set" in update:
+                    doc.update(update["$set"])
+                modified += 1
+        return SimpleNamespace(modified_count=modified)
 
     async def delete_one(self, query):
         before = len(self.docs)

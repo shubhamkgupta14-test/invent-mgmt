@@ -13,16 +13,8 @@ import Loader from "../components/common/Loader";
 import StatusBadge from "../components/common/StatusBadge";
 import DashboardTable from "../components/pages/dashboard/DashboardTable";
 import MainLayout from "../layouts/MainLayout";
-import { BRAND_NAME } from "../config/brand";
-import { formatDateIST } from "../utils/formatters";
-
-const money = (value = 0) => `Rs ${Number(value || 0).toLocaleString("en-IN")}`;
-
-const compactMoney = (value = 0) => {
-  const amount = Number(value || 0);
-  if (Math.abs(amount) < 1000) return money(amount);
-  return `Rs ${(amount / 1000).toFixed(1)}K`;
-};
+import useCompanySettings from "../hooks/useCompanySettings";
+import { formatCompactMoney, formatDateIST } from "../utils/formatters";
 
 const formatPercentageDelta = (change) => {
   const percentage = Number(change?.percentage || 0);
@@ -95,6 +87,7 @@ const ProductCell = ({ row }) => (
 function Dashboard() {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { brand } = useCompanySettings();
 
   useEffect(() => {
     let isActive = true;
@@ -150,7 +143,7 @@ function Dashboard() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-slate-900">Dashboard</h1>
         <p className="mt-1 text-slate-600">
-          Welcome back. Here's your {BRAND_NAME} inventory overview.
+          Welcome back. Here's your {brand.name} inventory overview.
         </p>
       </div>
 
@@ -166,7 +159,7 @@ function Dashboard() {
         <KPICard
           icon={FaMoneyBillWave}
           title="Inventory Value"
-          value={compactMoney(summary.inventory.total_inventory_value)}
+          value={formatCompactMoney(summary.inventory.total_inventory_value)}
           subtitle="Total valuation"
           footerText="Current valuation"
           bgColor="bg-emerald-100"
@@ -174,7 +167,7 @@ function Dashboard() {
         <KPICard
           icon={FaChartLine}
           title="Total Sales"
-          value={compactMoney(summary.sales.total_sales_amount)}
+          value={formatCompactMoney(summary.sales.total_sales_amount)}
           subtitle="All time"
           delta={salesDelta.label}
           deltaType={salesDelta.type}
@@ -184,7 +177,7 @@ function Dashboard() {
         <KPICard
           icon={FaTruck}
           title="Total Purchases"
-          value={compactMoney(summary.purchases.total_purchase_amount)}
+          value={formatCompactMoney(summary.purchases.total_purchase_amount)}
           subtitle="All time"
           delta={purchasesDelta.label}
           deltaType={purchasesDelta.type}
@@ -247,7 +240,7 @@ function Dashboard() {
               className: "whitespace-nowrap",
               render: (row) => (
                 <span className="font-mono text-slate-900">
-                  {money(row.total)}
+                  {formatCompactMoney(row.total)}
                 </span>
               ),
             },
@@ -288,7 +281,7 @@ function Dashboard() {
               className: "whitespace-nowrap",
               render: (row) => (
                 <span className="font-mono text-slate-900">
-                  {money(row.total)}
+                  {formatCompactMoney(row.total)}
                 </span>
               ),
             },

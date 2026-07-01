@@ -27,7 +27,7 @@ function SelectDropdown({
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
           required={required}
-          className={`w-full appearance-none rounded-xl border border-[var(--border)] bg-white px-4 py-2.5 pr-10 text-sm text-slate-900 shadow-sm transition focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-indigo-500/25 ${className}`}
+          className={`app-control w-full appearance-none rounded-xl px-4 py-2.5 pr-10 text-sm transition ${className}`}
         >
           <option value="">{placeholder}</option>
 

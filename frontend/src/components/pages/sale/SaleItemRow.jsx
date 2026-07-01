@@ -1,7 +1,8 @@
 import SelectDropdown from "../../common/SelectDropdown";
 import StockStatusBadge from "../../common/StockStatusBadge";
+import { formatMoney } from "../../../utils/formatters";
 
-const money = (value) => `Min Rs ${Number(value || 0).toLocaleString("en-IN")}`;
+const money = (value) => `Min ${formatMoney(value)}`;
 const isLowStock = (product) => product?.stock_status === "LOW_QUANTITY";
 
 function SaleItemRow({ item, index, products, updateItem }) {

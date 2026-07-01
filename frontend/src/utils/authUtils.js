@@ -44,9 +44,12 @@ export function getTokenWithExpiry() {
   return { token, isExpired };
 }
 
-export function setStoredUser(user) {
+export function setStoredUser(user, { notify = false } = {}) {
   if (!user) return;
   sessionStorage.setItem(USER_KEY, JSON.stringify(user));
+  if (notify && typeof window !== "undefined") {
+    window.dispatchEvent(new Event("user:changed"));
+  }
 }
 
 export function getStoredUser() {

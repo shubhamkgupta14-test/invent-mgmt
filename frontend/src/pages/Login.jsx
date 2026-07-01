@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { FaBoxes, FaEye, FaEyeSlash, FaLock } from "react-icons/fa";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { loginUser } from "../api/authApi";
 import Button from "../components/common/Button";
 import Input from "../components/common/Input";
@@ -11,7 +11,7 @@ import {
   setStoredUser,
   setToken,
 } from "../utils/authUtils";
-import { APP_TITLE, BRAND_NAME } from "../config/brand";
+import useCompanySettings from "../hooks/useCompanySettings";
 
 function Login() {
   const [username, setUsername] = useState("");
@@ -21,6 +21,7 @@ function Login() {
   const [error, setError] = useState("");
 
   const navigate = useNavigate();
+  const { brand } = useCompanySettings();
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -87,11 +88,11 @@ function Login() {
             <div className="rounded-xl bg-indigo-500 p-2 shadow-xl shadow-indigo-950/50">
               <FaBoxes size={24} />
             </div>
-            <h1 className="text-2xl font-bold">{APP_TITLE}</h1>
+            <h1 className="text-2xl font-bold">{brand.title}</h1>
           </div>
 
           <h2 className="mb-4 text-4xl font-bold leading-tight">
-            Inventory management for every {BRAND_NAME} shelf.
+            Inventory management for every {brand.name} shelf.
           </h2>
           <p className="mb-8 max-w-md text-lg text-slate-300">
             Manage products, purchases, sales, and stock levels in one focused
@@ -121,7 +122,7 @@ function Login() {
 
         <div>
           <p className="text-xs text-indigo-300/40">
-            {APP_TITLE} workspace
+            {brand.title} workspace
           </p>
         </div>
       </div>
@@ -134,7 +135,7 @@ function Login() {
                 <FaBoxes size={18} className="text-white" />
               </div>
               <h1 className="text-lg font-bold tracking-tight text-slate-900">
-                {APP_TITLE}
+                {brand.title}
               </h1>
             </div>
             <div>
@@ -206,6 +207,13 @@ function Login() {
                 {loading ? "Signing in..." : "Sign In"}
               </Button>
             </form>
+
+            <Link
+              to="/forgot-password"
+              className="mt-5 block text-center text-sm font-semibold text-indigo-700 hover:text-indigo-900"
+            >
+              Forgot your password?
+            </Link>
 
           </div>
         </div>

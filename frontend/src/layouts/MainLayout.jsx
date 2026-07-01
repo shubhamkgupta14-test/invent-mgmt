@@ -1,10 +1,11 @@
 import { useState } from "react";
 import Sidebar from "../components/common/Sidebar";
 import Navbar from "../components/common/Navbar";
-import { APP_TITLE } from "../config/brand";
+import useCompanySettings from "../hooks/useCompanySettings";
 
 function MainLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { brand } = useCompanySettings();
 
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
@@ -28,7 +29,7 @@ function MainLayout({ children }) {
               <div className="flex-1">{children}</div>
               <footer className="mt-8 border-t border-border py-4 text-xs text-slate-500">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <span>{APP_TITLE}</span>
+                  <span>{brand.title}</span>
                   <span>Products, stock, purchases, sales, returns, and exchanges.</span>
                 </div>
               </footer>

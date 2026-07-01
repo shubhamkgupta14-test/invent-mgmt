@@ -3,10 +3,10 @@ import { getStoredUser, setStoredUser } from "../utils/authUtils";
 
 let currentUserPromise = null;
 
-export const getMyDetails = async () => {
+export const getMyDetails = async ({ force = false } = {}) => {
   const cachedUser = getStoredUser();
 
-  if (cachedUser?.firstname || cachedUser?.lastname || cachedUser?.email) {
+  if (!force && (cachedUser?.firstname || cachedUser?.lastname || cachedUser?.email)) {
     return {
       data: {
         data: cachedUser,
@@ -14,10 +14,21 @@ export const getMyDetails = async () => {
     };
   }
 
+  if (force) {
+    return API.get("/users/me").then((response) => {
+      if (response.data?.data) {
+        setStoredUser(response.data.data);
+      }
+      return response;
+    });
+  }
+
   if (!currentUserPromise) {
     currentUserPromise = API.get("/users/me")
       .then((response) => {
-        setStoredUser(response.data.data);
+        if (response.data?.data) {
+          setStoredUser(response.data.data);
+        }
         return response;
       })
       .finally(() => {
@@ -26,6 +37,46 @@ export const getMyDetails = async () => {
   }
 
   return currentUserPromise;
+};
+
+export const changePassword = async (payload) => {
+  return API.patch("/users/password", payload);
+};
+
+export const updateMyProfile = async (payload) => {
+  return API.patch("/users/me", payload).then((response) => {
+    if (response.data?.data) {
+      setStoredUser(response.data.data, { notify: true });
+    }
+    return response;
+  });
+};
+
+export const uploadMyProfileImage = async (file) => {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  return API.post("/users/me/profile-image", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  }).then((response) => {
+    if (response.data?.data) {
+      setStoredUser(response.data.data, { notify: true });
+    }
+    return response;
+  });
+};
+
+export const requestEmailVerification = async () => {
+  return API.post("/users/email-verification/request");
+};
+
+export const verifyEmail = async (otp) => {
+  return API.post("/users/email-verification/verify", { otp }).then((response) => {
+    setStoredUser(response.data.data, { notify: true });
+    return response;
+  });
 };
 
 export const createUser = async (payload) => {
