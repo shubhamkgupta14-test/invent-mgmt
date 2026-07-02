@@ -9,7 +9,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 
-from app.services.api_log_service import create_api_log
+from app.services.api_log_service import create_api_log, is_api_tracing_enabled
 from app.utils.settings import Settings
 
 SENSITIVE_KEYS = {
@@ -116,6 +116,7 @@ class ApiLoggingMiddleware(BaseHTTPMiddleware):
         if (
             path in EXCLUDED_PATHS
             or any(path == prefix or path.startswith(f"{prefix}/") for prefix in EXCLUDED_PREFIXES)
+            or not await is_api_tracing_enabled()
         ):
             return await call_next(request)
 

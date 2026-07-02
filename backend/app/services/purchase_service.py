@@ -6,9 +6,12 @@ from app.models.audit import (
 )
 from datetime import datetime, UTC
 from bson import ObjectId
+from fastapi import HTTPException, UploadFile
+from pydantic import ValidationError
 from app.database.mongodb import db
 
 from app.models.auth import UserRole
+from app.models.purchase import CreatePurchaseRequest
 from app.models.purchase import PaymentStatus, PurchaseStatus
 from app.services.stock_service import increase_stock
 
@@ -27,8 +30,44 @@ from app.utils.helpers import (
 )
 from app.utils.responseBuilder import build_purchase_response
 from app.utils.pagination import paginate_collection, regex_filter, validate_sort_field
+from app.utils.bulk_upload import (
+    build_row_data,
+    clean_cell,
+    get_row_cell,
+    parse_float,
+    parse_int,
+    read_bulk_excel,
+    summarize_bulk_rows,
+)
 purchase_collection = db.purchases
 products_collection = db.products
+
+PURCHASE_BULK_HEADERS = [
+    "Invoice ID",
+    "SKU",
+    "Quantity",
+    "Unit Price",
+    "Discount %",
+    "Additional Discount",
+    "Shipping Charges",
+    "Other Charges",
+    "Payment Method",
+    "Amount Paid",
+    "Notes",
+]
+PURCHASE_BULK_HEADER_MAP = {
+    "invoiceid": "invoice_id",
+    "sku": "sku",
+    "quantity": "quantity",
+    "unitprice": "unit_price",
+    "discount": "discount_percentage",
+    "additionaldiscount": "additional_discount",
+    "shippingcharges": "shipping_charges",
+    "othercharges": "other_charges",
+    "paymentmethod": "payment_method",
+    "amountpaid": "amount_paid",
+    "notes": "notes",
+}
 
 
 async def create_purchase(
@@ -234,6 +273,138 @@ async def create_purchase(
     return build_purchase_response(
         created_purchase
     )
+
+
+def _validation_reason(error):
+    return "; ".join(
+        f"{'.'.join(str(part) for part in item.get('loc', []))}: {item.get('msg')}"
+        for item in error.errors()
+    ) or "Invalid purchase data"
+
+
+def _group_purchase_payments(rows: list[dict], header_indexes: dict[str, int]):
+    payments_by_method = {}
+
+    for grouped_row in rows:
+        row = grouped_row["row"]
+        payment_amount = parse_float(
+            get_row_cell(row, header_indexes, "amount_paid"),
+            "Amount Paid",
+        )
+        if payment_amount <= 0:
+            continue
+
+        payment_method = (
+            clean_cell(get_row_cell(row, header_indexes, "payment_method")).upper()
+            or "CASH"
+        )
+        payments_by_method[payment_method] = round_price(
+            payments_by_method.get(payment_method, 0) + payment_amount
+        )
+
+    return [
+        {
+            "payment_method": payment_method,
+            "amount_paid": amount_paid,
+        }
+        for payment_method, amount_paid in payments_by_method.items()
+    ]
+
+
+async def bulk_upload_purchases(file: UploadFile, auth_user: dict):
+    if auth_user.get("role") == UserRole.USER:
+        forbidden()
+
+    header_indexes, data_rows = await read_bulk_excel(
+        file,
+        PURCHASE_BULK_HEADERS,
+        PURCHASE_BULK_HEADER_MAP,
+    )
+    row_results = []
+    grouped_rows = {}
+    group_order = []
+
+    for row_number, row in data_rows:
+        row_data = build_row_data(PURCHASE_BULK_HEADERS, PURCHASE_BULK_HEADER_MAP, header_indexes, row)
+
+        def cell(field):
+            return get_row_cell(row, header_indexes, field)
+
+        invoice_id = clean_cell(cell("invoice_id"))
+        group_key = invoice_id or f"__row_{row_number}"
+        if group_key not in grouped_rows:
+            grouped_rows[group_key] = {
+                "invoice_id": invoice_id,
+                "rows": [],
+            }
+            group_order.append(group_key)
+
+        grouped_rows[group_key]["rows"].append({
+            "row_number": row_number,
+            "row": row,
+            "data": row_data,
+        })
+
+    for group_key in group_order:
+        group = grouped_rows[group_key]
+        first = group["rows"][0]
+
+        def first_cell(field):
+            return get_row_cell(first["row"], header_indexes, field)
+
+        try:
+            items = []
+            for grouped_row in group["rows"]:
+                row = grouped_row["row"]
+
+                def item_cell(field):
+                    return get_row_cell(row, header_indexes, field)
+
+                items.append({
+                    "sku": clean_cell(item_cell("sku")),
+                    "quantity": parse_int(item_cell("quantity"), "Quantity"),
+                    "unit_price": parse_float(item_cell("unit_price"), "Unit Price"),
+                    "discount_percentage": parse_float(item_cell("discount_percentage"), "Discount %"),
+                })
+
+            payload = CreatePurchaseRequest(
+                invoice_id=group["invoice_id"],
+                items=items,
+                additional_discount=parse_float(first_cell("additional_discount"), "Additional Discount"),
+                shipping_charges=parse_float(first_cell("shipping_charges"), "Shipping Charges"),
+                other_charges=parse_float(first_cell("other_charges"), "Other Charges"),
+                payment_details=_group_purchase_payments(group["rows"], header_indexes),
+                notes=clean_cell(first_cell("notes")) or None,
+            ).model_dump()
+            created_purchase = await create_purchase(auth_user, payload)
+            for grouped_row in group["rows"]:
+                row_results.append({
+                    "row_number": grouped_row["row_number"],
+                    "status": "created",
+                    "reason": "",
+                    "data": grouped_row["data"],
+                    "record": created_purchase,
+                })
+        except ValidationError as error:
+            reason = _validation_reason(error)
+            for grouped_row in group["rows"]:
+                row_results.append({
+                    "row_number": grouped_row["row_number"],
+                    "status": "failed",
+                    "reason": reason,
+                    "data": grouped_row["data"],
+                })
+        except (HTTPException, ValueError) as error:
+            reason = str(getattr(error, "detail", error))
+            for grouped_row in group["rows"]:
+                row_results.append({
+                    "row_number": grouped_row["row_number"],
+                    "status": "failed",
+                    "reason": reason,
+                    "data": grouped_row["data"],
+                })
+
+    return summarize_bulk_rows(PURCHASE_BULK_HEADERS, row_results)
 
 
 async def get_purchases(

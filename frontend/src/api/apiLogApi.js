@@ -11,3 +11,11 @@ export const getApiLogs = async (filters = {}) => {
 export const getApiLogByTraceId = async (traceId) => {
   return API.get(`/api-logs/${traceId}`);
 };
+
+export const getApiTracingStatus = async () => {
+  return API.get("/api-logs/tracing/status");
+};
+
+export const setApiTracingStatus = async (enabled) => {
+  return API.put("/api-logs/tracing/status", null, { params: { enabled } });
+};

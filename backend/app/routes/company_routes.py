@@ -7,6 +7,7 @@ from app.services.company_service import (
     get_company_settings,
     update_company_settings,
     update_company_logo,
+    reset_company_logo,
 )
 from app.utils.messages import Messages
 from app.utils.response import success_response
@@ -48,6 +49,16 @@ async def update_company_logo_api(
     file: UploadFile = File(...),
 ):
     settings = await update_company_logo(auth_user, file)
+
+    return success_response(
+        message=Messages.COMPANY_SETTINGS_UPDATED,
+        data=settings,
+    )
+
+
+@router.delete("/logo")
+async def reset_company_logo_api(auth_user: user_dependency):
+    settings = await reset_company_logo(auth_user)
 
     return success_response(
         message=Messages.COMPANY_SETTINGS_UPDATED,

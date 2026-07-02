@@ -144,7 +144,7 @@ function PurchaseForm({ products, onSubmit }) {
       <section>
         <div className="grid gap-4 md:grid-cols-3">
           <Input
-            label="Additional Discount (Flat)"
+            label="Additional Discount (Fixed Amount)"
             type="number"
             placeholder="0"
             value={form.additional_discount || ""}

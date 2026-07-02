@@ -231,7 +231,7 @@ function Dashboard() {
             },
             {
               key: "quantity",
-              label: "QTY",
+              label: "QUANTITY",
               render: (row) => <CountBadge>{row.quantity}</CountBadge>,
             },
             {
@@ -272,7 +272,7 @@ function Dashboard() {
             },
             {
               key: "quantity",
-              label: "QTY",
+              label: "QUANTITY",
               render: (row) => <CountBadge>{row.quantity}</CountBadge>,
             },
             {
@@ -309,7 +309,7 @@ function Dashboard() {
             },
             {
               key: "quantity",
-              label: "QTY",
+              label: "QUANTITY",
               render: (row) => (
                 <CountBadge tone="green">{row.quantity}</CountBadge>
               ),
@@ -335,7 +335,7 @@ function Dashboard() {
             },
             {
               key: "quantity",
-              label: "QTY SOLD",
+              label: "QUANTITY SOLD",
               render: (row) => (
                 <CountBadge tone="green">{row.quantity}</CountBadge>
               ),
@@ -369,7 +369,7 @@ function Dashboard() {
             { key: "supplier_id", label: "SUPPLIER" },
             {
               key: "quantity",
-              label: "QTY",
+              label: "QUANTITY",
               render: (row) => (
                 <CountBadge tone="red">{row.quantity}</CountBadge>
               ),
@@ -380,7 +380,7 @@ function Dashboard() {
         />
 
         <DashboardTable
-          title="Out Of Stock Products"
+          title="Out of Stock Products"
           badge={summary.inventory.out_of_stock_products}
           columns={[
             {

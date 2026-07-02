@@ -5,6 +5,7 @@ import {
   getBrandName,
   getStoredCompanySettings,
 } from "../utils/companySettings";
+import { resolveMediaUrl } from "../utils/media";
 
 function useCompanySettings() {
   const [settings, setSettings] = useState(() => getStoredCompanySettings());
@@ -26,7 +27,7 @@ function useCompanySettings() {
       name: getBrandName(settings),
       title: getAppTitle(settings),
       initial: getBrandInitial(settings),
-      logoUrl: settings.logo_url || "/brand-logo.png",
+      logoUrl: resolveMediaUrl(settings.logo_url, "/brand-logo.png"),
     }),
     [settings],
   );

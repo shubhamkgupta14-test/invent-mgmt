@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import MainLayout from "../layouts/MainLayout";
 import Card from "../components/common/Card";
 import Select from "../components/common/Select";
@@ -11,30 +11,108 @@ import { useToast } from "../context/useToast";
 import { FaChevronDown, FaChevronUp } from "react-icons/fa";
 import { formatMoney } from "../utils/formatters";
 
-const chargeFields = [
-  ["marketplace_commission", "Marketplace referral fee"],
-  ["shipping_charges", "Courier shipping fee"],
-  ["platform_fees", "Platform payment fee"],
-  ["packaging_charges", "Packing material cost"],
-  ["return_rto", "Return and RTO provision"],
-  ["margin", "Target profit margin"],
-  ["misc", "Operational overhead buffer"],
-  ["advertisement", "Advertising allocation"],
-  ["promotion", "Promotion discount buffer"],
-];
-
 const money = (value = 0) => formatMoney(value);
 const roundPrice = (value) => Math.round(Number(value || 0) * 100) / 100;
+const roundFinalAmount = (value) => Math.ceil(Number(value || 0));
+const defaultChargeSettings = {
+  marketplace_commission: 0,
+  shipping_charges: "",
+  platform_fees_percent: 5,
+  platform_fees_min: 10,
+  platform_fees_max: 25,
+  packaging_charges: "",
+  margin_percent: 30,
+  return_rto_percent: 10,
+  misc_percent: 5,
+  advertisement_percent: 2,
+  promotion_percent: 5,
+};
+const primaryChargeKeys = [
+  "marketplace_commission",
+  "shipping_charges",
+  "platform_fees",
+  "packaging_charges",
+  "margin",
+];
+const dependentChargeKeys = [
+  "return_rto",
+  "misc",
+  "advertisement",
+  "promotion",
+];
 
 const packagingCharges = {
   Cardbox: { S: 8, M: 12, L: 15 },
   Pollybag: { S: 5, M: 7, L: 10 },
 };
 const maxPackagingCharge = 15;
-const packagingLabels = {
-  Cardbox: "Corrugated box",
-  Pollybag: "Poly mailer",
-};
+function settingNumber(settings, key, fallback = 0) {
+  const value = settings[key];
+  if (value === "" || value === null || value === undefined) return fallback;
+  return Number(value || 0);
+}
+
+function optionalSetting(settings, key) {
+  const value = settings[key];
+  if (value === "" || value === null || value === undefined) return null;
+  return Number(value || 0);
+}
+
+function buildChargeGroups(settings, taxRate) {
+  return [
+    {
+      title: "Base Cost Add-ons",
+      subtitle: "Added to the product cost",
+      fields: [
+        [
+          "marketplace_commission",
+          "Marketplace referral fee",
+          `${money(settingNumber(settings, "marketplace_commission"))} flat`,
+        ],
+        [
+          "shipping_charges",
+          "Courier shipping fee",
+          optionalSetting(settings, "shipping_charges") === null
+            ? "By weight slab"
+            : `${money(optionalSetting(settings, "shipping_charges"))} flat`,
+        ],
+        [
+          "platform_fees",
+          "Platform payment fee",
+          `${settingNumber(settings, "platform_fees_percent", 5)}% of cost, min ${money(settingNumber(settings, "platform_fees_min", 10))} max ${money(settingNumber(settings, "platform_fees_max", 25))}`,
+        ],
+        [
+          "packaging_charges",
+          "Packing material cost",
+          optionalSetting(settings, "packaging_charges") === null
+            ? "By selected packing"
+            : `${money(optionalSetting(settings, "packaging_charges"))} flat`,
+        ],
+        [
+          "margin",
+          "Target profit margin",
+          `${settingNumber(settings, "margin_percent", 30)}% of cost`,
+        ],
+      ],
+    },
+    {
+      title: "Primary Price Add-ons",
+      subtitle: "Calculated from the primary price",
+      autoCustom: true,
+      fields: [
+        ["return_rto", "Return and RTO provision", `${settingNumber(settings, "return_rto_percent", 10)}% of primary`],
+        ["misc", "Operational overhead buffer", `${settingNumber(settings, "misc_percent", 5)}% of primary`],
+        ["advertisement", "Advertising allocation", `${settingNumber(settings, "advertisement_percent", 2)}% of primary`],
+        ["promotion", "Promotion discount buffer", `${settingNumber(settings, "promotion_percent", 5)}% of primary`],
+      ],
+    },
+    {
+      title: "Tax Reference",
+      subtitle: "Shown separately, not included in min price",
+      fields: [["gst", "GST", `${taxRate || 0}% on min price`]],
+    },
+  ];
+}
 
 function shippingCharge(weight) {
   if (weight <= 500) return 35;
@@ -48,6 +126,106 @@ function percentageAmount(basePrice, percent, { min = null, max = null } = {}) {
   return max === null ? withMinimum : Math.min(withMinimum, max);
 }
 
+function chargeValue(charges, key, useCustom = false) {
+  const charge = charges[key];
+  if (useCustom && charge.custom !== null && charge.custom !== undefined) {
+    return Number(charge.custom || 0);
+  }
+  return Number(charge.default || 0);
+}
+
+function chargeRow(defaultValue, customValue) {
+  return {
+    default: roundPrice(defaultValue),
+    custom:
+      customValue !== null && customValue !== undefined
+        ? roundPrice(customValue)
+        : null,
+  };
+}
+
+function buildPricing({
+  basePrice,
+  taxRate,
+  chargeableWeight,
+  packingTotal,
+  overrides = {},
+  settings = defaultChargeSettings,
+}) {
+  const shippingAmount =
+    optionalSetting(settings, "shipping_charges") ?? shippingCharge(chargeableWeight);
+  const packagingAmount =
+    optionalSetting(settings, "packaging_charges") ?? Math.min(packingTotal, maxPackagingCharge);
+
+  const charges = {
+    marketplace_commission: chargeRow(
+      settingNumber(settings, "marketplace_commission"),
+      overrides.marketplace_commission,
+    ),
+    shipping_charges: chargeRow(shippingAmount, overrides.shipping_charges),
+    platform_fees: chargeRow(
+      percentageAmount(basePrice, settingNumber(settings, "platform_fees_percent", 5), {
+        min: settingNumber(settings, "platform_fees_min", 10),
+        max: settingNumber(settings, "platform_fees_max", 25),
+      }),
+      overrides.platform_fees,
+    ),
+    packaging_charges: chargeRow(packagingAmount, overrides.packaging_charges),
+    margin: chargeRow(
+      percentageAmount(basePrice, settingNumber(settings, "margin_percent", 30)),
+      overrides.margin,
+    ),
+  };
+
+  const defaultPrimaryTotal =
+    basePrice +
+    primaryChargeKeys.reduce((total, key) => total + chargeValue(charges, key), 0);
+  const customPrimaryTotal =
+    basePrice +
+    primaryChargeKeys.reduce(
+      (total, key) => total + chargeValue(charges, key, true),
+      0,
+    );
+
+  charges.return_rto = chargeRow(
+    percentageAmount(defaultPrimaryTotal, settingNumber(settings, "return_rto_percent", 10)),
+    percentageAmount(customPrimaryTotal, settingNumber(settings, "return_rto_percent", 10)),
+  );
+  charges.misc = chargeRow(
+    percentageAmount(defaultPrimaryTotal, settingNumber(settings, "misc_percent", 5)),
+    percentageAmount(customPrimaryTotal, settingNumber(settings, "misc_percent", 5)),
+  );
+  charges.advertisement = chargeRow(
+    percentageAmount(defaultPrimaryTotal, settingNumber(settings, "advertisement_percent", 2)),
+    percentageAmount(customPrimaryTotal, settingNumber(settings, "advertisement_percent", 2)),
+  );
+  charges.promotion = chargeRow(
+    percentageAmount(defaultPrimaryTotal, settingNumber(settings, "promotion_percent", 5)),
+    percentageAmount(customPrimaryTotal, settingNumber(settings, "promotion_percent", 5)),
+  );
+
+  const defaultPreGstTotal =
+    defaultPrimaryTotal +
+    dependentChargeKeys.reduce((total, key) => total + chargeValue(charges, key), 0);
+  const customPreGstTotal =
+    customPrimaryTotal +
+    dependentChargeKeys.reduce(
+      (total, key) => total + chargeValue(charges, key, true),
+      0,
+    );
+
+  charges.gst = chargeRow(
+    percentageAmount(defaultPreGstTotal, taxRate),
+    percentageAmount(customPreGstTotal, taxRate),
+  );
+
+  return {
+    charges,
+    defaultSellingPrice: roundFinalAmount(defaultPreGstTotal),
+    customSellingPrice: roundFinalAmount(customPreGstTotal),
+  };
+}
+
 function SellingPriceCalculator() {
   const { addToast } = useToast();
   const [stocks, setStocks] = useState([]);
@@ -56,6 +234,7 @@ function SellingPriceCalculator() {
   const [defaultsOpen, setDefaultsOpen] = useState(false);
   const [result, setResult] = useState(null);
   const [role, setRole] = useState("");
+  const [chargeSettings, setChargeSettings] = useState(defaultChargeSettings);
   const [form, setForm] = useState({
     sku: "",
     dead_weight: "",
@@ -92,7 +271,7 @@ function SellingPriceCalculator() {
     [stocks, form.sku],
   );
 
-  const defaultCharges = useMemo(() => {
+  const livePricing = useMemo(() => {
     const basePrice = Number(selectedStock?.avg_price || 0);
     const taxRate = Number(selectedStock?.tax_rate || 0);
     const chargeableWeight = Math.max(
@@ -105,18 +284,14 @@ function SellingPriceCalculator() {
       0,
     );
 
-    return {
-      marketplace_commission: 0,
-      shipping_charges: shippingCharge(chargeableWeight),
-      platform_fees: percentageAmount(basePrice, 5, { min: 10, max: 25 }),
-      packaging_charges: Math.min(packaging, maxPackagingCharge),
-      return_rto: percentageAmount(basePrice, 10),
-      margin: percentageAmount(basePrice, 30),
-      misc: percentageAmount(basePrice, 5),
-      advertisement: percentageAmount(basePrice, 2),
-      promotion: percentageAmount(basePrice, 5),
-      gst: percentageAmount(basePrice, taxRate),
-    };
+    return buildPricing({
+      basePrice,
+      taxRate,
+      chargeableWeight,
+      packingTotal: packaging,
+      overrides: form.overrides,
+      settings: chargeSettings,
+    });
   }, [
     selectedStock?.avg_price,
     selectedStock?.tax_rate,
@@ -124,52 +299,43 @@ function SellingPriceCalculator() {
     form.volumetric_weight,
     form.packing_types,
     form.packing_size,
+    form.overrides,
+    chargeSettings,
   ]);
+  const defaultCharges = livePricing.charges;
+  const chargeGroups = useMemo(
+    () => buildChargeGroups(chargeSettings, selectedStock?.tax_rate || 0),
+    [chargeSettings, selectedStock?.tax_rate],
+  );
 
   const defaultChargeInfo = [
-    `Marketplace referral fee: ${money(0)} by default`,
+    `Marketplace referral fee: ${money(settingNumber(chargeSettings, "marketplace_commission"))} by default`,
     `Courier shipping fee: ${money(35)} up to 500g, ${money(70)} from 501g to 1000g, ${money(100)} above 1000g`,
-    `Platform payment fee: ${money(10)} minimum, then 5% of unit cost capped at ${money(25)}`,
+    `Platform payment fee: ${money(settingNumber(chargeSettings, "platform_fees_min", 10))} minimum, then ${settingNumber(chargeSettings, "platform_fees_percent", 5)}% of unit cost capped at ${money(settingNumber(chargeSettings, "platform_fees_max", 25))}`,
     `Corrugated box: S ${money(8)}, M ${money(12)}, L ${money(15)}`,
     `Poly mailer: S ${money(5)}, M ${money(7)}, L ${money(10)}`,
     `Packing material total is capped at ${money(15)}`,
-    "GST: product tax rate applied to unit cost",
-    "Return and RTO provision: 10%",
-    "Target profit margin: 30%",
-    "Operational overhead buffer: 5%",
-    "Advertising allocation: 2%",
-    "Promotion discount buffer: 5%",
+    "GST: product tax rate applied on the min selling price and shown separately",
+    `Return and RTO provision: ${settingNumber(chargeSettings, "return_rto_percent", 10)}% of the primary calculated price`,
+    `Target profit margin: ${settingNumber(chargeSettings, "margin_percent", 30)}%`,
+    `Operational overhead buffer: ${settingNumber(chargeSettings, "misc_percent", 5)}% of the primary calculated price`,
+    `Advertising allocation: ${settingNumber(chargeSettings, "advertisement_percent", 2)}% of the primary calculated price`,
+    `Promotion discount buffer: ${settingNumber(chargeSettings, "promotion_percent", 5)}% of the primary calculated price`,
   ];
 
   const getDefaultCharge = (key) =>
-    result?.charges?.[key]?.default ?? defaultCharges[key] ?? 0;
+    result?.charges?.[key]?.default ?? defaultCharges[key]?.default ?? 0;
+
+  const getCustomCharge = (key) =>
+    result?.charges?.[key]?.custom ?? defaultCharges[key]?.custom ?? null;
 
   const liveDefaultSellingPrice = useMemo(() => {
-    const basePrice = Number(selectedStock?.avg_price || 0);
-    return roundPrice(
-      basePrice +
-        Object.values(defaultCharges).reduce(
-          (total, value) => total + Number(value || 0),
-          0,
-        ),
-    );
-  }, [selectedStock?.avg_price, defaultCharges]);
+    return livePricing.defaultSellingPrice;
+  }, [livePricing.defaultSellingPrice]);
 
   const liveCustomSellingPrice = useMemo(() => {
-    const basePrice = Number(selectedStock?.avg_price || 0);
-    return roundPrice(
-      basePrice +
-        chargeFields.reduce((total, [key]) => {
-          const customValue = form.overrides[key];
-          const charge =
-            customValue === "" || customValue === undefined
-              ? defaultCharges[key]
-              : customValue;
-          return total + Number(charge || 0);
-        }, 0) +
-        Number(defaultCharges.gst || 0),
-    );
-  }, [selectedStock?.avg_price, defaultCharges, form.overrides]);
+    return livePricing.customSellingPrice;
+  }, [livePricing.customSellingPrice]);
 
   const stockOptions = stocks
     .filter((stock) => Number(stock.quantity || 0) > 0)
@@ -190,6 +356,14 @@ function SellingPriceCalculator() {
         [key]: value === "" ? "" : Number(value),
       },
     }));
+  };
+
+  const updateChargeSetting = (key, value) => {
+    setChargeSettings((prev) => ({
+      ...prev,
+      [key]: value === "" ? "" : Number(value),
+    }));
+    setResult(null);
   };
 
   const togglePackingType = (type) => {
@@ -213,6 +387,11 @@ function SellingPriceCalculator() {
     overrides: Object.fromEntries(
       Object.entries(form.overrides).filter(([, value]) => value !== ""),
     ),
+    settings: {
+      ...chargeSettings,
+      shipping_charges: optionalSetting(chargeSettings, "shipping_charges"),
+      packaging_charges: optionalSetting(chargeSettings, "packaging_charges"),
+    },
     save_default: saveDefault,
   });
 
@@ -265,7 +444,7 @@ function SellingPriceCalculator() {
       <MainLayout>
         <Card>
           <p className="text-sm font-semibold text-rose-700">
-            Only admin and superadmin users can access this calculator.
+            Only admin and Super Admin users can access this calculator.
           </p>
         </Card>
       </MainLayout>
@@ -279,8 +458,8 @@ function SellingPriceCalculator() {
           Selling Price Calculator
         </h1>
         <p className="mt-1 text-slate-600">
-          Calculate default and custom selling cost, then save only the default
-          minimum selling price to stock.
+          Calculate GST-excluded minimum selling price, then save the default
+          minimum price to stock.
         </p>
       </div>
 
@@ -289,14 +468,14 @@ function SellingPriceCalculator() {
           <div className="flex flex-wrap items-end gap-4">
             <div className="w-full min-w-[260px] max-w-[420px] flex-1">
               <Select
-                label="Stock Product"
+                label="Stock Item"
                 value={form.sku}
                 onChange={(value) => {
                   updateForm("sku", value);
                   setResult(null);
                 }}
                 options={stockOptions}
-                placeholder="Select stock product"
+                placeholder="Select stock item"
                 required
               />
             </div>
@@ -318,7 +497,7 @@ function SellingPriceCalculator() {
             </div>
             <div className="w-40">
               <Input
-                label="Min Sell"
+                label="Min. Selling Price"
                 value={
                   selectedStock?.min_selling_price
                     ? money(selectedStock.min_selling_price)
@@ -333,7 +512,7 @@ function SellingPriceCalculator() {
           <div className="mt-5 flex flex-wrap items-end gap-4">
             <div className="w-36">
               <Input
-                label="Actual Wt"
+                label="Actual Weight"
                 type="number"
                 value={form.dead_weight}
                 onChange={(value) => updateForm("dead_weight", value)}
@@ -343,7 +522,7 @@ function SellingPriceCalculator() {
             </div>
             <div className="w-36">
               <Input
-                label="Volumetric Wt"
+                label="Volumetric Weight"
                 type="number"
                 value={form.volumetric_weight}
                 onChange={(value) => updateForm("volumetric_weight", value)}
@@ -418,7 +597,7 @@ function SellingPriceCalculator() {
           <div className="mt-6 overflow-hidden rounded-2xl border border-border">
             <div className="border-b border-border bg-slate-50 px-4 py-3">
               <h2 className="text-sm font-bold text-slate-900">
-                Charges Calculator
+                Pricing Breakdown
               </h2>
             </div>
             <div className="overflow-x-auto">
@@ -431,56 +610,77 @@ function SellingPriceCalculator() {
                 <thead>
                   <tr className="border-b border-border bg-slate-50/80 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
                     <th className="px-4 py-3">Title</th>
-                    <th className="px-4 py-3">Default Calculated</th>
-                    <th className="px-4 py-3">Custom Editable</th>
+                    <th className="px-4 py-3">Default Amount</th>
+                    <th className="px-4 py-3">Custom Amount</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {chargeFields.map(([key, label]) => (
-                    <tr key={key}>
-                      <td className="px-4 py-3 font-medium text-slate-700">
-                        {label}
-                      </td>
-                      <td className="px-4 py-3">
-                        <input
-                          value={money(getDefaultCharge(key))}
-                          disabled
-                          className="w-32 rounded-lg border border-border bg-slate-100 px-3 py-2 text-right text-sm text-slate-600"
-                        />
-                      </td>
-                      <td className="px-4 py-3">
-                        <input
-                          type="number"
-                          min="0"
-                          value={form.overrides[key] ?? ""}
-                          onChange={(event) =>
-                            updateOverride(key, event.target.value)
-                          }
-                          placeholder="Custom amount"
-                          className="w-32 rounded-lg border border-border bg-white px-3 py-2 text-right text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25"
-                        />
-                      </td>
-                    </tr>
+                  {chargeGroups.map((group) => (
+                    <Fragment key={group.title}>
+                      <tr className="bg-slate-50/80">
+                        <td colSpan={3} className="px-4 py-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-xs font-bold uppercase tracking-wide text-slate-700">
+                              {group.title}
+                            </span>
+                            <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-500 ring-1 ring-border">
+                              {group.subtitle}
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                      {group.fields.map(([key, label, hint]) => {
+                        const isGst = key === "gst";
+                        const isAutoCustom = group.autoCustom || isGst;
+
+                        return (
+                          <tr key={key}>
+                            <td className="px-4 py-3">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-medium text-slate-700">
+                                  {label}
+                                </span>
+                                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-500">
+                                  {hint}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <input
+                                value={money(getDefaultCharge(key))}
+                                disabled
+                                className="w-32 rounded-lg border border-border bg-slate-100 px-3 py-2 text-right text-sm text-slate-600"
+                              />
+                            </td>
+                            <td className="px-4 py-3">
+                              {isAutoCustom ? (
+                                <input
+                                  value={
+                                    getCustomCharge(key) === null
+                                      ? "Auto calculated"
+                                      : money(getCustomCharge(key))
+                                  }
+                                  disabled
+                                  className="w-32 rounded-lg border border-border bg-slate-100 px-3 py-2 text-right text-sm text-slate-500"
+                                />
+                              ) : (
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={form.overrides[key] ?? ""}
+                                  onChange={(event) =>
+                                    updateOverride(key, event.target.value)
+                                  }
+                                  placeholder="Custom amount"
+                                  className="w-32 rounded-lg border border-border bg-white px-3 py-2 text-right text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25"
+                                />
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </Fragment>
                   ))}
-                  <tr>
-                    <td className="px-4 py-3 font-medium text-slate-700">
-                      GST
-                    </td>
-                    <td className="px-4 py-3">
-                      <input
-                        value={money(getDefaultCharge("gst"))}
-                        disabled
-                        className="w-32 rounded-lg border border-border bg-slate-100 px-3 py-2 text-right text-sm text-slate-600"
-                      />
-                    </td>
-                    <td className="px-4 py-3">
-                      <input
-                        value="No override"
-                        disabled
-                        className="w-32 rounded-lg border border-border bg-slate-100 px-3 py-2 text-sm text-slate-500"
-                      />
-                    </td>
-                  </tr>
                 </tbody>
               </table>
             </div>
@@ -489,7 +689,7 @@ function SellingPriceCalculator() {
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             <div className="rounded-xl border border-border bg-slate-50 px-4 py-3">
               <p className="text-xs font-bold uppercase text-slate-500">
-                Total Default Selling Price
+                Default Min Selling Price
               </p>
               <p className="mt-1 text-2xl font-bold text-slate-900">
                 {money(result?.default_selling_price ?? liveDefaultSellingPrice)}
@@ -497,7 +697,7 @@ function SellingPriceCalculator() {
             </div>
             <div className="rounded-xl border border-indigo-100 bg-indigo-50/70 px-4 py-3">
               <p className="text-xs font-bold uppercase text-indigo-700">
-                Total Custom Selling Price
+                Custom Min Selling Price
               </p>
               <p className="mt-1 text-2xl font-bold text-indigo-800">
                 {money(result?.custom_selling_price ?? liveCustomSellingPrice)}
@@ -520,63 +720,132 @@ function SellingPriceCalculator() {
         </Card>
 
         <Card>
-          <h2 className="text-lg font-bold text-slate-900">Result</h2>
-          {result ? (
-            <div className="mt-5 space-y-4">
-              <div className="rounded-2xl bg-slate-50 p-4">
-                <p className="text-xs font-semibold uppercase text-slate-500">
-                  Product
-                </p>
-                <p className="mt-1 font-semibold text-slate-900">
-                  {result.name} ({result.sku})
-                </p>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-2xl border border-border p-4">
-                  <p className="text-xs font-semibold uppercase text-slate-500">
-                    Default Price
-                  </p>
-                  <p className="mt-2 text-2xl font-bold text-slate-900">
-                    {money(result.default_selling_price)}
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-border p-4">
-                  <p className="text-xs font-semibold uppercase text-slate-500">
-                    Custom Price
-                  </p>
-                  <p className="mt-2 text-2xl font-bold text-indigo-700">
-                    {money(result.custom_selling_price)}
-                  </p>
-                </div>
-              </div>
-              <div className="rounded-2xl border border-border p-4 text-sm text-slate-700">
-                <div className="flex justify-between">
-                  <span>Base price</span>
-                  <span>{money(result.base_price)}</span>
-                </div>
-                <div className="mt-2 flex justify-between">
-                  <span>Chargeable weight</span>
-                  <span>{result.chargeable_weight} g</span>
-                </div>
-                <div className="mt-2 flex justify-between">
-                  <span>Packaging</span>
-                  <span>
-                    {result.packing_types.length
-                      ? result.packing_types
-                          .map((type) => packagingLabels[type] || type)
-                          .join(" + ")
-                      : "-"}{" "}
-                    / {result.packing_size}
-                  </span>
-                </div>
-              </div>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">
+                Charge Settings
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Adjust default formulas used in the calculated columns.
+              </p>
             </div>
-          ) : (
-            <p className="mt-4 text-sm text-slate-500">
-              Select a product and calculate to preview default and custom
-              selling prices.
-            </p>
-          )}
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setChargeSettings(defaultChargeSettings);
+                setResult(null);
+              }}
+            >
+              Reset
+            </Button>
+          </div>
+
+          <div className="mt-5 space-y-5">
+            <section>
+              <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                Flat Overrides
+              </h3>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <Input
+                  label="Marketplace"
+                  type="number"
+                  min="0"
+                  value={chargeSettings.marketplace_commission}
+                  onChange={(value) => updateChargeSetting("marketplace_commission", value)}
+                />
+                <Input
+                  label="Shipping"
+                  type="number"
+                  min="0"
+                  placeholder="Auto"
+                  value={chargeSettings.shipping_charges}
+                  onChange={(value) => updateChargeSetting("shipping_charges", value)}
+                />
+                <Input
+                  label="Packaging"
+                  type="number"
+                  min="0"
+                  placeholder="Auto"
+                  value={chargeSettings.packaging_charges}
+                  onChange={(value) => updateChargeSetting("packaging_charges", value)}
+                />
+              </div>
+            </section>
+
+            <section>
+              <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                Primary Percentages
+              </h3>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <Input
+                  label="Platform %"
+                  type="number"
+                  min="0"
+                  value={chargeSettings.platform_fees_percent}
+                  onChange={(value) => updateChargeSetting("platform_fees_percent", value)}
+                />
+                <Input
+                  label="Platform Min"
+                  type="number"
+                  min="0"
+                  value={chargeSettings.platform_fees_min}
+                  onChange={(value) => updateChargeSetting("platform_fees_min", value)}
+                />
+                <Input
+                  label="Platform Max"
+                  type="number"
+                  min="0"
+                  value={chargeSettings.platform_fees_max}
+                  onChange={(value) => updateChargeSetting("platform_fees_max", value)}
+                />
+                <Input
+                  label="Margin %"
+                  type="number"
+                  min="0"
+                  value={chargeSettings.margin_percent}
+                  onChange={(value) => updateChargeSetting("margin_percent", value)}
+                />
+              </div>
+            </section>
+
+            <section>
+              <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                Primary-Based Percentages
+              </h3>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <Input
+                  label="Return/RTO %"
+                  type="number"
+                  min="0"
+                  value={chargeSettings.return_rto_percent}
+                  onChange={(value) => updateChargeSetting("return_rto_percent", value)}
+                />
+                <Input
+                  label="Overhead %"
+                  type="number"
+                  min="0"
+                  value={chargeSettings.misc_percent}
+                  onChange={(value) => updateChargeSetting("misc_percent", value)}
+                />
+                <Input
+                  label="Ads %"
+                  type="number"
+                  min="0"
+                  value={chargeSettings.advertisement_percent}
+                  onChange={(value) => updateChargeSetting("advertisement_percent", value)}
+                />
+                <Input
+                  label="Promotion %"
+                  type="number"
+                  min="0"
+                  value={chargeSettings.promotion_percent}
+                  onChange={(value) => updateChargeSetting("promotion_percent", value)}
+                />
+              </div>
+            </section>
+          </div>
         </Card>
       </div>
     </MainLayout>

@@ -176,6 +176,7 @@ def build_audit_response(audit: dict):
         "old_data": audit.get("old_data"),
         "new_data": audit.get("new_data"),
         "performed_by": audit.get("performed_by"),
+        "actor_role": audit.get("actor_role") or audit.get("performed_by_role"),
         "created_at": format_datetime_iso(audit.get("created_at"))
     }
 
@@ -191,6 +192,7 @@ def build_supplier_response(supplier: dict):
         "gst_number": supplier.get("gst_number"),
         "contact_person": supplier.get("contact_person"),
         "is_active": supplier.get("is_active", True),
+        "is_own_company": supplier.get("is_own_company", False),
         "created_at": format_datetime_iso(supplier.get("created_at")),
         "updated_at": format_datetime_iso(supplier.get("updated_at"))
     }

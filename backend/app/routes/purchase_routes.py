@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, File, UploadFile
 from typing import Annotated, Optional
 
 from app.services.auth_service import (
@@ -10,6 +10,7 @@ from app.models.purchase import (
 )
 
 from app.services.purchase_service import (
+    bulk_upload_purchases,
     create_purchase,
     get_purchases,
     get_purchase_by_purchase_id
@@ -44,6 +45,19 @@ async def create_purchase_api(
         message=Messages.PURCHASE_CREATED,
         data=result,
         status_code=201
+    )
+
+
+@router.post("/bulk-upload")
+async def bulk_upload_purchases_api(
+    auth_user: user_dependency,
+    file: UploadFile = File(...),
+):
+    result = await bulk_upload_purchases(file, auth_user)
+
+    return success_response(
+        message="Bulk purchase upload completed",
+        data=result,
     )
 
 

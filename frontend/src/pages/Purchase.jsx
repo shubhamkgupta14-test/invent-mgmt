@@ -1,22 +1,76 @@
 import { useEffect, useState } from "react";
 import MainLayout from "../layouts/MainLayout";
+import BulkUpdateMenu from "../components/common/BulkUpdateMenu";
+import BulkUploadResultModal from "../components/common/BulkUploadResultModal";
 import SearchBar from "../components/common/SearchBar";
 import PurchaseTable from "../components/pages/purchase/PurchaseTable";
 import PurchaseForm from "../components/pages/purchase/PurchaseForm";
 import Loader from "../components/common/Loader";
 import Button from "../components/common/Button";
 import Card from "../components/common/Card";
+import ExportMenu from "../components/common/ExportMenu";
 import Modal from "../components/common/Modal";
 import DetailModal from "../components/common/DetailModal";
 import TablePagination from "../components/common/TablePagination";
 import StatusBadge from "../components/common/StatusBadge";
 import { getProductOptions } from "../api/productApi";
-import { createPurchase, getPurchases } from "../api/purchaseApi";
+import { bulkUploadPurchases, createPurchase, getPurchases } from "../api/purchaseApi";
 import { getMyDetails } from "../api/userApi";
 import { useToast } from "../context/useToast";
 import { formatDateIST, formatMoney } from "../utils/formatters";
 import { toggleSort } from "../utils/sortUtils";
 import { defaultPagination, listParams, parseListResponse } from "../utils/tableQuery";
+
+const PURCHASE_BULK_HEADERS = [
+  "Invoice ID",
+  "SKU",
+  "Quantity",
+  "Unit Price",
+  "Discount %",
+  "Additional Discount",
+  "Shipping Charges",
+  "Other Charges",
+  "Payment Method",
+  "Amount Paid",
+  "Notes",
+];
+const PURCHASE_BULK_SAMPLE_ROWS = [{
+  "Invoice ID": "PUR-001",
+  SKU: "SKU-001",
+  Quantity: 10,
+  "Unit Price": 100,
+  "Discount %": 0,
+  "Additional Discount": 0,
+  "Shipping Charges": 0,
+  "Other Charges": 0,
+  "Payment Method": "CASH",
+  "Amount Paid": 1000,
+  Notes: "Sample purchase",
+}];
+
+const purchaseItemSummary = (purchase) =>
+  (purchase.items || [])
+    .map((item) => `${item.sku || "-"} x ${item.quantity || 0} @ ${formatMoney(item.unit_price)}`)
+    .join("; ");
+
+const purchaseExportColumns = [
+  { header: "Invoice", key: "invoice_id" },
+  { header: "Date", value: (item) => formatDateIST(item.created_at) },
+  { header: "Supplier", key: "supplier_id" },
+  { header: "Items", value: purchaseItemSummary },
+  { header: "Total Quantity", key: "total_quantity" },
+  { header: "Subtotal", key: "subtotal" },
+  { header: "Discount", key: "total_discount" },
+  { header: "Tax", key: "total_tax" },
+  { header: "Shipping", key: "shipping_charges" },
+  { header: "Other Charges", key: "other_charges" },
+  { header: "Final Total", key: "final_total_amount" },
+  { header: "Paid", key: "total_paid" },
+  { header: "Remaining", key: "remaining_amount" },
+  { header: "Payment Status", key: "payment_status" },
+  { header: "Status", key: "purchase_status" },
+  { header: "Notes", key: "notes" },
+];
 
 function Purchases() {
   const [purchases, setPurchases] = useState([]);
@@ -28,6 +82,8 @@ function Purchases() {
   const [currentUser, setCurrentUser] = useState(null);
   const [products, setProducts] = useState([]);
   const [purchaseFormOpen, setPurchaseFormOpen] = useState(false);
+  const [bulkResult, setBulkResult] = useState(null);
+  const [bulkResultOpen, setBulkResultOpen] = useState(false);
   const { addToast } = useToast();
   const { page, limit } = pagination;
 
@@ -117,7 +173,7 @@ function Purchases() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-slate-50">
-              {["Name", "Qty", "Price (Exc Tax)", "Disc", "Tax", "Total"].map((label) => (
+              {["Product", "Quantity", "Unit Price (Excl. Tax)", "Discount", "Tax", "Total"].map((label) => (
                 <th
                   key={label}
                   className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500"
@@ -159,11 +215,33 @@ function Purchases() {
             Track and manage your purchase orders.
           </p>
         </div>
-        {currentUser?.role !== "user" && (
-          <Button variant="primary" size="md" onClick={handleAddPurchase}>
-            + Add Purchase
-          </Button>
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          <ExportMenu
+            rows={purchases}
+            columns={purchaseExportColumns}
+            filename="purchases"
+            title="Purchases"
+          />
+          {currentUser?.role !== "user" && (
+            <>
+            <BulkUpdateMenu
+              headers={PURCHASE_BULK_HEADERS}
+              sampleRows={PURCHASE_BULK_SAMPLE_ROWS}
+              sampleFileName="purchase-bulk-upload-sample.xlsx"
+              uploadFile={bulkUploadPurchases}
+              onResult={(result) => {
+                setBulkResult(result);
+                setBulkResultOpen(true);
+              }}
+              onUploaded={loadPurchases}
+              addToast={addToast}
+            />
+            <Button variant="primary" size="md" onClick={handleAddPurchase}>
+              + Add Purchase
+            </Button>
+            </>
+          )}
+        </div>
       </div>
 
       <Card>
@@ -246,6 +324,13 @@ function Purchases() {
           onSubmit={handleSubmitPurchase}
         />
       </Modal>
+      <BulkUploadResultModal
+        isOpen={bulkResultOpen}
+        onClose={() => setBulkResultOpen(false)}
+        title="Purchase Bulk Upload Result"
+        result={bulkResult}
+        fallbackHeaders={PURCHASE_BULK_HEADERS}
+      />
     </MainLayout>
   );
 }

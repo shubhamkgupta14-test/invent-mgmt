@@ -42,6 +42,20 @@ class SellingPriceChargeOverrides(BaseModel):
     promotion: Optional[float] = Field(default=None, ge=0)
 
 
+class SellingPriceChargeSettings(BaseModel):
+    marketplace_commission: float = Field(default=0, ge=0)
+    shipping_charges: Optional[float] = Field(default=None, ge=0)
+    platform_fees_percent: float = Field(default=5, ge=0)
+    platform_fees_min: float = Field(default=10, ge=0)
+    platform_fees_max: float = Field(default=25, ge=0)
+    packaging_charges: Optional[float] = Field(default=None, ge=0)
+    return_rto_percent: float = Field(default=10, ge=0)
+    margin_percent: float = Field(default=30, ge=0)
+    misc_percent: float = Field(default=5, ge=0)
+    advertisement_percent: float = Field(default=2, ge=0)
+    promotion_percent: float = Field(default=5, ge=0)
+
+
 class SellingPriceCalculationRequest(BaseModel):
     sku: str = Field(..., min_length=2)
     dead_weight: float = Field(default=0, ge=0)
@@ -50,5 +64,8 @@ class SellingPriceCalculationRequest(BaseModel):
     packing_size: Literal["S", "M", "L"] = "S"
     overrides: SellingPriceChargeOverrides = Field(
         default_factory=SellingPriceChargeOverrides
+    )
+    settings: SellingPriceChargeSettings = Field(
+        default_factory=SellingPriceChargeSettings
     )
     save_default: bool = False

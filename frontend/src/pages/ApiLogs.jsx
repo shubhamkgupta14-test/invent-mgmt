@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FaSyncAlt } from "react-icons/fa";
-import { getApiLogByTraceId, getApiLogs } from "../api/apiLogApi";
+import { FaPause, FaPlay, FaSyncAlt } from "react-icons/fa";
+import {
+  getApiLogByTraceId,
+  getApiLogs,
+  getApiTracingStatus,
+  setApiTracingStatus,
+} from "../api/apiLogApi";
 import { getMyDetails } from "../api/userApi";
 import Button from "../components/common/Button";
 import Card from "../components/common/Card";
@@ -37,7 +42,7 @@ const methodOptions = [
 
 const roleOptions = [
   { label: "All roles", value: "" },
-  { label: "SuperAdmin", value: "superadmin" },
+  { label: "Super Admin", value: "superadmin" },
   { label: "Admin", value: "admin" },
   { label: "User", value: "user" },
 ];
@@ -83,6 +88,8 @@ function ApiLogs() {
   const [filters, setFilters] = useState(emptyFilters);
   const [loading, setLoading] = useState(true);
   const [filtering, setFiltering] = useState(false);
+  const [tracingEnabled, setTracingEnabled] = useState(true);
+  const [updatingTracing, setUpdatingTracing] = useState(false);
   const [selectedLog, setSelectedLog] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const { addToast } = useToast();
@@ -119,7 +126,11 @@ function ApiLogs() {
         const user = response.data.data;
         setCurrentUser(user);
         if (user?.role === "superadmin") {
-          await loadLogs(emptyFilters);
+          const [statusResponse] = await Promise.all([
+            getApiTracingStatus(),
+            loadLogs(emptyFilters),
+          ]);
+          setTracingEnabled(Boolean(statusResponse.data.data?.enabled));
         } else {
           setLoading(false);
         }
@@ -184,6 +195,20 @@ function ApiLogs() {
     }
   };
 
+  const toggleTracing = async () => {
+    try {
+      setUpdatingTracing(true);
+      const response = await setApiTracingStatus(!tracingEnabled);
+      const enabled = Boolean(response.data.data?.enabled);
+      setTracingEnabled(enabled);
+      addToast(enabled ? "API tracing resumed" : "API tracing stopped", "success");
+    } catch (error) {
+      addToast(error.response?.data?.message || "Failed to update API tracing", "error");
+    } finally {
+      setUpdatingTracing(false);
+    }
+  };
+
   if (loading) {
     return (
       <MainLayout>
@@ -199,7 +224,7 @@ function ApiLogs() {
       <MainLayout>
         <Card>
           <p className="text-sm font-medium text-slate-700">
-            Only superadmin users can access API logs.
+            Only Super Admin users can access API logs.
           </p>
         </Card>
       </MainLayout>
@@ -218,15 +243,26 @@ function ApiLogs() {
               Monitor request timing, status codes, callers, and payload details.
             </p>
           </div>
-          <Button
-            type="button"
-            variant="secondary"
-            icon={FaSyncAlt}
-            loading={filtering}
-            onClick={() => loadLogs(filters, true)}
-          >
-            Refresh
-          </Button>
+          <div className="flex flex-wrap gap-3">
+            <Button
+              type="button"
+              variant="secondary"
+              icon={tracingEnabled ? FaPause : FaPlay}
+              loading={updatingTracing}
+              onClick={toggleTracing}
+            >
+              {tracingEnabled ? "Stop Tracing" : "Resume Tracing"}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              icon={FaSyncAlt}
+              loading={filtering}
+              onClick={() => loadLogs(filters, true)}
+            >
+              Refresh
+            </Button>
+          </div>
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
@@ -239,7 +275,7 @@ function ApiLogs() {
             <p className="mt-2 text-2xl font-bold text-slate-900">{stats.failures}</p>
           </Card>
           <Card>
-            <p className="text-xs font-semibold uppercase text-slate-500">Avg Duration</p>
+            <p className="text-xs font-semibold uppercase text-slate-500">Average Duration</p>
             <p className="mt-2 text-2xl font-bold text-slate-900">{stats.avgDuration} ms</p>
           </Card>
         </div>

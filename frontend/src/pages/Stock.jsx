@@ -3,15 +3,30 @@ import MainLayout from "../layouts/MainLayout";
 import SearchBar from "../components/common/SearchBar";
 import StockTable from "../components/pages/stock/StockTable";
 import Loader from "../components/common/Loader";
-import Button from "../components/common/Button";
 import Card from "../components/common/Card";
 import DetailModal from "../components/common/DetailModal";
+import ExportMenu from "../components/common/ExportMenu";
 import TablePagination from "../components/common/TablePagination";
 import StockStatusBadge from "../components/common/StockStatusBadge";
 import { getStocks } from "../api/stockApi";
 import { formatDateIST } from "../utils/formatters";
 import { toggleSort } from "../utils/sortUtils";
 import { defaultPagination, listParams, parseListResponse } from "../utils/tableQuery";
+
+const stockExportColumns = [
+  { header: "SKU", key: "sku" },
+  { header: "Product", key: "name" },
+  { header: "Supplier", key: "supplier_id" },
+  { header: "Quantity", key: "quantity" },
+  { header: "Damaged", key: "damaged_quantity" },
+  { header: "Lost", key: "lost_quantity" },
+  { header: "Tax Rate", value: (item) => `${item.tax_rate ?? 0}%` },
+  { header: "Avg Purchase Price", key: "avg_price" },
+  { header: "Min Selling Price", key: "min_selling_price" },
+  { header: "Inventory Value", key: "inventory_value" },
+  { header: "Status", key: "stock_status" },
+  { header: "Created", value: (item) => formatDateIST(item.created_at) },
+];
 
 function Stocks() {
   const [stocks, setStocks] = useState([]);
@@ -77,9 +92,12 @@ function Stocks() {
             Monitor stock quantities and alerts in real time.
           </p>
         </div>
-        <Button variant="secondary" size="md">
-          Export Stock
-        </Button>
+        <ExportMenu
+          rows={stocks}
+          columns={stockExportColumns}
+          filename="stocks"
+          title="Stocks"
+        />
       </div>
 
       <Card>

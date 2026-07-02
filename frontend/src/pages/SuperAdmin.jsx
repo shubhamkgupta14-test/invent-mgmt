@@ -6,6 +6,7 @@ import Card from "../components/common/Card";
 import Input from "../components/common/Input";
 import Loader from "../components/common/Loader";
 import Modal from "../components/common/Modal";
+import RoleBadge from "../components/common/RoleBadge";
 import Select from "../components/common/Select";
 import Textarea from "../components/common/Textarea";
 import {
@@ -37,9 +38,12 @@ const roleOptions = [
 const cleanOptions = [
   { label: "API Request Logs", value: "api-logs" },
   { label: "Activity Audit Trail", value: "audits" },
+  { label: "Company Settings", value: "company-settings" },
   { label: "Exchanges", value: "exchanges" },
   { label: "Manufacturing", value: "manufacturing" },
+  { label: "Notification Read Status", value: "notification-reads" },
   { label: "Notifications", value: "notifications" },
+  { label: "OTP / Verification Records", value: "otp-records" },
   { label: "Products", value: "products" },
   { label: "Purchases", value: "purchases" },
   { label: "Returns", value: "returns" },
@@ -82,6 +86,9 @@ const audienceOptions = [
 ];
 
 const adminTabs = ["users", "notifications", "cleanup"];
+const cleanDbCollectionValues = cleanOptions
+  .filter((option) => !["users", "company-settings"].includes(option.value))
+  .map((option) => option.value);
 
 const typeBorderClasses = {
   INFO: "border-l-sky-500",
@@ -293,6 +300,10 @@ function SuperAdmin() {
     );
   };
 
+  const selectCleanDbCollections = () => {
+    setSelectedCollections(cleanDbCollectionValues);
+  };
+
   const handleCleanDatabase = async () => {
     try {
       setCleaning(true);
@@ -392,7 +403,7 @@ function SuperAdmin() {
       <MainLayout>
         <Card>
           <p className="text-sm font-medium text-slate-700">
-            Only superadmin users can access this page.
+            Only Super Admin users can access this page.
           </p>
         </Card>
       </MainLayout>
@@ -547,7 +558,7 @@ function SuperAdmin() {
                     loading={findingUser}
                     disabled={!lookupUsername.trim()}
                   >
-                    Get User Info
+                    View User Details
                   </Button>
                   <Button
                     type="button"
@@ -556,7 +567,7 @@ function SuperAdmin() {
                     loading={loadingUsers}
                     onClick={handleGetAllUsers}
                   >
-                    Get All Users
+                    View All Users
                   </Button>
                 </div>
               </form>
@@ -594,9 +605,9 @@ function SuperAdmin() {
                       <p className="text-xs font-semibold uppercase text-slate-500">
                         Role
                       </p>
-                      <p className="font-semibold capitalize text-slate-900">
-                        {foundUser.role}
-                      </p>
+                      <div className="mt-1">
+                        <RoleBadge role={foundUser.role} />
+                      </div>
                     </div>
                     <div>
                       <p className="text-xs font-semibold uppercase text-slate-500">
@@ -799,48 +810,77 @@ function SuperAdmin() {
             </Card>
           </div>
         ) : (
-          <div className="max-w-4xl">
+          <div className="w-full">
             <Card title="Data Maintenance">
-              <div className="space-y-5">
-                <p className="text-sm text-slate-600">
-                  Select the records that should be cleaned from operational storage.
-                  This action should be used only for planned maintenance.
-                </p>
-                <label className="flex items-center gap-3 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm font-bold text-indigo-800">
-                  <input
-                    type="checkbox"
-                    checked={allCollectionsSelected}
-                    onChange={toggleAllCollections}
-                    className="h-4 w-4 rounded border-indigo-300 text-[var(--primary)] focus:ring-[var(--primary)]"
-                  />
-                  Select All Data Sets
-                </label>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {cleanOptions.map((option) => (
-                    <label
-                      key={option.value}
-                      className="flex items-center gap-3 rounded-xl border border-border bg-white px-4 py-3 text-sm font-semibold text-slate-700"
+              <div className="space-y-6">
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+                  <div>
+                    <p className="text-sm text-slate-600">
+                      Select records to permanently clean from operational storage.
+                      Use this only for planned maintenance or test data resets.
+                    </p>
+                    <p className="mt-2 text-xs font-semibold text-slate-500">
+                      {selectedCollections.length} of {cleanOptions.length} data sets selected
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={selectCleanDbCollections}
                     >
+                      Select Clean Preset
+                    </Button>
+                    <label className="flex items-center gap-3 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm font-bold text-indigo-800">
                       <input
                         type="checkbox"
-                        checked={selectedCollections.includes(option.value)}
-                        onChange={() => toggleCollection(option.value)}
-                        className="h-4 w-4 rounded border-slate-300 text-[var(--primary)] focus:ring-[var(--primary)]"
+                        checked={allCollectionsSelected}
+                        onChange={toggleAllCollections}
+                        className="h-4 w-4 rounded border-indigo-300 text-[var(--primary)] focus:ring-[var(--primary)]"
                       />
-                      {option.label}
+                      Select All
                     </label>
-                  ))}
+                  </div>
                 </div>
 
-                <Button
-                  type="button"
-                  variant="danger"
-                  className="bg-rose-600 text-white hover:bg-rose-700"
-                  disabled={!selectedCollections.length}
-                  onClick={() => setConfirmCleanOpen(true)}
-                >
-                  Clean Selected Data
-                </Button>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+                  {cleanOptions.map((option) => {
+                    const isSelected = selectedCollections.includes(option.value);
+                    return (
+                      <label
+                        key={option.value}
+                        className={`flex min-h-16 cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 text-sm font-semibold transition ${
+                          isSelected
+                            ? "border-indigo-300 bg-indigo-50 text-indigo-800 ring-1 ring-indigo-100"
+                            : "border-border bg-white text-slate-700 hover:border-indigo-200 hover:bg-slate-50"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleCollection(option.value)}
+                          className="h-4 w-4 shrink-0 rounded border-slate-300 text-[var(--primary)] focus:ring-[var(--primary)]"
+                        />
+                        <span>{option.label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+
+                <div className="flex flex-col gap-3 border-t border-border pt-5 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-xs font-medium text-slate-500">
+                    Cleaning users keeps the current Super Admin account. Cleaning suppliers keeps the own company supplier.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="danger"
+                    className="bg-rose-600 text-white hover:bg-rose-700"
+                    disabled={!selectedCollections.length}
+                    onClick={() => setConfirmCleanOpen(true)}
+                  >
+                    Clean Selected Data
+                  </Button>
+                </div>
               </div>
             </Card>
           </div>
@@ -887,9 +927,7 @@ function SuperAdmin() {
                     <td className="px-5 py-4 text-slate-700">{user.username}</td>
                     <td className="px-5 py-4 text-slate-700">{user.email || "-"}</td>
                     <td className="px-5 py-4">
-                      <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold capitalize text-indigo-700">
-                        {user.role}
-                      </span>
+                      <RoleBadge role={user.role} />
                     </td>
                     <td className="px-5 py-4">
                       <span
@@ -979,7 +1017,12 @@ function SuperAdmin() {
           </p>
           {selectedCollections.includes("users") && (
             <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
-              Your current superadmin account will be kept.
+              Your current Super Admin account will be kept.
+            </p>
+          )}
+          {selectedCollections.includes("suppliers") && (
+            <p className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm font-medium text-sky-800">
+              Your own company supplier will be kept.
             </p>
           )}
           <div className="flex justify-end gap-3 border-t border-border pt-5">

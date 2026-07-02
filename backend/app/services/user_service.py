@@ -17,6 +17,8 @@ from app.utils.helpers import (
 )
 from app.utils.pagination import paginate_collection, regex_filter, validate_sort_field
 from app.utils.responseBuilder import build_user_response
+from app.utils.settings import Settings
+from app.services.supplier_service import OWN_COMPANY_SUPPLIER_KEY
 
 from app.models.auth import UserRole
 from app.utils.messages import Messages
@@ -36,14 +38,32 @@ ALLOWED_IMAGE_TYPES = {
     "image/webp": ".webp",
     "image/gif": ".gif",
 }
-UPLOAD_DIR = Path(__file__).resolve().parents[3] / "frontend" / "public" / "uploads"
+UPLOAD_DIR = Path(Settings.UPLOAD_DIR)
+
+
+def _delete_uploaded_file(url: str):
+    if not url or not url.startswith("/uploads/"):
+        return
+
+    target = (UPLOAD_DIR / url.removeprefix("/uploads/")).resolve()
+    upload_root = UPLOAD_DIR.resolve()
+    try:
+        target.relative_to(upload_root)
+    except ValueError:
+        return
+
+    if target.is_file():
+        target.unlink()
 
 SUPERADMIN_CLEANABLE_COLLECTIONS = {
     "api-logs": db.api_logs,
     "audits": db.audits,
+    "company-settings": db.company_settings,
     "exchanges": db.exchanges,
     "manufacturing": db.manufacturing,
+    "notification-reads": db.notification_reads,
     "notifications": db.notifications,
+    "otp-records": db.password_otps,
     "products": db.products,
     "purchases": db.purchases,
     "returns": db.returns,
@@ -361,6 +381,13 @@ async def clean_database_collections(auth_user: dict, collections: list[str]):
             delete_result = await collection.delete_many({
                 "username": {"$ne": auth_user.get("username")}
             })
+        elif collection_name == "suppliers":
+            delete_result = await collection.delete_many({
+                "$and": [
+                    {"is_own_company": {"$ne": True}},
+                    {"system_key": {"$ne": OWN_COMPANY_SUPPLIER_KEY}},
+                ]
+            })
         else:
             delete_result = await collection.delete_many({})
 
@@ -459,6 +486,28 @@ async def update_my_profile_image(auth_user: dict, file: UploadFile):
         {
             "$set": {
                 "profile_image_url": f"/uploads/{filename}",
+                "updated_at": datetime.now(UTC),
+            }
+        },
+    )
+
+    updated_user = await user_collection.find_one({"username": username})
+    return build_user_response(updated_user)
+
+
+async def reset_my_profile_image(auth_user: dict):
+    username = normalize_username(auth_user.get("username"))
+    user = await user_collection.find_one({"username": username, "active": True})
+    if not user:
+        not_found(Messages.USER_NOT_FOUND)
+
+    _delete_uploaded_file(user.get("profile_image_url", ""))
+
+    await user_collection.update_one(
+        {"username": username},
+        {
+            "$set": {
+                "profile_image_url": "",
                 "updated_at": datetime.now(UTC),
             }
         },

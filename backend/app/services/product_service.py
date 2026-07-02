@@ -1,11 +1,18 @@
 from app.utils.messages import Messages
 from datetime import datetime, UTC
+from io import BytesIO
+import re
 
+from fastapi import HTTPException, UploadFile
+from pydantic import ValidationError
 from app.database.mongodb import db
 from app.utils.helpers import normalize_product_name, normalize_sku
 from app.utils.responseBuilder import build_product_response
 from app.utils.pagination import paginate_collection, regex_filter, validate_sort_field
 from app.models.auth import UserRole
+from app.models.product import ProductCreate
+from app.services.supplier_service import get_own_company_supplier
+from app.utils.settings import Settings
 from app.core.exceptions import (
     forbidden,
     not_found,
@@ -15,6 +22,104 @@ from app.core.exceptions import (
 
 products_collection = db.products
 suppliers_collection = db.suppliers
+
+PRODUCT_BULK_HEADERS = [
+    "SKU",
+    "Product Name",
+    "Category",
+    "Description",
+    "Unit of Measure",
+    "Tax Rate",
+    "Reorder Level",
+    "Supplier",
+    "In-House",
+    "Color",
+    "Material",
+    "Weight",
+    "Size",
+    "Dimension",
+]
+
+PRODUCT_BULK_HEADER_MAP = {
+    "sku": "sku",
+    "productname": "name",
+    "category": "category",
+    "description": "description",
+    "unitofmeasure": "unit_of_measure",
+    "taxrate": "tax_rate",
+    "reorderlevel": "reorder_level",
+    "supplier": "supplier_id",
+    "inhouse": "is_manufactured",
+    "color": "color",
+    "material": "material",
+    "weight": "weight",
+    "size": "size",
+    "dimension": "dimension",
+}
+
+
+def _normalize_header(value):
+    return "".join(char for char in str(value or "").strip().lower() if char.isalnum())
+
+
+def _clean_cell(value):
+    if value is None:
+        return ""
+    return str(value).strip()
+
+
+def _parse_bool(value):
+    text = _clean_cell(value).lower()
+    if text in ["yes", "y", "true", "1", "in-house", "inhouse"]:
+        return True
+    if text in ["no", "n", "false", "0", ""]:
+        return False
+    raise ValueError("In-House must be Yes/No")
+
+
+def _parse_float(value, field_name):
+    text = _clean_cell(value)
+    if text == "":
+        return 0
+    try:
+        return float(text)
+    except ValueError as exc:
+        raise ValueError(f"{field_name} must be a number") from exc
+
+
+def _parse_int(value, field_name):
+    text = _clean_cell(value)
+    if text == "":
+        return 0
+    try:
+        return int(float(text))
+    except ValueError as exc:
+        raise ValueError(f"{field_name} must be a number") from exc
+
+
+async def _resolve_supplier_id(value):
+    supplier_value = _clean_cell(value)
+    if not supplier_value:
+        raise ValueError("Supplier is required")
+
+    supplier = await suppliers_collection.find_one({
+        "$or": [
+            {"supplier_id": supplier_value},
+            {"name": {"$regex": f"^{re.escape(supplier_value)}$", "$options": "i"}},
+        ]
+    })
+    if not supplier:
+        raise ValueError("Supplier not found")
+
+    return supplier.get("supplier_id")
+
+
+def _validation_reason(error):
+    messages = []
+    for item in error.errors():
+        field = ".".join(str(part) for part in item.get("loc", []))
+        messages.append(f"{field}: {item.get('msg')}")
+    return "; ".join(messages) or "Invalid product data"
 
 
 # CREATE PRODUCT
@@ -33,6 +138,10 @@ async def add_product(product_data: dict, auth_user: dict):
     if existing_product:
         conflict(Messages.PRODUCT_ALREADY_EXISTS)
 
+    own_supplier = await get_own_company_supplier()
+    if product_data.get("is_manufactured") and own_supplier:
+        product_data["supplier_id"] = own_supplier.get("supplier_id")
+
     supplier_id = product_data.get("supplier_id", "").strip()
     if not supplier_id:
         bad_request(Messages.INVALID_SUPPLIER_ID)
@@ -47,7 +156,7 @@ async def add_product(product_data: dict, auth_user: dict):
     product_data["created_at"] = datetime.now(UTC)
     product_data["updated_at"] = datetime.now(UTC)
     product_data["is_active"] = True
-    product_data["is_manufactured"] = bool(product_data.get("is_manufactured", False))
+    product_data["is_manufactured"] = bool(supplier.get("is_own_company", False))
     product_data["sku"] = sku
 
     result = await products_collection.insert_one(product_data)
@@ -57,6 +166,143 @@ async def add_product(product_data: dict, auth_user: dict):
     })
 
     return build_product_response(created_product)
+
+
+async def bulk_upload_products(file: UploadFile, auth_user: dict):
+    if auth_user.get("role") == UserRole.USER:
+        forbidden()
+
+    filename = file.filename or ""
+    if not filename.lower().endswith(".xlsx"):
+        bad_request("Only .xlsx Excel files are allowed")
+
+    contents = await file.read()
+    max_size = Settings.BULK_UPLOAD_MAX_FILE_SIZE_MB * 1024 * 1024
+    if len(contents) > max_size:
+        bad_request(f"File size must be {Settings.BULK_UPLOAD_MAX_FILE_SIZE_MB}MB or less")
+
+    try:
+        from openpyxl import load_workbook
+    except ImportError:
+        bad_request("Excel upload support is not installed on the server")
+
+    try:
+        workbook = load_workbook(BytesIO(contents), read_only=True, data_only=True)
+        sheet = workbook.active
+    except Exception as exc:
+        bad_request(f"Unable to read Excel file: {exc}")
+
+    header_row = next(sheet.iter_rows(min_row=1, max_row=1, values_only=True), None)
+    if not header_row:
+        bad_request("Excel file is empty")
+
+    normalized_headers = [_normalize_header(header) for header in header_row]
+    header_indexes = {}
+    missing_headers = []
+
+    for expected_header in PRODUCT_BULK_HEADERS:
+        normalized = _normalize_header(expected_header)
+        if normalized not in normalized_headers:
+            missing_headers.append(expected_header)
+        else:
+            header_indexes[PRODUCT_BULK_HEADER_MAP[normalized]] = normalized_headers.index(normalized)
+
+    if missing_headers:
+        bad_request(f"Missing required columns: {', '.join(missing_headers)}")
+
+    data_rows = [
+        (row_number, row)
+        for row_number, row in enumerate(sheet.iter_rows(min_row=2, values_only=True), start=2)
+        if any(_clean_cell(value) for value in row)
+    ]
+
+    if not data_rows:
+        bad_request("No product rows found in Excel file")
+
+    if len(data_rows) > Settings.BULK_UPLOAD_MAX_ROWS:
+        bad_request(f"Maximum {Settings.BULK_UPLOAD_MAX_ROWS} product rows allowed")
+
+    row_results = []
+    seen_skus = set()
+
+    for row_number, row in data_rows:
+        def cell(field):
+            index = header_indexes[field]
+            return row[index] if index < len(row) else None
+
+        row_data = {}
+        for header in PRODUCT_BULK_HEADERS:
+            field = PRODUCT_BULK_HEADER_MAP[_normalize_header(header)]
+            row_data[header] = _clean_cell(cell(field))
+
+        try:
+            supplier_id = await _resolve_supplier_id(cell("supplier_id"))
+            sku = normalize_sku(_clean_cell(cell("sku")))
+            if sku in seen_skus:
+                raise ValueError("Duplicate SKU in uploaded file")
+            seen_skus.add(sku)
+
+            payload = {
+                "sku": sku,
+                "name": _clean_cell(cell("name")),
+                "category": _clean_cell(cell("category")) or "General",
+                "description": _clean_cell(cell("description")),
+                "unit_of_measure": _clean_cell(cell("unit_of_measure")).lower(),
+                "tax_rate": _parse_float(cell("tax_rate"), "Tax Rate"),
+                "reorder_level": _parse_int(cell("reorder_level"), "Reorder Level"),
+                "supplier_id": supplier_id,
+                "is_manufactured": _parse_bool(cell("is_manufactured")),
+                "attributes": {
+                    "color": _clean_cell(cell("color")),
+                    "material": _clean_cell(cell("material")),
+                    "weight": _clean_cell(cell("weight")),
+                    "size": _clean_cell(cell("size")),
+                    "dimension": _clean_cell(cell("dimension")),
+                },
+            }
+            validated_payload = ProductCreate(**payload).model_dump()
+            created_product = await add_product(validated_payload, auth_user)
+
+            row_results.append({
+                "row_number": row_number,
+                "status": "created",
+                "reason": "",
+                "data": row_data,
+                "product": created_product,
+            })
+        except ValidationError as error:
+            row_results.append({
+                "row_number": row_number,
+                "status": "failed",
+                "reason": _validation_reason(error),
+                "data": row_data,
+            })
+        except HTTPException as error:
+            row_results.append({
+                "row_number": row_number,
+                "status": "failed",
+                "reason": str(error.detail),
+                "data": row_data,
+            })
+        except ValueError as error:
+            row_results.append({
+                "row_number": row_number,
+                "status": "failed",
+                "reason": str(error),
+                "data": row_data,
+            })
+
+    created_count = len([row for row in row_results if row["status"] == "created"])
+    failed_count = len([row for row in row_results if row["status"] == "failed"])
+    return {
+        "headers": PRODUCT_BULK_HEADERS,
+        "summary": {
+            "total": len(row_results),
+            "created": created_count,
+            "failed": failed_count,
+        },
+        "rows": row_results,
+    }
 
 
 # GET ALL PRODUCTS
@@ -146,11 +392,12 @@ async def get_product_form_options(auth_user: dict):
     suppliers = []
     async for supplier in suppliers_collection.find(
         supplier_filters,
-        {"_id": 0, "supplier_id": 1, "name": 1}
+            {"_id": 0, "supplier_id": 1, "name": 1, "is_own_company": 1}
     ).sort("name", 1):
         suppliers.append({
             "supplier_id": supplier.get("supplier_id"),
-            "name": supplier.get("name")
+            "name": supplier.get("name"),
+            "is_own_company": supplier.get("is_own_company", False),
         })
 
     return {
@@ -213,6 +460,10 @@ async def update_product_by_sku(sku: str, update_data: dict, auth_user: dict):
     if "name" in update_data:
         update_data["name"] = normalize_product_name(update_data.get("name"))
 
+    own_supplier = await get_own_company_supplier()
+    if update_data.get("is_manufactured") and own_supplier:
+        update_data["supplier_id"] = own_supplier.get("supplier_id")
+
     supplier_id = update_data.get("supplier_id")
     if supplier_id is not None:
         supplier = await suppliers_collection.find_one({
@@ -220,6 +471,7 @@ async def update_product_by_sku(sku: str, update_data: dict, auth_user: dict):
         })
         if not supplier:
             bad_request(Messages.INVALID_SUPPLIER_ID)
+        update_data["is_manufactured"] = bool(supplier.get("is_own_company", False))
 
     update_data["updated_at"] = datetime.now(UTC)
 

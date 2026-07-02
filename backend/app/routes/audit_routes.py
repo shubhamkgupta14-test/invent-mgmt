@@ -32,7 +32,7 @@ async def get_audits_api(
     sort_by: str = "created_at",
     order: str = "desc",
     page: int = 1,
-    limit: int = 20,
+    limit: int = 10,
 ):
 
     result = await get_audit_logs(

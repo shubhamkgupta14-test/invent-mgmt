@@ -46,6 +46,19 @@ PERCENTAGE_CHARGES = {
     "advertisement": {"percent": 2},
     "promotion": {"percent": 5},
 }
+DEFAULT_CHARGE_SETTINGS = {
+    "marketplace_commission": 0,
+    "shipping_charges": None,
+    "platform_fees_percent": 5,
+    "platform_fees_min": 10,
+    "platform_fees_max": 25,
+    "packaging_charges": None,
+    "return_rto_percent": 10,
+    "margin_percent": 30,
+    "misc_percent": 5,
+    "advertisement_percent": 2,
+    "promotion_percent": 5,
+}
 
 
 def calculate_stock_status(quantity: int):
@@ -75,13 +88,17 @@ def _packaging_charge(packing_types: list[str], packing_size: str):
     return min(total, MAX_PACKAGING_CHARGE)
 
 
-def _percentage_amount(base_price: float, key: str):
+def _percentage_amount(base_price: float, key: str, settings: dict | None = None):
+    settings = {**DEFAULT_CHARGE_SETTINGS, **(settings or {})}
     config = PERCENTAGE_CHARGES[key]
-    amount = round_price(base_price * (config["percent"] / 100))
-    if "min" in config:
-        amount = max(amount, config["min"])
-    if "max" in config:
-        amount = min(amount, config["max"])
+    percent = settings.get(f"{key}_percent", config["percent"])
+    amount = round_price(base_price * (percent / 100))
+    min_value = settings.get(f"{key}_min", config.get("min"))
+    max_value = settings.get(f"{key}_max", config.get("max"))
+    if min_value is not None:
+        amount = max(amount, min_value)
+    if max_value is not None:
+        amount = min(amount, max_value)
     return round_price(amount)
 
 
@@ -93,18 +110,130 @@ def _charge_row(label: str, default_value: float, custom_value=None):
     }
 
 
-def _total_price(base_price: float, charges: dict, use_custom: bool):
-    total = base_price
-    for key, charge in charges.items():
-        if key == "gst":
-            total += charge["default"]
-            continue
-        total += (
-            charge["custom"]
-            if use_custom and charge["custom"] is not None
-            else charge["default"]
+def _selected_charge(charges: dict, key: str, use_custom: bool):
+    charge = charges[key]
+    if use_custom and charge["custom"] is not None:
+        return charge["custom"]
+    return charge["default"]
+
+
+def _price_breakdown(
+    base_price: float,
+    tax_rate: float,
+    chargeable_weight: float,
+    packing_types: list[str],
+    packing_size: str,
+    overrides: dict | None = None,
+    settings: dict | None = None,
+):
+    overrides = overrides or {}
+    settings = {**DEFAULT_CHARGE_SETTINGS, **(settings or {})}
+    shipping_charge = (
+        settings["shipping_charges"]
+        if settings.get("shipping_charges") is not None
+        else _shipping_charge(chargeable_weight)
+    )
+    packaging_charge = (
+        settings["packaging_charges"]
+        if settings.get("packaging_charges") is not None
+        else _packaging_charge(packing_types, packing_size)
+    )
+
+    charges = {
+        "marketplace_commission": _charge_row(
+            "Marketplace referral fee",
+            settings["marketplace_commission"],
+            overrides.get("marketplace_commission"),
+        ),
+        "shipping_charges": _charge_row(
+            "Courier shipping fee",
+            shipping_charge,
+            overrides.get("shipping_charges"),
+        ),
+        "platform_fees": _charge_row(
+            "Platform payment fee",
+            _percentage_amount(base_price, "platform_fees", settings),
+            overrides.get("platform_fees"),
+        ),
+        "packaging_charges": _charge_row(
+            "Packing material cost",
+            packaging_charge,
+            overrides.get("packaging_charges"),
+        ),
+        "margin": _charge_row(
+            "Target profit margin",
+            _percentage_amount(base_price, "margin", settings),
+            overrides.get("margin"),
+        ),
+    }
+
+    primary_default_total = base_price + sum(
+        charges[key]["default"]
+        for key in [
+            "marketplace_commission",
+            "shipping_charges",
+            "platform_fees",
+            "packaging_charges",
+            "margin",
+        ]
+    )
+    primary_custom_total = base_price + sum(
+        _selected_charge(charges, key, use_custom=True)
+        for key in [
+            "marketplace_commission",
+            "shipping_charges",
+            "platform_fees",
+            "packaging_charges",
+            "margin",
+        ]
+    )
+
+    for key, label in [
+        ("return_rto", "Return and RTO provision"),
+        ("misc", "Operational overhead buffer"),
+        ("advertisement", "Advertising allocation"),
+        ("promotion", "Promotion discount buffer"),
+    ]:
+        charges[key] = _charge_row(
+            label,
+            _percentage_amount(primary_default_total, key, settings),
+            _percentage_amount(primary_custom_total, key, settings),
         )
-    return round_final_amount(total)
+
+    default_pre_gst_total = primary_default_total + sum(
+        charges[key]["default"]
+        for key in ["return_rto", "misc", "advertisement", "promotion"]
+    )
+    custom_pre_gst_total = primary_custom_total + sum(
+        _selected_charge(charges, key, use_custom=True)
+        for key in ["return_rto", "misc", "advertisement", "promotion"]
+    )
+
+    custom_gst = round_price(custom_pre_gst_total * ((tax_rate or 0) / 100))
+    charges["gst"] = _charge_row(
+        "GST",
+        round_price(default_pre_gst_total * ((tax_rate or 0) / 100)),
+        custom_gst,
+    )
+
+    default_selling_price = round_final_amount(default_pre_gst_total)
+    custom_selling_price = round_final_amount(custom_pre_gst_total)
+
+    return {
+        "charges": charges,
+        "default_selling_price": default_selling_price,
+        "custom_selling_price": custom_selling_price,
+    }
+
+
+def _default_selling_price_for_stock(base_price: float, tax_rate: float = 0):
+    return _price_breakdown(
+        base_price=base_price,
+        tax_rate=tax_rate,
+        chargeable_weight=0,
+        packing_types=[],
+        packing_size="S",
+    )["default_selling_price"]
 
 
 async def calculate_selling_price(auth_user: dict, calculation_data: dict):
@@ -125,61 +254,20 @@ async def calculate_selling_price(auth_user: dict, calculation_data: dict):
     packing_types = calculation_data.get("packing_types") or []
     packing_size = calculation_data.get("packing_size") or "S"
     overrides = calculation_data.get("overrides") or {}
+    settings = calculation_data.get("settings") or {}
 
-    charges = {
-        "marketplace_commission": _charge_row(
-            "Marketplace referral fee",
-            0,
-            overrides.get("marketplace_commission"),
-        ),
-        "shipping_charges": _charge_row(
-            "Courier shipping fee",
-            _shipping_charge(chargeable_weight),
-            overrides.get("shipping_charges"),
-        ),
-        "platform_fees": _charge_row(
-            "Platform payment fee",
-            _percentage_amount(base_price, "platform_fees"),
-            overrides.get("platform_fees"),
-        ),
-        "packaging_charges": _charge_row(
-            "Packing material cost",
-            _packaging_charge(packing_types, packing_size),
-            overrides.get("packaging_charges"),
-        ),
-        "gst": _charge_row(
-            "GST",
-            round_price(base_price * (tax_rate / 100)),
-        ),
-        "return_rto": _charge_row(
-            "Return and RTO provision",
-            _percentage_amount(base_price, "return_rto"),
-            overrides.get("return_rto"),
-        ),
-        "margin": _charge_row(
-            "Target profit margin",
-            _percentage_amount(base_price, "margin"),
-            overrides.get("margin"),
-        ),
-        "misc": _charge_row(
-            "Operational overhead buffer",
-            _percentage_amount(base_price, "misc"),
-            overrides.get("misc"),
-        ),
-        "advertisement": _charge_row(
-            "Advertising allocation",
-            _percentage_amount(base_price, "advertisement"),
-            overrides.get("advertisement"),
-        ),
-        "promotion": _charge_row(
-            "Promotion discount buffer",
-            _percentage_amount(base_price, "promotion"),
-            overrides.get("promotion"),
-        ),
-    }
-
-    default_selling_price = _total_price(base_price, charges, use_custom=False)
-    custom_selling_price = _total_price(base_price, charges, use_custom=True)
+    pricing = _price_breakdown(
+        base_price=base_price,
+        tax_rate=tax_rate,
+        chargeable_weight=chargeable_weight,
+        packing_types=packing_types,
+        packing_size=packing_size,
+        overrides=overrides,
+        settings=settings,
+    )
+    charges = pricing["charges"]
+    default_selling_price = pricing["default_selling_price"]
+    custom_selling_price = pricing["custom_selling_price"]
 
     if calculation_data.get("save_default"):
         await stocks_collection.update_one(
@@ -196,6 +284,7 @@ async def calculate_selling_price(auth_user: dict, calculation_data: dict):
                         "packing_types": packing_types,
                         "packing_size": packing_size,
                         "charges": charges,
+                        "settings": {**DEFAULT_CHARGE_SETTINGS, **settings},
                         "default_selling_price": default_selling_price,
                     },
                     "updated_at": datetime.now(UTC),
@@ -214,6 +303,7 @@ async def calculate_selling_price(auth_user: dict, calculation_data: dict):
         "packing_types": packing_types,
         "packing_size": packing_size,
         "charges": charges,
+        "settings": {**DEFAULT_CHARGE_SETTINGS, **settings},
         "default_selling_price": default_selling_price,
         "custom_selling_price": custom_selling_price,
         "saved": bool(calculation_data.get("save_default")),
@@ -236,6 +326,8 @@ async def increase_stock(
     if not existing_stock:
 
         avg_price = round_price(unit_price)
+        product = await products_collection.find_one({"sku": sku}) or {}
+        tax_rate = product.get("tax_rate", 0)
 
         inventory_value = round_final_amount(
             quantity * avg_price,
@@ -251,6 +343,7 @@ async def increase_stock(
             "stock_status": calculate_stock_status(
                 quantity
             ),
+            "min_selling_price": _default_selling_price_for_stock(avg_price, tax_rate),
             "created_at": datetime.now(UTC),
             "updated_at": datetime.now(UTC)
         }
@@ -302,6 +395,8 @@ async def increase_stock(
     avg_price = round_price(
         (total_old_value + total_new_value) / new_quantity
     )
+    product = await products_collection.find_one({"sku": sku}) or {}
+    tax_rate = product.get("tax_rate", 0)
 
     inventory_value = round_final_amount(
         new_quantity * avg_price
@@ -311,6 +406,7 @@ async def increase_stock(
         "quantity": new_quantity,
         "avg_price": avg_price,
         "inventory_value": inventory_value,
+        "min_selling_price": _default_selling_price_for_stock(avg_price, tax_rate),
         "stock_status": calculate_stock_status(
             new_quantity
         ),

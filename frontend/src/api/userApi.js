@@ -68,6 +68,15 @@ export const uploadMyProfileImage = async (file) => {
   });
 };
 
+export const resetMyProfileImage = async () => {
+  return API.delete("/users/me/profile-image").then((response) => {
+    if (response.data?.data) {
+      setStoredUser(response.data.data, { notify: true });
+    }
+    return response;
+  });
+};
+
 export const requestEmailVerification = async () => {
   return API.post("/users/email-verification/request");
 };

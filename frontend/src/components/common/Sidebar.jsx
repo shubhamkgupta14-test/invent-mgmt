@@ -21,6 +21,8 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { getMyDetails } from "../../api/userApi";
 import { clearToken } from "../../utils/authUtils";
 import useCompanySettings from "../../hooks/useCompanySettings";
+import { resolveMediaUrl } from "../../utils/media";
+import RoleBadge from "./RoleBadge";
 
 function Sidebar({ onNavigate, onClose }) {
   const [displayName, setDisplayName] = useState("");
@@ -50,7 +52,7 @@ function Sidebar({ onNavigate, onClose }) {
 
         setDisplayName(fullName || user.username || "User");
         setInitials(nextInitials);
-        setProfileImageUrl(user.profile_image_url || "");
+        setProfileImageUrl(resolveMediaUrl(user.profile_image_url));
         setRole(String(user.role || "user").toLowerCase());
       })
       .catch((error) => {
@@ -148,20 +150,6 @@ function Sidebar({ onNavigate, onClose }) {
         : "text-slate-400 hover:bg-white/5 hover:text-white"
     }`;
 
-  const roleBadge =
-    {
-      superadmin: "bg-violet-500/20 text-violet-200 ring-violet-400/30",
-      admin: "bg-indigo-500/20 text-indigo-200 ring-indigo-400/30",
-      user: "bg-emerald-500/20 text-emerald-200 ring-emerald-400/30",
-    }[role] || "bg-slate-500/20 text-slate-200 ring-slate-400/30";
-
-  const roleLabel =
-    {
-      superadmin: "Super Admin",
-      admin: "Admin",
-      user: "User",
-    }[role] || role;
-
   return (
     <aside className="flex h-full min-h-0 flex-col bg-[var(--sidebar)] text-white md:h-screen md:overflow-hidden">
       <div className="border-b border-white/10 px-5 py-5">
@@ -252,11 +240,7 @@ function Sidebar({ onNavigate, onClose }) {
               {displayName || ""}
             </p>
             {role && (
-              <span
-                className={`mt-1 inline-flex rounded px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide ring-1 ${roleBadge}`}
-              >
-                {roleLabel}
-              </span>
+              <RoleBadge role={role} tone="dark" size="xs" className="mt-1 uppercase tracking-wide" />
             )}
           </div>
         </div>

@@ -4,6 +4,8 @@ from datetime import datetime
 from app.models.auth import UserRole
 from app.utils.helpers import hash_password
 from app.utils.settings import Settings
+from app.services.company_service import company_settings_collection, SETTINGS_KEY
+from app.services.supplier_service import ensure_own_company_supplier
 
 users_collection = db.users
 
@@ -37,7 +39,13 @@ async def create_default_superadmin():
             "updated_at": datetime.utcnow()
         }
 
-        await users_collection.insert_one(
+        result = await users_collection.insert_one(
             superadmin_data
         )
+        superadmin_user = {**superadmin_data, "_id": result.inserted_id}
+    else:
+        superadmin_user = existing_superadmin
+
+    company_settings = await company_settings_collection.find_one({"settings_key": SETTINGS_KEY})
+    await ensure_own_company_supplier(company_settings, superadmin_user)
     return True

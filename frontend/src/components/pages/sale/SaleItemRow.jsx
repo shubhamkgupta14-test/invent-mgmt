@@ -20,7 +20,7 @@ function SaleItemRow({ item, index, products, updateItem }) {
               )}
               {isLowStock(selectedProduct) ? (
                 <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
-                  Qty {Number(selectedProduct.quantity || 0).toLocaleString("en-IN")}
+                  Quantity {Number(selectedProduct.quantity || 0).toLocaleString("en-IN")}
                 </span>
               ) : null}
               {selectedProduct?.min_selling_price ? (
@@ -32,7 +32,7 @@ function SaleItemRow({ item, index, products, updateItem }) {
           }
           value={item.sku || ""}
           onChange={(value) => updateItem(index, "sku", value)}
-          placeholder="Select Product"
+          placeholder="Select product"
           options={products.map((product) => ({
             value: product.sku,
             label: `${product.sku} - ${product.name}`,
@@ -42,7 +42,7 @@ function SaleItemRow({ item, index, products, updateItem }) {
 
       <input
         type="number"
-        placeholder="Qty"
+        placeholder="Quantity"
         value={item.quantity || ""}
         onChange={(event) =>
           updateItem(index, "quantity", Number(event.target.value))
@@ -52,7 +52,7 @@ function SaleItemRow({ item, index, products, updateItem }) {
 
       <input
         type="number"
-        placeholder="Price (Exc Tax)"
+        placeholder="Unit price (excl. tax)"
         value={item.unit_price || ""}
         onChange={(event) =>
           updateItem(index, "unit_price", Number(event.target.value))

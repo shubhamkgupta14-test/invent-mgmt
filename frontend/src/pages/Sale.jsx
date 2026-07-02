@@ -1,17 +1,20 @@
 import { useEffect, useState } from "react";
 import MainLayout from "../layouts/MainLayout";
+import BulkUpdateMenu from "../components/common/BulkUpdateMenu";
+import BulkUploadResultModal from "../components/common/BulkUploadResultModal";
 import SearchBar from "../components/common/SearchBar";
 import SaleTable from "../components/pages/sale/SaleTable";
 import SaleForm from "../components/pages/sale/SaleForm";
 import Loader from "../components/common/Loader";
 import Button from "../components/common/Button";
 import Card from "../components/common/Card";
+import ExportMenu from "../components/common/ExportMenu";
 import Modal from "../components/common/Modal";
 import DetailModal from "../components/common/DetailModal";
 import TablePagination from "../components/common/TablePagination";
 import StatusBadge from "../components/common/StatusBadge";
 import PlatformBadge from "../components/common/PlatformBadge";
-import { createSale, getSales } from "../api/salesApi";
+import { bulkUploadSales, createSale, getSales } from "../api/salesApi";
 import { getMyDetails } from "../api/userApi";
 import { getProductOptions } from "../api/productApi";
 import { getStocks } from "../api/stockApi";
@@ -20,6 +23,37 @@ import { formatDateIST, formatMoney } from "../utils/formatters";
 import { toggleSort } from "../utils/sortUtils";
 import { defaultPagination, listParams, parseListResponse } from "../utils/tableQuery";
 
+const SALE_BULK_HEADERS = [
+  "Invoice ID",
+  "Platform",
+  "Customer Name",
+  "Customer Phone",
+  "Customer Email",
+  "SKU",
+  "Quantity",
+  "Unit Price",
+  "Discount %",
+  "Payment Method",
+  "Amount Paid",
+  "Payment Status",
+  "Notes",
+];
+const SALE_BULK_SAMPLE_ROWS = [{
+  "Invoice ID": "SALE-001",
+  Platform: "Self Store",
+  "Customer Name": "Amit Customer",
+  "Customer Phone": "9876543210",
+  "Customer Email": "amit@example.com",
+  SKU: "SKU-001",
+  Quantity: 1,
+  "Unit Price": 250,
+  "Discount %": 0,
+  "Payment Method": "CASH",
+  "Amount Paid": 250,
+  "Payment Status": "PAID",
+  Notes: "Sample sale",
+}];
+
 const getSalePaidAmount = (sale) =>
   sale?.total_paid ??
   sale?.payment_details?.reduce(
@@ -27,6 +61,26 @@ const getSalePaidAmount = (sale) =>
     0,
   ) ??
   0;
+
+const saleItemSummary = (sale) =>
+  (sale.items || [])
+    .map((item) => `${item.sku || "-"} x ${item.quantity || 0} @ ${formatMoney(item.unit_price)}`)
+    .join("; ");
+
+const saleExportColumns = [
+  { header: "Invoice", key: "invoice_id" },
+  { header: "Date", value: (item) => formatDateIST(item.created_at) },
+  { header: "Platform", value: (item) => item.platform || "Self Store" },
+  { header: "Customer", value: (item) => item.user_info?.name || item.user_info?.phone || item.user_info?.email || "-" },
+  { header: "Items", value: saleItemSummary },
+  { header: "Subtotal", key: "subtotal" },
+  { header: "Discount", key: "total_discount" },
+  { header: "Tax", key: "total_tax" },
+  { header: "Final Total", key: "final_total_amount" },
+  { header: "Paid", value: getSalePaidAmount },
+  { header: "Status", key: "sale_status" },
+  { header: "Notes", key: "notes" },
+];
 
 function Sales() {
   const [sales, setSales] = useState([]);
@@ -38,6 +92,8 @@ function Sales() {
   const [currentUser, setCurrentUser] = useState(null);
   const [products, setProducts] = useState([]);
   const [saleFormOpen, setSaleFormOpen] = useState(false);
+  const [bulkResult, setBulkResult] = useState(null);
+  const [bulkResultOpen, setBulkResultOpen] = useState(false);
   const { addToast } = useToast();
   const { page, limit } = pagination;
 
@@ -146,7 +202,7 @@ function Sales() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-slate-50">
-              {["Name", "Qty", "Price (Exc Tax)", "Disc", "Tax", "Total"].map((label) => (
+              {["Product", "Quantity", "Unit Price (Excl. Tax)", "Discount", "Tax", "Total"].map((label) => (
                 <th
                   key={label}
                   className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500"
@@ -189,18 +245,35 @@ function Sales() {
           </p>
         </div>
         <div className="flex gap-3">
+          <ExportMenu
+            rows={sales}
+            columns={saleExportColumns}
+            filename="sales"
+            title="Sales"
+          />
           {currentUser?.role !== "user" && (
-            <Button
-              variant="primary"
-              size="md"
-              onClick={handleAddSale}
-            >
-              + Add Sale
-            </Button>
+            <>
+              <BulkUpdateMenu
+                headers={SALE_BULK_HEADERS}
+                sampleRows={SALE_BULK_SAMPLE_ROWS}
+                sampleFileName="sale-bulk-upload-sample.xlsx"
+                uploadFile={bulkUploadSales}
+                onResult={(result) => {
+                  setBulkResult(result);
+                  setBulkResultOpen(true);
+                }}
+                onUploaded={loadSales}
+                addToast={addToast}
+              />
+              <Button
+                variant="primary"
+                size="md"
+                onClick={handleAddSale}
+              >
+                + Add Sale
+              </Button>
+            </>
           )}
-          <Button variant="secondary" size="md">
-            Export Report
-          </Button>
         </div>
       </div>
 
@@ -214,7 +287,7 @@ function Sales() {
         </div>
 
         {loading ? (
-          <Loader fullScreen={false} message="Loading sales…" />
+          <Loader fullScreen={false} message="Loading sales..." />
         ) : (
           <SaleTable
             sales={sales}
@@ -294,6 +367,13 @@ function Sales() {
           onSubmit={handleSubmitSale}
         />
       </Modal>
+      <BulkUploadResultModal
+        isOpen={bulkResultOpen}
+        onClose={() => setBulkResultOpen(false)}
+        title="Sale Bulk Upload Result"
+        result={bulkResult}
+        fallbackHeaders={SALE_BULK_HEADERS}
+      />
     </MainLayout>
   );
 }

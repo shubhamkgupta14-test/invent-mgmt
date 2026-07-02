@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import Button from "../components/common/Button";
 import Card from "../components/common/Card";
 import DetailModal from "../components/common/DetailModal";
+import ExportMenu from "../components/common/ExportMenu";
 import Input from "../components/common/Input";
 import Loader from "../components/common/Loader";
 import Modal from "../components/common/Modal";
@@ -35,6 +36,27 @@ const defaultForm = {
 const itemLabel = (item = {}) =>
   item.sku ? `${item.sku} - ${item.name || "Product"}` : item.name || "-";
 
+const exchangeItemsSummary = (items = []) =>
+  items
+    .map((item) => `${item.sku || "-"} x ${item.quantity || 0} @ ${formatMoney(item.unit_price)}`)
+    .join("; ");
+
+const exchangeExportColumns = [
+  { header: "Exchange ID", key: "exchange_id" },
+  { header: "Date", value: (item) => formatDateIST(item.created_at) },
+  { header: "Invoice", key: "invoice_id" },
+  { header: "Sale ID", key: "sale_id" },
+  { header: "Returned Items", value: (item) => exchangeItemsSummary(item.returned_items) },
+  { header: "Replacement Items", value: (item) => exchangeItemsSummary(item.replacement_items) },
+  { header: "Returned Quantity", key: "returned_quantity" },
+  { header: "Replacement Quantity", key: "replacement_quantity" },
+  { header: "Returned Amount", key: "returned_amount" },
+  { header: "Replacement Amount", key: "replacement_amount" },
+  { header: "Adjustment Amount", key: "adjustment_amount" },
+  { header: "Created By", key: "created_by" },
+  { header: "Notes", key: "notes" },
+];
+
 function ExchangeTable({ exchanges, onView, sortConfig, handleSort }) {
   if (!exchanges.length) {
     return (
@@ -55,7 +77,7 @@ function ExchangeTable({ exchanges, onView, sortConfig, handleSort }) {
               <SortableHeader label="Invoice" field="invoice_id" sortConfig={sortConfig} onSort={handleSort} />
               <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">Returned</th>
               <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">Replacement</th>
-              <SortableHeader label="Qty" field="returned_quantity" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Quantity" field="returned_quantity" sortConfig={sortConfig} onSort={handleSort} />
               <SortableHeader label="Adjustment" field="adjustment_amount" sortConfig={sortConfig} onSort={handleSort} />
             </tr>
           </thead>
@@ -305,11 +327,19 @@ function ExchangePage() {
           <h1 className="text-3xl font-bold text-slate-900">Exchanges</h1>
           <p className="mt-1 text-slate-600">Record product swaps and replacement stock movement.</p>
         </div>
-        {canAdd && (
-          <Button variant="primary" size="md" onClick={openAdd}>
-            + Add Exchange
-          </Button>
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          <ExportMenu
+            rows={exchanges}
+            columns={exchangeExportColumns}
+            filename="exchanges"
+            title="Exchanges"
+          />
+          {canAdd && (
+            <Button variant="primary" size="md" onClick={openAdd}>
+              + Add Exchange
+            </Button>
+          )}
+        </div>
       </div>
 
       <Card>
@@ -345,8 +375,8 @@ function ExchangePage() {
             fields: [
               { label: "Exchange ID", value: selectedExchange?.exchange_id },
               { label: "Invoice", value: selectedExchange?.invoice_id },
-              { label: "Returned Qty", value: selectedExchange?.returned_quantity },
-              { label: "Replacement Qty", value: selectedExchange?.replacement_quantity },
+              { label: "Returned Quantity", value: selectedExchange?.returned_quantity },
+              { label: "Replacement Quantity", value: selectedExchange?.replacement_quantity },
               { label: "Adjustment", value: selectedExchange?.adjustment_amount, money: true },
               { label: "Created", value: formatDateIST(selectedExchange?.created_at) },
             ],

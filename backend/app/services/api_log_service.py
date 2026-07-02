@@ -6,6 +6,46 @@ from app.models.auth import UserRole
 from app.utils.helpers import format_datetime_iso
 
 api_logs_collection = db.api_logs
+app_config_collection = db.app_config
+API_TRACING_CONFIG_KEY = "api_tracing"
+API_TRACING_ENABLED = None
+
+
+async def is_api_tracing_enabled():
+    global API_TRACING_ENABLED
+    if API_TRACING_ENABLED is not None:
+        return API_TRACING_ENABLED
+
+    config = await app_config_collection.find_one({"config_key": API_TRACING_CONFIG_KEY})
+    API_TRACING_ENABLED = bool(config.get("enabled", True)) if config else True
+    return API_TRACING_ENABLED
+
+
+async def get_api_tracing_status(auth_user: dict):
+    if auth_user.get("role") != UserRole.SUPERADMIN:
+        forbidden()
+    return {"enabled": await is_api_tracing_enabled()}
+
+
+async def set_api_tracing_status(auth_user: dict, enabled: bool):
+    if auth_user.get("role") != UserRole.SUPERADMIN:
+        forbidden()
+    global API_TRACING_ENABLED
+    API_TRACING_ENABLED = bool(enabled)
+    await app_config_collection.update_one(
+        {"config_key": API_TRACING_CONFIG_KEY},
+        {
+            "$set": {
+                "config_key": API_TRACING_CONFIG_KEY,
+                "enabled": API_TRACING_ENABLED,
+                "updated_at": datetime.now(UTC),
+                "updated_by": auth_user.get("username"),
+            },
+            "$setOnInsert": {"created_at": datetime.now(UTC)},
+        },
+        upsert=True,
+    )
+    return {"enabled": API_TRACING_ENABLED}
 
 
 def _parse_datetime(value):

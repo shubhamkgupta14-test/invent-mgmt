@@ -47,6 +47,8 @@ logs/
 *.log
 *.sqlite3
 *.db
+uploads/
+frontend/public/uploads/
 local_settings.py
 instance/
 
@@ -59,6 +61,7 @@ Thumbs.db
 *.swo
 
 # Generated artifacts
+generated-data/
 figma-code/
 figma-code*.zip
 codex-frontend/

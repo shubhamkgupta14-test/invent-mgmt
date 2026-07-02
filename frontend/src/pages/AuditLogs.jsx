@@ -7,6 +7,7 @@ import Card from "../components/common/Card";
 import Input from "../components/common/Input";
 import Loader from "../components/common/Loader";
 import Modal from "../components/common/Modal";
+import RoleBadge from "../components/common/RoleBadge";
 import Select from "../components/common/Select";
 import SortableHeader from "../components/common/SortableHeader";
 import TablePagination from "../components/common/TablePagination";
@@ -95,10 +96,22 @@ function eventBadgeClass(eventType) {
   return eventBadgeClasses[eventType] || "bg-slate-100 text-slate-700 border border-slate-200";
 }
 
+function ActorCell({ actor, role }) {
+  if (!actor) return <span className="text-slate-500">-</span>;
+
+  const actorRole = String(actor).toLowerCase() === "system" ? "system" : role;
+
+  return actorRole ? (
+    <RoleBadge role={actorRole} size="sm">{actor}</RoleBadge>
+  ) : (
+    <span className="font-semibold text-slate-900">{actor}</span>
+  );
+}
+
 function AuditLogs() {
   const [currentUser, setCurrentUser] = useState(null);
   const [logs, setLogs] = useState([]);
-  const [pagination, setPagination] = useState({ ...defaultPagination, limit: 20 });
+  const [pagination, setPagination] = useState(defaultPagination);
   const [sortConfig, setSortConfig] = useState({ field: "created_at", order: "desc" });
   const [filters, setFilters] = useState(emptyFilters);
   const [loading, setLoading] = useState(true);
@@ -109,7 +122,7 @@ function AuditLogs() {
   const loadLogs = useCallback(async (
     nextFilters = emptyFilters,
     showInlineLoading = false,
-    nextPagination = { page: 1, limit: 20 },
+    nextPagination = defaultPagination,
     nextSort = { field: "created_at", order: "desc" },
   ) => {
     try {
@@ -145,7 +158,7 @@ function AuditLogs() {
           await loadLogs(
             emptyFilters,
             false,
-            { page: 1, limit: 20 },
+            defaultPagination,
             { field: "created_at", order: "desc" },
           );
         } else {
@@ -220,7 +233,7 @@ function AuditLogs() {
       <MainLayout>
         <Card>
           <p className="text-sm font-medium text-slate-700">
-            Only superadmin users can access audit logs.
+            Only Super Admin users can access audit logs.
           </p>
         </Card>
       </MainLayout>
@@ -352,9 +365,7 @@ function AuditLogs() {
                         {log.sku || "-"}
                       </td>
                       <td className="px-5 py-4">
-                        <span className="rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700">
-                          {log.performed_by || "-"}
-                        </span>
+                        <ActorCell actor={log.performed_by} role={log.actor_role} />
                       </td>
                     </tr>
                   ))}
@@ -414,9 +425,9 @@ function AuditLogs() {
             </div>
             <div>
               <p className="text-xs font-semibold uppercase text-slate-500">Actor</p>
-              <p className="font-semibold text-slate-900">
-                {selectedLog?.performed_by || "-"}
-              </p>
+              <div className="mt-1">
+                <ActorCell actor={selectedLog?.performed_by} role={selectedLog?.actor_role} />
+              </div>
             </div>
             <div>
               <p className="text-xs font-semibold uppercase text-slate-500">Time</p>

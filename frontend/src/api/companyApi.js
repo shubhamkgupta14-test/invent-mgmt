@@ -49,3 +49,7 @@ export const uploadCompanyLogo = async (file) => {
     },
   }).then(cacheCompanySettings);
 };
+
+export const resetCompanyLogo = async () => {
+  return API.delete("/company/logo").then(cacheCompanySettings);
+};
