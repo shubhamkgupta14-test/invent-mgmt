@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
 import ActionButtons from "../components/common/ActionButtons";
+import BulkUpdateMenu from "../components/common/BulkUpdateMenu";
+import BulkUploadResultModal from "../components/common/BulkUploadResultModal";
 import Button from "../components/common/Button";
 import Card from "../components/common/Card";
 import DetailModal from "../components/common/DetailModal";
+import ExportMenu from "../components/common/ExportMenu";
 import Input from "../components/common/Input";
 import Loader from "../components/common/Loader";
 import Modal from "../components/common/Modal";
@@ -10,7 +13,7 @@ import SearchBar from "../components/common/SearchBar";
 import SortableHeader from "../components/common/SortableHeader";
 import TablePagination from "../components/common/TablePagination";
 import Textarea from "../components/common/Textarea";
-import { addSupplier, getSuppliers, updateSupplier } from "../api/supplierApi";
+import { addSupplier, bulkUploadSuppliers, getSuppliers, updateSupplier } from "../api/supplierApi";
 import { getMyDetails } from "../api/userApi";
 import { useToast } from "../context/useToast";
 import MainLayout from "../layouts/MainLayout";
@@ -25,6 +28,27 @@ const defaultSupplier = {
   gst_number: "",
   contact_person: "",
 };
+
+const SUPPLIER_BULK_HEADERS = ["Name", "Contact Person", "Email", "Phone", "Address", "GST Number"];
+const SUPPLIER_BULK_SAMPLE_ROWS = [{
+  Name: "ABC Textiles",
+  "Contact Person": "Rahul Sharma",
+  Email: "rahul@example.com",
+  Phone: "9876543210",
+  Address: "Mumbai",
+  "GST Number": "27ABCDE1234F1Z5",
+}];
+const supplierExportColumns = [
+  { header: "Supplier ID", key: "supplier_id" },
+  { header: "Name", key: "name" },
+  { header: "Contact Person", key: "contact_person" },
+  { header: "Phone", key: "phone" },
+  { header: "Email", key: "email" },
+  { header: "GST Number", key: "gst_number" },
+  { header: "Address", key: "address" },
+  { header: "Status", value: (item) => (item.is_active ? "Active" : "Inactive") },
+  { header: "Own Company", value: (item) => (item.is_own_company ? "Yes" : "No") },
+];
 
 function SupplierForm({ supplier, onSubmit, onCancel, loading }) {
   const [form, setForm] = useState(() => ({
@@ -173,6 +197,8 @@ function Supplier() {
   const [selectedSupplier, setSelectedSupplier] = useState(null);
   const [editingSupplier, setEditingSupplier] = useState(null);
   const [formOpen, setFormOpen] = useState(false);
+  const [bulkResult, setBulkResult] = useState(null);
+  const [bulkResultOpen, setBulkResultOpen] = useState(false);
   const { addToast } = useToast();
   const { page, limit } = pagination;
 
@@ -275,11 +301,33 @@ function Supplier() {
             Manage supplier contacts and business details.
           </p>
         </div>
-        {canMutateSuppliers && (
-          <Button variant="primary" size="md" onClick={openAdd}>
-            + Add Supplier
-          </Button>
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          <ExportMenu
+            rows={suppliers}
+            columns={supplierExportColumns}
+            filename="suppliers"
+            title="Suppliers"
+          />
+          {canMutateSuppliers && (
+            <>
+            <BulkUpdateMenu
+              headers={SUPPLIER_BULK_HEADERS}
+              sampleRows={SUPPLIER_BULK_SAMPLE_ROWS}
+              sampleFileName="supplier-bulk-upload-sample.xlsx"
+              uploadFile={bulkUploadSuppliers}
+              onResult={(result) => {
+                setBulkResult(result);
+                setBulkResultOpen(true);
+              }}
+              onUploaded={loadSuppliers}
+              addToast={addToast}
+            />
+            <Button variant="primary" size="md" onClick={openAdd}>
+              + Add Supplier
+            </Button>
+            </>
+          )}
+        </div>
       </div>
 
       <Card>
@@ -350,6 +398,13 @@ function Supplier() {
           onCancel={() => setFormOpen(false)}
         />
       </Modal>
+      <BulkUploadResultModal
+        isOpen={bulkResultOpen}
+        onClose={() => setBulkResultOpen(false)}
+        title="Supplier Bulk Upload Result"
+        result={bulkResult}
+        fallbackHeaders={SUPPLIER_BULK_HEADERS}
+      />
     </MainLayout>
   );
 }

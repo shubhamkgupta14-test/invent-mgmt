@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Button from "../../common/Button";
 import Input from "../../common/Input";
 import SelectDropdown from "../../common/SelectDropdown";
@@ -47,9 +47,34 @@ function ProductForm({
     ...new Set(products?.map((product) => product.category).filter(Boolean)),
   ];
   const units = unitOptions || ["pcs", "kg", "g", "m", "cm", "ltr", "ml", "other"];
+  const ownSupplier = useMemo(
+    () => suppliers.find((supplier) => supplier.is_own_company),
+    [suppliers],
+  );
 
   const updateForm = (key, value) => {
     setForm((current) => ({ ...current, [key]: value }));
+  };
+
+  const updateSupplier = (supplierId) => {
+    const selectedSupplier = suppliers.find((supplier) => supplier.supplier_id === supplierId);
+    setForm((current) => ({
+      ...current,
+      supplier_id: supplierId,
+      is_manufactured: Boolean(selectedSupplier?.is_own_company),
+    }));
+  };
+
+  const updateManufactured = (checked) => {
+    setForm((current) => ({
+      ...current,
+      is_manufactured: checked,
+      supplier_id: checked && ownSupplier
+        ? ownSupplier.supplier_id
+        : current.supplier_id === ownSupplier?.supplier_id
+          ? ""
+          : current.supplier_id,
+    }));
   };
 
   const updateAttribute = (key, value) => {
@@ -152,7 +177,7 @@ function ProductForm({
           <SelectDropdown
             label="Supplier"
             value={form.supplier_id}
-            onChange={(value) => updateForm("supplier_id", value)}
+            onChange={updateSupplier}
             placeholder="Select supplier"
             options={suppliers.map((supplier) => ({
               value: supplier.supplier_id,
@@ -168,7 +193,7 @@ function ProductForm({
           <input
             type="checkbox"
             checked={Boolean(form.is_manufactured)}
-            onChange={(event) => updateForm("is_manufactured", event.target.checked)}
+            onChange={(event) => updateManufactured(event.target.checked)}
             className="h-4 w-4 rounded border-slate-300 text-[var(--primary)] focus:ring-[var(--primary)]"
           />
           Manufactured in-house

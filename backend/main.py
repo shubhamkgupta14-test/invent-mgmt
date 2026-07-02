@@ -21,6 +21,7 @@ from app.core.exception_handler import (
 from fastapi.middleware.cors import (
     CORSMiddleware
 )
+from fastapi.staticfiles import StaticFiles
 
 from app.routes.product_routes import router as product_router
 from app.routes.user_routes import router as user_router
@@ -44,6 +45,7 @@ from app.services.company_service import get_company_brand_name
 from app.utils.settings import Settings
 from app.utils.response import failure_response
 from fastapi.responses import JSONResponse
+from pathlib import Path
 
 STARTED_AT = datetime.now(UTC)
 
@@ -80,6 +82,10 @@ app.add_middleware(
 )
 
 app.add_middleware(ApiLoggingMiddleware)
+
+upload_dir = Path(Settings.UPLOAD_DIR)
+upload_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(upload_dir)), name="uploads")
 
 app.add_exception_handler(
     HTTPException,

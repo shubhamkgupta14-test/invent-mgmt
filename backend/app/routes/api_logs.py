@@ -5,6 +5,8 @@ from fastapi import APIRouter, Depends
 from app.services.api_log_service import (
     get_api_log_by_trace_id,
     get_api_logs,
+    get_api_tracing_status,
+    set_api_tracing_status,
 )
 from app.services.auth_service import get_current_user
 from app.utils.messages import Messages
@@ -58,6 +60,27 @@ async def get_api_logs_api(
         message=Messages.API_LOGS_FETCHED,
         data=result,
         count=result.get("pagination", {}).get("total", 0),
+    )
+
+
+@router.get("/tracing/status")
+async def get_api_tracing_status_api(auth_user: user_dependency):
+    result = await get_api_tracing_status(auth_user)
+    return success_response(
+        message="API tracing status fetched successfully",
+        data=result,
+    )
+
+
+@router.put("/tracing/status")
+async def set_api_tracing_status_api(
+    auth_user: user_dependency,
+    enabled: bool,
+):
+    result = await set_api_tracing_status(auth_user, enabled)
+    return success_response(
+        message="API tracing status updated successfully",
+        data=result,
     )
 
 

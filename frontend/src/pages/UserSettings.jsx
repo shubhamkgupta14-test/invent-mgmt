@@ -5,15 +5,17 @@ import {
   changePassword,
   getMyDetails,
   requestEmailVerification,
+  resetMyProfileImage,
   updateMyProfile,
   uploadMyProfileImage,
   verifyEmail,
 } from "../api/userApi";
-import { getCompanySettings, updateCompanySettings, uploadCompanyLogo } from "../api/companyApi";
+import { getCompanySettings, resetCompanyLogo, updateCompanySettings, uploadCompanyLogo } from "../api/companyApi";
 import Button from "../components/common/Button";
 import Card from "../components/common/Card";
 import Input from "../components/common/Input";
 import Loader from "../components/common/Loader";
+import RoleBadge from "../components/common/RoleBadge";
 import { useToast } from "../context/useToast";
 import MainLayout from "../layouts/MainLayout";
 import { clearToken, setStoredUser } from "../utils/authUtils";
@@ -21,6 +23,7 @@ import {
   DEFAULT_COMPANY_SETTINGS,
   currencyOptions,
 } from "../utils/companySettings";
+import { resolveMediaUrl } from "../utils/media";
 
 const emptyPasswordForm = {
   current_password: "",
@@ -34,13 +37,7 @@ const emptyProfileForm = {
   email: "",
 };
 
-const roleLabels = {
-  superadmin: "Super Admin",
-  admin: "Admin",
-  user: "User",
-};
-
-const OTP_BLOCKED_MESSAGE = "Too many wrong OTP attempts. Contact SuperAdmin for activating your account.";
+const OTP_BLOCKED_MESSAGE = "Too many wrong OTP attempts. Contact Super Admin to activate your account.";
 const sanitizeOtp = (value) => value.replace(/\D/g, "").slice(0, 6);
 
 function FieldDisplay({ label, value }) {
@@ -68,6 +65,7 @@ function UserSettings() {
   const [profileForm, setProfileForm] = useState(emptyProfileForm);
   const [savingProfile, setSavingProfile] = useState(false);
   const [uploadingProfileImage, setUploadingProfileImage] = useState(false);
+  const [resettingProfileImage, setResettingProfileImage] = useState(false);
   const [emailOtp, setEmailOtp] = useState("");
   const [emailOtpError, setEmailOtpError] = useState("");
   const [emailOtpRequested, setEmailOtpRequested] = useState(false);
@@ -80,6 +78,7 @@ function UserSettings() {
   const [companySettings, setCompanySettings] = useState(DEFAULT_COMPANY_SETTINGS);
   const [savingCompany, setSavingCompany] = useState(false);
   const [uploadingCompanyLogo, setUploadingCompanyLogo] = useState(false);
+  const [resettingCompanyLogo, setResettingCompanyLogo] = useState(false);
   const { addToast } = useToast();
 
   useEffect(() => {
@@ -131,6 +130,8 @@ function UserSettings() {
   const displayName = useMemo(() => {
     return [user?.firstname, user?.lastname].filter(Boolean).join(" ") || user?.username || "User";
   }, [user]);
+  const profileImageUrl = resolveMediaUrl(user?.profile_image_url);
+  const companyLogoUrl = resolveMediaUrl(companySettings.logo_url);
 
   const initials = displayName
     .split(/\s+/)
@@ -284,6 +285,21 @@ function UserSettings() {
     }
   };
 
+  const handleProfileImageReset = async () => {
+    try {
+      setResettingProfileImage(true);
+      const response = await resetMyProfileImage();
+      const updatedUser = response.data.data;
+      setUser(updatedUser);
+      setStoredUser(updatedUser);
+      addToast("Profile image removed successfully", "success");
+    } catch (error) {
+      addToast(error.response?.data?.message || "Failed to remove profile image", "error");
+    } finally {
+      setResettingProfileImage(false);
+    }
+  };
+
   const updateCompanyField = (key, value) => {
     setCompanySettings((current) => ({ ...current, [key]: value }));
   };
@@ -357,6 +373,23 @@ function UserSettings() {
     }
   };
 
+  const handleCompanyLogoReset = async () => {
+    try {
+      setResettingCompanyLogo(true);
+      const response = await resetCompanyLogo();
+      const updatedSettings = {
+        ...DEFAULT_COMPANY_SETTINGS,
+        ...response.data.data,
+      };
+      setCompanySettings(updatedSettings);
+      addToast("Company logo removed successfully", "success");
+    } catch (error) {
+      addToast(error.response?.data?.message || "Failed to remove company logo", "error");
+    } finally {
+      setResettingCompanyLogo(false);
+    }
+  };
+
   if (loading) {
     return (
       <MainLayout>
@@ -382,9 +415,9 @@ function UserSettings() {
         <Card>
           <div className="mb-6 flex items-center gap-4">
             <div className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-[var(--primary)] text-xl font-bold text-white shadow-sm">
-              {user?.profile_image_url ? (
+              {profileImageUrl ? (
                 <img
-                  src={user.profile_image_url}
+                  src={profileImageUrl}
                   alt={displayName}
                   className="h-full w-full object-cover"
                 />
@@ -396,22 +429,34 @@ function UserSettings() {
               <h2 className="text-xl font-bold text-slate-900">{displayName}</h2>
               <div className="mt-1 flex flex-wrap items-center gap-2">
                 <p className="text-sm font-medium text-slate-500">@{user?.username}</p>
-                <span className="rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-bold text-indigo-700 ring-1 ring-indigo-200">
-                  {roleLabels[user?.role] || user?.role || "User"}
-                </span>
+                <RoleBadge role={user?.role} size="xs" />
               </div>
             </div>
-            <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm font-semibold text-[var(--foreground)] shadow-sm transition hover:bg-[var(--surface-hover)]">
-              <FaCamera size={14} />
-              {uploadingProfileImage ? "Uploading..." : "Upload Photo"}
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
-                className="hidden"
-                onChange={handleProfileImageUpload}
-                disabled={uploadingProfileImage}
-              />
-            </label>
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm font-semibold text-[var(--foreground)] shadow-sm transition hover:bg-[var(--surface-hover)]">
+                <FaCamera size={14} />
+                {uploadingProfileImage ? "Uploading..." : "Upload Photo"}
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  className="hidden"
+                  onChange={handleProfileImageUpload}
+                  disabled={uploadingProfileImage}
+                />
+              </label>
+              {user?.profile_image_url && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  icon={FaTrash}
+                  loading={resettingProfileImage}
+                  onClick={handleProfileImageReset}
+                >
+                  Reset
+                </Button>
+              )}
+            </div>
           </div>
 
           <form onSubmit={handleProfileSubmit} className="space-y-4">
@@ -559,9 +604,9 @@ function UserSettings() {
         <Card>
           <div className="mb-5 flex items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl bg-slate-100 text-slate-700">
-              {companySettings.logo_url ? (
+              {companyLogoUrl ? (
                 <img
-                  src={companySettings.logo_url}
+                  src={companyLogoUrl}
                   alt={companySettings.brand_name || companySettings.company_name || "Company logo"}
                   className="h-full w-full object-cover"
                 />
@@ -576,17 +621,31 @@ function UserSettings() {
               </p>
             </div>
             {canEditCompany && (
-              <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm font-semibold text-[var(--foreground)] shadow-sm transition hover:bg-[var(--surface-hover)]">
-                <FaCamera size={14} />
-                {uploadingCompanyLogo ? "Uploading..." : "Upload Logo"}
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp,image/gif"
-                  className="hidden"
-                  onChange={handleCompanyLogoUpload}
-                  disabled={uploadingCompanyLogo}
-                />
-              </label>
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm font-semibold text-[var(--foreground)] shadow-sm transition hover:bg-[var(--surface-hover)]">
+                  <FaCamera size={14} />
+                  {uploadingCompanyLogo ? "Uploading..." : "Upload Logo"}
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/gif"
+                    className="hidden"
+                    onChange={handleCompanyLogoUpload}
+                    disabled={uploadingCompanyLogo}
+                  />
+                </label>
+                {companySettings.logo_url && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    icon={FaTrash}
+                    loading={resettingCompanyLogo}
+                    onClick={handleCompanyLogoReset}
+                  >
+                    Reset
+                  </Button>
+                )}
+              </div>
             )}
           </div>
           {!canEditCompany ? (

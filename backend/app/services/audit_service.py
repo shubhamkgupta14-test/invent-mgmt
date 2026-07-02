@@ -7,6 +7,7 @@ from app.models.auth import UserRole
 from app.utils.pagination import paginate_collection, regex_filter, validate_sort_field
 
 audit_collection = db.audits
+users_collection = db.users
 
 
 # CREATE AUDITS
@@ -47,7 +48,7 @@ async def get_audit_logs(
     sort_by: str = "created_at",
     order: str = "desc",
     page: int = 1,
-    limit: int = 20,
+    limit: int = 10,
 ):
     if auth_user.get("role") != UserRole.SUPERADMIN:
         forbidden()
@@ -85,7 +86,7 @@ async def get_audit_logs(
     if search_filter:
         filters = {"$and": [filters, search_filter]} if filters else search_filter
 
-    return await paginate_collection(
+    result = await paginate_collection(
         audit_collection,
         filters,
         sort_by,
@@ -94,3 +95,21 @@ async def get_audit_logs(
         limit,
         build_audit_response,
     )
+
+    usernames = [
+        item.get("performed_by")
+        for item in result["items"]
+        if item.get("performed_by") and not item.get("actor_role")
+    ]
+    if usernames:
+        role_by_username = {}
+        async for user in users_collection.find(
+            {"username": {"$in": list(set(usernames))}},
+            {"_id": 0, "username": 1, "role": 1},
+        ):
+            role_by_username[user.get("username")] = user.get("role")
+
+        for item in result["items"]:
+            item["actor_role"] = item.get("actor_role") or role_by_username.get(item.get("performed_by"))
+
+    return result

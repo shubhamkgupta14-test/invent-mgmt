@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import Button from "../components/common/Button";
 import Card from "../components/common/Card";
 import DetailModal from "../components/common/DetailModal";
+import ExportMenu from "../components/common/ExportMenu";
 import Input from "../components/common/Input";
 import Loader from "../components/common/Loader";
 import Modal from "../components/common/Modal";
@@ -27,6 +28,21 @@ const emptyForm = {
   other_charges: "",
   notes: "",
 };
+
+const manufacturingExportColumns = [
+  { header: "Batch No", key: "batch_no" },
+  { header: "Date", value: (item) => formatDateIST(item.created_at) },
+  { header: "SKU", key: "sku" },
+  { header: "Product", key: "name" },
+  { header: "Quantity", key: "quantity" },
+  { header: "Unit Cost", key: "unit_cost" },
+  { header: "Other Charges", key: "other_charges" },
+  { header: "Effective Unit Cost", key: "effective_unit_cost" },
+  { header: "Total Cost", key: "total_cost" },
+  { header: "Status", key: "status" },
+  { header: "Created By", key: "created_by" },
+  { header: "Notes", key: "notes" },
+];
 
 function Manufacturing() {
   const [records, setRecords] = useState([]);
@@ -151,11 +167,19 @@ function Manufacturing() {
             Record finished goods and add ready-to-sell stock.
           </p>
         </div>
-        {currentUser?.role !== "user" && (
-          <Button variant="primary" size="md" onClick={openForm}>
-            + Add Manufacturing
-          </Button>
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          <ExportMenu
+            rows={records}
+            columns={manufacturingExportColumns}
+            filename="manufacturing"
+            title="Manufacturing"
+          />
+          {currentUser?.role !== "user" && (
+            <Button variant="primary" size="md" onClick={openForm}>
+              + Add Manufacturing Record
+            </Button>
+          )}
+        </div>
       </div>
 
       <Card>
@@ -175,7 +199,7 @@ function Manufacturing() {
                   <SortableHeader label="Date" field="created_at" sortConfig={sortConfig} onSort={handleSort} />
                   <SortableHeader label="Batch No" field="batch_no" sortConfig={sortConfig} onSort={handleSort} />
                   <SortableHeader label="Product" field="name" sortConfig={sortConfig} onSort={handleSort} />
-                  <SortableHeader label="Qty" field="quantity" sortConfig={sortConfig} onSort={handleSort} />
+                  <SortableHeader label="Quantity" field="quantity" sortConfig={sortConfig} onSort={handleSort} />
                   <SortableHeader label="Status" field="status" sortConfig={sortConfig} onSort={handleSort} />
                   <SortableHeader label="Total Cost" field="total_cost" sortConfig={sortConfig} onSort={handleSort} />
                 </tr>
@@ -199,7 +223,7 @@ function Manufacturing() {
                     <td className="px-5 py-4 text-slate-700">{record.quantity}</td>
                     <td className="px-5 py-4">
                       <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200">
-                        Ready to sell
+                        Ready to Sell
                       </span>
                     </td>
                     <td className="px-5 py-4 text-slate-700">
@@ -240,14 +264,14 @@ function Manufacturing() {
               { label: "Batch No", value: selectedRecord?.batch_no },
               { label: "Product", value: `${selectedRecord?.sku || "-"} - ${selectedRecord?.name || "-"}` },
               { label: "Quantity", value: selectedRecord?.quantity },
-              { label: "Status", value: "Ready to sell" },
+              { label: "Status", value: "Ready to Sell" },
               { label: "Date", value: formatDateIST(selectedRecord?.created_at) },
             ],
           },
           {
             title: "Costs",
             fields: [
-              { label: "Per Item Cost", value: selectedRecord?.unit_cost, money: true },
+              { label: "Unit Cost", value: selectedRecord?.unit_cost, money: true },
               { label: "Other Charges", value: selectedRecord?.other_charges, money: true },
               { label: "Effective Unit Cost", value: selectedRecord?.effective_unit_cost, money: true },
               { label: "Total Cost", value: selectedRecord?.total_cost, money: true },
@@ -263,22 +287,22 @@ function Manufacturing() {
       <Modal
         isOpen={formOpen}
         onClose={() => setFormOpen(false)}
-        title="Add Manufacturing"
+        title="Add Manufacturing Record"
         size="2xl"
       >
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid gap-4 md:grid-cols-2">
             <Input
-              label="Batch No"
+              label="Batch Number"
               value={form.batch_no}
               onChange={(value) => updateForm("batch_no", value)}
               required
             />
             <SelectDropdown
-              label="Item"
+              label="Product"
               value={form.sku}
               onChange={(value) => updateForm("sku", value)}
-              placeholder="Select item"
+              placeholder="Select product"
               required
               options={products.map((product) => ({
                 value: product.sku,
@@ -298,7 +322,7 @@ function Manufacturing() {
               required
             />
             <Input
-              label="Per Item Cost"
+              label="Unit Cost"
               type="number"
               value={form.unit_cost}
               onChange={(value) => updateForm("unit_cost", value)}
@@ -321,11 +345,11 @@ function Manufacturing() {
 
           <div className="flex flex-col gap-4 border-t border-border pt-5 md:flex-row md:items-center md:justify-between">
             <div className="rounded-xl bg-indigo-50 px-4 py-3 text-sm text-indigo-800">
-              <span className="font-semibold">Estimated total cost:</span>{" "}
+              <span className="font-semibold">Estimated Total Cost:</span>{" "}
               <span className="font-mono">{formatMoney(calculateTotal())}</span>
             </div>
             <Button type="submit" variant="primary" loading={saving}>
-              Save Manufacturing
+              Save Manufacturing Record
             </Button>
           </div>
         </form>

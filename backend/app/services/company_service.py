@@ -8,10 +8,12 @@ from app.core.exceptions import bad_request
 from app.core.exceptions import forbidden
 from app.database.mongodb import db
 from app.models.auth import UserRole
+from app.services.supplier_service import ensure_own_company_supplier
 from app.utils.helpers import format_datetime_iso
 from app.utils.settings import Settings
 
 company_settings_collection = db.company_settings
+users_collection = db.users
 
 SETTINGS_KEY = "global"
 DEFAULT_COMPANY_SETTINGS = {
@@ -33,7 +35,22 @@ ALLOWED_IMAGE_TYPES = {
     "image/webp": ".webp",
     "image/gif": ".gif",
 }
-UPLOAD_DIR = Path(__file__).resolve().parents[3] / "frontend" / "public" / "uploads"
+UPLOAD_DIR = Path(Settings.UPLOAD_DIR)
+
+
+def _delete_uploaded_file(url: str):
+    if not url or not url.startswith("/uploads/"):
+        return
+
+    target = (UPLOAD_DIR / url.removeprefix("/uploads/")).resolve()
+    upload_root = UPLOAD_DIR.resolve()
+    try:
+        target.relative_to(upload_root)
+    except ValueError:
+        return
+
+    if target.is_file():
+        target.unlink()
 
 
 def _build_company_response(settings: dict):
@@ -100,6 +117,8 @@ async def update_company_settings(auth_user: dict, settings_data: dict):
     )
 
     settings = await company_settings_collection.find_one({"settings_key": SETTINGS_KEY})
+    user = await users_collection.find_one({"username": auth_user.get("username")})
+    await ensure_own_company_supplier(settings or update_data, user or auth_user)
     return _build_company_response(settings or update_data)
 
 
@@ -127,6 +146,30 @@ async def update_company_logo(auth_user: dict, file: UploadFile):
             "$set": {
                 "settings_key": SETTINGS_KEY,
                 "logo_url": logo_url,
+                "updated_at": datetime.now(UTC),
+            }
+        },
+        upsert=True,
+    )
+
+    settings = await company_settings_collection.find_one({"settings_key": SETTINGS_KEY})
+    return _build_company_response(settings)
+
+
+async def reset_company_logo(auth_user: dict):
+    if auth_user.get("role") != UserRole.SUPERADMIN:
+        forbidden()
+
+    settings = await company_settings_collection.find_one({"settings_key": SETTINGS_KEY})
+    if settings:
+        _delete_uploaded_file(settings.get("logo_url", ""))
+
+    await company_settings_collection.update_one(
+        {"settings_key": SETTINGS_KEY},
+        {
+            "$set": {
+                "settings_key": SETTINGS_KEY,
+                "logo_url": "",
                 "updated_at": datetime.now(UTC),
             }
         },

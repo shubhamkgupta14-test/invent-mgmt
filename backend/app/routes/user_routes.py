@@ -27,6 +27,7 @@ from app.services.user_service import (
     change_password,
     update_my_profile,
     update_my_profile_image,
+    reset_my_profile_image,
     request_email_verification,
     verify_email,
 )
@@ -132,6 +133,16 @@ async def update_my_profile_image_api(
     file: UploadFile = File(...),
 ):
     user = await update_my_profile_image(auth_user, file)
+
+    return success_response(
+        message=Messages.USER_DETAILS_FETCHED,
+        data=user,
+    )
+
+
+@router.delete("/me/profile-image")
+async def reset_my_profile_image_api(auth_user: user_dependency):
+    user = await reset_my_profile_image(auth_user)
 
     return success_response(
         message=Messages.USER_DETAILS_FETCHED,

@@ -5,6 +5,7 @@ import { getNotifications, markNotificationRead } from "../../api/notificationAp
 import { getMyDetails } from "../../api/userApi";
 import useCompanySettings from "../../hooks/useCompanySettings";
 import { formatDateIST } from "../../utils/formatters";
+import { resolveMediaUrl } from "../../utils/media";
 
 const typeBorderClasses = {
   INFO: "border-l-sky-500",
@@ -83,6 +84,7 @@ function Navbar({ onMenuClick }) {
   };
 
   const displayName = [user?.firstname, user?.lastname].filter(Boolean).join(" ") || user?.username || "Profile";
+  const profileImageUrl = resolveMediaUrl(user?.profile_image_url);
   const initials = displayName
     .split(/\s+/)
     .filter(Boolean)
@@ -126,9 +128,9 @@ function Navbar({ onMenuClick }) {
             title={displayName}
             aria-label="Open profile settings"
           >
-            {user?.profile_image_url ? (
+            {profileImageUrl ? (
               <img
-                src={user.profile_image_url}
+                src={profileImageUrl}
                 alt={displayName}
                 className="h-full w-full rounded-full object-cover"
               />

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import Button from "../components/common/Button";
 import Card from "../components/common/Card";
 import DetailModal from "../components/common/DetailModal";
+import ExportMenu from "../components/common/ExportMenu";
 import Input from "../components/common/Input";
 import Loader from "../components/common/Loader";
 import Modal from "../components/common/Modal";
@@ -34,6 +35,24 @@ const defaultForm = {
 const itemLabel = (item = {}) =>
   item.sku ? `${item.sku} - ${item.name || "Product"}` : item.name || "-";
 
+const returnItemSummary = (returnRecord) =>
+  (returnRecord.items || [])
+    .map((item) => `${item.sku || "-"} x ${item.quantity || 0} @ ${formatMoney(item.unit_price)} (${item.item_status || "RESELLABLE"})`)
+    .join("; ");
+
+const returnExportColumns = [
+  { header: "Return ID", key: "return_id" },
+  { header: "Date", value: (item) => formatDateIST(item.created_at) },
+  { header: "Invoice", key: "invoice_id" },
+  { header: "Sale ID", key: "sale_id" },
+  { header: "Items", value: returnItemSummary },
+  { header: "Total Quantity", key: "total_quantity" },
+  { header: "Total Amount", key: "total_amount" },
+  { header: "Refund Amount", key: "refund_amount" },
+  { header: "Created By", key: "created_by" },
+  { header: "Notes", key: "notes" },
+];
+
 function ReturnTable({ returns, onView, sortConfig, handleSort }) {
   if (!returns.length) {
     return (
@@ -54,7 +73,7 @@ function ReturnTable({ returns, onView, sortConfig, handleSort }) {
               <SortableHeader label="Invoice" field="invoice_id" sortConfig={sortConfig} onSort={handleSort} />
               <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">Product</th>
               <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">Items</th>
-              <SortableHeader label="Qty" field="total_quantity" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Quantity" field="total_quantity" sortConfig={sortConfig} onSort={handleSort} />
               <SortableHeader label="Refund" field="refund_amount" sortConfig={sortConfig} onSort={handleSort} />
             </tr>
           </thead>
@@ -297,11 +316,19 @@ function ReturnPage() {
           <h1 className="text-3xl font-bold text-slate-900">Returns</h1>
           <p className="mt-1 text-slate-600">Track returned products and stock reversals.</p>
         </div>
-        {canAdd && (
-          <Button variant="primary" size="md" onClick={openAdd}>
-            + Add Return
-          </Button>
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          <ExportMenu
+            rows={returns}
+            columns={returnExportColumns}
+            filename="returns"
+            title="Returns"
+          />
+          {canAdd && (
+            <Button variant="primary" size="md" onClick={openAdd}>
+              + Add Return
+            </Button>
+          )}
+        </div>
       </div>
 
       <Card>

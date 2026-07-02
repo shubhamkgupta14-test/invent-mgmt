@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, File, UploadFile
 from typing import Annotated, Optional
 
 from app.services.auth_service import get_current_user
@@ -8,6 +8,7 @@ from app.models.supplier import (
 )
 from app.services.supplier_service import (
     add_supplier,
+    bulk_upload_suppliers,
     get_all_suppliers,
     get_supplier_by_id,
     update_supplier_by_id
@@ -29,6 +30,19 @@ async def add_supplier_api(auth_user: user_dependency, supplier: SupplierCreate)
     result = await add_supplier(
         supplier.model_dump(),
         auth_user
+    )
+
+
+@router.post("/bulk-upload")
+async def bulk_upload_suppliers_api(
+    auth_user: user_dependency,
+    file: UploadFile = File(...),
+):
+    result = await bulk_upload_suppliers(file, auth_user)
+
+    return success_response(
+        message="Bulk supplier upload completed",
+        data=result,
     )
 
     return success_response(

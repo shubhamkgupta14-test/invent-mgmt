@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, File, UploadFile
 from typing import Annotated, Optional
 
 from app.services.auth_service import get_current_user
 from app.services.sales_service import (
+    bulk_upload_sales,
     create_sale,
     get_sales,
 )
@@ -34,6 +35,19 @@ async def create_sale_api(
         message=Messages.SALE_CREATED,
         data=result,
         status_code=201
+    )
+
+
+@router.post("/bulk-upload")
+async def bulk_upload_sales_api(
+    auth_user: user_dependency,
+    file: UploadFile = File(...),
+):
+    result = await bulk_upload_sales(file, auth_user)
+
+    return success_response(
+        message="Bulk sale upload completed",
+        data=result,
     )
 
 

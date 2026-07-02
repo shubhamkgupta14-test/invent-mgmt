@@ -54,12 +54,12 @@ function TransactionItemRows({
               label="Product"
               value={item.sku || ""}
               onChange={(value) => onChange(index, "sku", value)}
-              placeholder="Select Product"
+              placeholder="Select product"
               options={productOptions}
               required
             />
             <Input
-              label="Qty"
+              label="Quantity"
               type="number"
               value={item.quantity || ""}
               onChange={(value) => onChange(index, "quantity", Number(value))}

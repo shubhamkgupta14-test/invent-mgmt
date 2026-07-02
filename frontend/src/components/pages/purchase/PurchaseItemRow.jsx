@@ -19,7 +19,7 @@ function PurchaseItemRow({ item, index, products, updateItem }) {
           }
           value={item.sku || ""}
           onChange={(value) => updateItem(index, "sku", value)}
-          placeholder="Select Product"
+          placeholder="Select product"
           options={products.map((p) => ({
             value: p.sku,
             label: `${p.sku} - ${p.name}`,
@@ -29,7 +29,7 @@ function PurchaseItemRow({ item, index, products, updateItem }) {
 
       <input
         type="number"
-        placeholder="Qty"
+        placeholder="Quantity"
         value={item.quantity || ""}
         onChange={(e) => updateItem(index, "quantity", Number(e.target.value))}
         className="mt-7 w-full rounded-xl border border-[var(--border)] bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-indigo-500/25"
@@ -37,7 +37,7 @@ function PurchaseItemRow({ item, index, products, updateItem }) {
 
       <input
         type="number"
-        placeholder="Price (Exc Tax)"
+        placeholder="Unit price (excl. tax)"
         value={item.unit_price || ""}
         onChange={(e) =>
           updateItem(index, "unit_price", Number(e.target.value))

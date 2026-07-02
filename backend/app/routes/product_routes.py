@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, File, UploadFile
 from typing import Annotated, Optional
 
 from app.services.auth_service import get_current_user
@@ -17,7 +17,8 @@ from app.services.product_service import (
     get_product_by_sku,
     update_product_by_sku,
     delete_product_by_sku,
-    filter_products_service
+    filter_products_service,
+    bulk_upload_products,
 )
 
 from app.core.exceptions import (
@@ -43,6 +44,20 @@ async def add_product_api(auth_user: user_dependency, product: ProductCreate):
     result = await add_product(
         product.model_dump(),
         auth_user
+    )
+
+
+@router.post("/bulk-upload")
+async def bulk_upload_products_api(
+    auth_user: user_dependency,
+    file: UploadFile = File(...),
+):
+    result = await bulk_upload_products(file, auth_user)
+
+    return success_response(
+        message="Bulk product upload completed",
+        data=result,
+        status_code=200,
     )
 
     return success_response(

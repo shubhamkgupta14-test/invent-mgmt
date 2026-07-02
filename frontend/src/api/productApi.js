@@ -20,6 +20,17 @@ export const addProduct = async (payload) => {
   return API.post("/products/add", payload);
 };
 
+export const bulkUploadProducts = async (file) => {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  return API.post("/products/bulk-upload", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+};
+
 export const getProductDetails = async (sku) => {
   return API.get(`/products/details/${sku}`);
 };
