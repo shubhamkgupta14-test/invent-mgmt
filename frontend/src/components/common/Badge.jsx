@@ -22,7 +22,7 @@ function Badge({
 
   return (
     <span
-      className={`inline-flex items-center gap-2 rounded-full font-semibold ring-1 ${
+      className={`inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full font-semibold ring-1 ${
         tones[tone] || tones.slate
       } ${sizes[size]} ${className}`}
     >

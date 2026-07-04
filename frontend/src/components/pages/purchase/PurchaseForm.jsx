@@ -175,7 +175,7 @@ function PurchaseForm({ products, onSubmit }) {
         rows={3}
       />
 
-      <div className="flex flex-col gap-4 border-t border-[var(--border)] pt-5 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col items-end gap-4 border-t border-[var(--border)] pt-5 md:flex-row md:items-center md:justify-between">
         <div className="rounded-xl bg-indigo-50 px-4 py-3 text-sm text-indigo-800">
           <span className="font-semibold">Estimated total:</span>{" "}
           <span className="font-mono">{formatMoney(calculateTotal())}</span>

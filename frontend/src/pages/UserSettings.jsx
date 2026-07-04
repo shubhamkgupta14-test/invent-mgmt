@@ -413,26 +413,28 @@ function UserSettings() {
 
       <div className="space-y-6">
         <Card>
-          <div className="mb-6 flex items-center gap-4">
-            <div className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-[var(--primary)] text-xl font-bold text-white shadow-sm">
-              {profileImageUrl ? (
-                <img
-                  src={profileImageUrl}
-                  alt={displayName}
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                initials || <FaUserCircle size={28} />
-              )}
-            </div>
-            <div className="min-w-0 flex-1">
-              <h2 className="text-xl font-bold text-slate-900">{displayName}</h2>
-              <div className="mt-1 flex flex-wrap items-center gap-2">
-                <p className="text-sm font-medium text-slate-500">@{user?.username}</p>
-                <RoleBadge role={user?.role} size="xs" />
+          <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center">
+            <div className="flex min-w-0 items-center gap-4 sm:flex-1">
+              <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--primary)] text-xl font-bold text-white shadow-sm">
+                {profileImageUrl ? (
+                  <img
+                    src={profileImageUrl}
+                    alt={displayName}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  initials || <FaUserCircle size={28} />
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <h2 className="break-words text-xl font-bold text-slate-900">{displayName}</h2>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <p className="break-all text-sm font-medium text-slate-500">@{user?.username}</p>
+                  <RoleBadge role={user?.role} size="xs" />
+                </div>
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-2 sm:w-auto">
               <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm font-semibold text-[var(--foreground)] shadow-sm transition hover:bg-[var(--surface-hover)]">
                 <FaCamera size={14} />
                 {uploadingProfileImage ? "Uploading..." : "Upload Photo"}
@@ -602,26 +604,28 @@ function UserSettings() {
         </Card>
 
         <Card>
-          <div className="mb-5 flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl bg-slate-100 text-slate-700">
-              {companyLogoUrl ? (
-                <img
-                  src={companyLogoUrl}
-                  alt={companySettings.brand_name || companySettings.company_name || "Company logo"}
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <FaBuilding size={18} />
-              )}
-            </div>
-            <div className="min-w-0 flex-1">
-              <h2 className="text-xl font-semibold text-slate-900">Company Details</h2>
-              <p className="text-sm text-slate-600">
-                Company profile, billing identity, and operational defaults will live here.
-              </p>
+          <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center">
+            <div className="flex min-w-0 items-center gap-3 sm:flex-1">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-100 text-slate-700">
+                {companyLogoUrl ? (
+                  <img
+                    src={companyLogoUrl}
+                    alt={companySettings.brand_name || companySettings.company_name || "Company logo"}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <FaBuilding size={18} />
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <h2 className="break-words text-xl font-semibold text-slate-900">Company Details</h2>
+                <p className="text-sm text-slate-600">
+                  Company profile, billing identity, and operational defaults will live here.
+                </p>
+              </div>
             </div>
             {canEditCompany && (
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center justify-end gap-2 sm:w-auto">
                 <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm font-semibold text-[var(--foreground)] shadow-sm transition hover:bg-[var(--surface-hover)]">
                   <FaCamera size={14} />
                   {uploadingCompanyLogo ? "Uploading..." : "Upload Logo"}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FaPause, FaPlay, FaSyncAlt } from "react-icons/fa";
+import { FaFilter, FaPause, FaPlay, FaSyncAlt } from "react-icons/fa";
 import {
   getApiLogByTraceId,
   getApiLogs,
@@ -88,6 +88,7 @@ function ApiLogs() {
   const [filters, setFilters] = useState(emptyFilters);
   const [loading, setLoading] = useState(true);
   const [filtering, setFiltering] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [tracingEnabled, setTracingEnabled] = useState(true);
   const [updatingTracing, setUpdatingTracing] = useState(false);
   const [selectedLog, setSelectedLog] = useState(null);
@@ -243,7 +244,7 @@ function ApiLogs() {
               Monitor request timing, status codes, callers, and payload details.
             </p>
           </div>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap justify-end gap-3">
             <Button
               type="button"
               variant="secondary"
@@ -281,7 +282,21 @@ function ApiLogs() {
         </div>
 
         <Card>
-          <form onSubmit={applyFilters} className="grid gap-4 lg:grid-cols-6">
+          <div className="mb-4 flex justify-end md:hidden">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              icon={FaFilter}
+              onClick={() => setFiltersOpen((current) => !current)}
+            >
+              {filtersOpen ? "Hide Filters" : "Show Filters"}
+            </Button>
+          </div>
+          <form
+            onSubmit={applyFilters}
+            className={`${filtersOpen ? "grid" : "hidden"} gap-4 md:grid lg:grid-cols-6`}
+          >
             <Select
               label="Method"
               value={filters.method}
@@ -361,14 +376,14 @@ function ApiLogs() {
                   onClick={() => openLog(log)}
                   className={`block w-full border-l-4 px-4 py-3 text-left transition-colors ${statusRowClass(log.status_code)}`}
                 >
-                  <div className="flex min-w-0 items-center gap-3 whitespace-nowrap text-xs">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs sm:flex-nowrap sm:gap-3 sm:whitespace-nowrap">
                     <span className="shrink-0 text-slate-500">
                       {formatDateTimeIST(log.created_at)}
                     </span>
                     <span className={`shrink-0 rounded px-2 py-0.5 text-[11px] font-bold ring-1 ${methodClass(log.method)}`}>
                       {log.method}
                     </span>
-                    <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-900" title={log.path}>
+                    <span className="min-w-0 flex-[1_1_100%] truncate text-sm font-semibold text-slate-900 sm:flex-1" title={log.path}>
                       {log.path}
                     </span>
                     <span className={`shrink-0 rounded px-2 py-0.5 text-[11px] font-bold ring-1 ${statusClass(log.status_code)}`}>

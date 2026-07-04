@@ -301,7 +301,7 @@ function Supplier() {
             Manage supplier contacts and business details.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center justify-end gap-3">
           <ExportMenu
             rows={suppliers}
             columns={supplierExportColumns}

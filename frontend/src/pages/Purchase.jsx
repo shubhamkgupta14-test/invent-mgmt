@@ -215,7 +215,7 @@ function Purchases() {
             Track and manage your purchase orders.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center justify-end gap-3">
           <ExportMenu
             rows={purchases}
             columns={purchaseExportColumns}

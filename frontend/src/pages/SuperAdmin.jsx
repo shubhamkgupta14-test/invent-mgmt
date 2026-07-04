@@ -478,9 +478,11 @@ function SuperAdmin() {
                   Active
                 </label>
 
-                <Button type="submit" variant="primary" loading={savingUser}>
-                  Create User
-                </Button>
+                <div className="flex justify-end">
+                  <Button type="submit" variant="primary" loading={savingUser}>
+                    Create User
+                  </Button>
+                </div>
               </form>
             </Card>
 
@@ -492,15 +494,17 @@ function SuperAdmin() {
                   onChange={setActivateUsername}
                   required
                 />
-                <Button
-                  type="submit"
-                  variant="success"
-                  className="bg-emerald-600 text-white hover:bg-emerald-700"
-                  loading={activatingUser}
-                  disabled={!activateUsername.trim()}
-                >
-                  Activate User
-                </Button>
+                <div className="flex justify-end">
+                  <Button
+                    type="submit"
+                    variant="success"
+                    className="bg-emerald-600 text-white hover:bg-emerald-700"
+                    loading={activatingUser}
+                    disabled={!activateUsername.trim()}
+                  >
+                    Activate User
+                  </Button>
+                </div>
               </form>
             </Card>
 
@@ -528,15 +532,17 @@ function SuperAdmin() {
                   />
                   Permanent delete
                 </label>
-                <Button
-                  type="button"
-                  variant="danger"
-                  className="bg-rose-600 text-white hover:bg-rose-700"
-                  disabled={!deleteForm.username.trim()}
-                  onClick={() => setConfirmDeleteOpen(true)}
-                >
-                  Delete User
-                </Button>
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    variant="danger"
+                    className="bg-rose-600 text-white hover:bg-rose-700"
+                    disabled={!deleteForm.username.trim()}
+                    onClick={() => setConfirmDeleteOpen(true)}
+                  >
+                    Delete User
+                  </Button>
+                </div>
               </div>
             </Card>
           </div>
@@ -550,7 +556,7 @@ function SuperAdmin() {
                   onChange={setLookupUsername}
                   required
                 />
-                <div className="flex flex-wrap gap-3">
+                <div className="flex flex-wrap justify-end gap-3">
                   <Button
                     type="submit"
                     variant="primary"
@@ -641,14 +647,16 @@ function SuperAdmin() {
                   options={roleOptions}
                   required
                 />
-                <Button
-                  type="submit"
-                  variant="primary"
-                  loading={updatingRole}
-                  disabled={!roleForm.username.trim()}
-                >
-                  Update Role
-                </Button>
+                <div className="flex justify-end">
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    loading={updatingRole}
+                    disabled={!roleForm.username.trim()}
+                  >
+                    Update Role
+                  </Button>
+                </div>
               </form>
             </Card>
 
@@ -720,9 +728,11 @@ function SuperAdmin() {
                   />
                 )}
 
-                <Button type="submit" variant="primary" loading={sendingNotification}>
-                  Send Notification
-                </Button>
+                <div className="flex justify-end">
+                  <Button type="submit" variant="primary" loading={sendingNotification}>
+                    Send Notification
+                  </Button>
+                </div>
               </form>
             </Card>
 
@@ -823,7 +833,7 @@ function SuperAdmin() {
                       {selectedCollections.length} of {cleanOptions.length} data sets selected
                     </p>
                   </div>
-                  <div className="flex flex-wrap gap-3">
+                  <div className="flex flex-wrap justify-end gap-3">
                     <Button
                       type="button"
                       variant="secondary"
@@ -867,7 +877,7 @@ function SuperAdmin() {
                   })}
                 </div>
 
-                <div className="flex flex-col gap-3 border-t border-border pt-5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col items-end gap-3 border-t border-border pt-5 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-xs font-medium text-slate-500">
                     Cleaning users keeps the current Super Admin account. Cleaning suppliers keeps the own company supplier.
                   </p>

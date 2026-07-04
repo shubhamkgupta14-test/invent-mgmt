@@ -244,7 +244,7 @@ function Sales() {
             Review orders, revenue, and sales performance.
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap justify-end gap-3">
           <ExportMenu
             rows={sales}
             columns={saleExportColumns}

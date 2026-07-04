@@ -327,7 +327,7 @@ function ExchangePage() {
           <h1 className="text-3xl font-bold text-slate-900">Exchanges</h1>
           <p className="mt-1 text-slate-600">Record product swaps and replacement stock movement.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center justify-end gap-3">
           <ExportMenu
             rows={exchanges}
             columns={exchangeExportColumns}
