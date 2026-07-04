@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FaSyncAlt } from "react-icons/fa";
+import { FaFilter, FaSyncAlt } from "react-icons/fa";
 import { getAuditLogs } from "../api/auditApi";
 import { getMyDetails } from "../api/userApi";
 import Button from "../components/common/Button";
@@ -116,6 +116,7 @@ function AuditLogs() {
   const [filters, setFilters] = useState(emptyFilters);
   const [loading, setLoading] = useState(true);
   const [filtering, setFiltering] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [selectedLog, setSelectedLog] = useState(null);
   const { addToast } = useToast();
 
@@ -258,6 +259,7 @@ function AuditLogs() {
             icon={FaSyncAlt}
             loading={filtering}
             onClick={() => loadLogs(filters, true, pagination, sortConfig)}
+            className="self-end"
           >
             Refresh
           </Button>
@@ -279,7 +281,21 @@ function AuditLogs() {
         </div>
 
         <Card>
-          <form onSubmit={applyFilters} className="grid gap-4 lg:grid-cols-6">
+          <div className="mb-4 flex justify-end md:hidden">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              icon={FaFilter}
+              onClick={() => setFiltersOpen((current) => !current)}
+            >
+              {filtersOpen ? "Hide Filters" : "Show Filters"}
+            </Button>
+          </div>
+          <form
+            onSubmit={applyFilters}
+            className={`${filtersOpen ? "grid" : "hidden"} gap-4 md:grid lg:grid-cols-6`}
+          >
             <Select
               label="Module"
               value={filters.module_name}

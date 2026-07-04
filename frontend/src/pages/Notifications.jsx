@@ -139,7 +139,7 @@ function Notifications() {
             <h1 className="text-3xl font-bold text-slate-900">Notifications</h1>
             <p className="mt-1 text-slate-600">Review current and previous notifications.</p>
           </div>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap justify-end gap-3">
             <button
               type="button"
               onClick={handleMarkAllRead}

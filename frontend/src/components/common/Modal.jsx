@@ -1,6 +1,18 @@
+import { useEffect } from "react";
 import { FaTimes } from "react-icons/fa";
 
 export function Modal({ isOpen, onClose, title, children, size = "md" }) {
+  useEffect(() => {
+    if (!isOpen) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const sizeClass = {

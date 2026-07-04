@@ -1,6 +1,7 @@
+import { forwardRef } from "react";
 import { FaSpinner } from "react-icons/fa";
 
-function Button({
+const Button = forwardRef(function Button({
   type = "button",
   onClick,
   children,
@@ -11,7 +12,7 @@ function Button({
   loading = false,
   disabled = false,
   ...props
-}) {
+}, ref) {
   const baseStyles =
     "inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl font-semibold transition-all duration-200 font-sans disabled:cursor-not-allowed disabled:opacity-60";
 
@@ -36,6 +37,7 @@ function Button({
 
   return (
     <button
+      ref={ref}
       type={type}
       onClick={onClick}
       disabled={disabled || loading}
@@ -47,6 +49,6 @@ function Button({
       {children}
     </button>
   );
-}
+});
 
 export default Button;

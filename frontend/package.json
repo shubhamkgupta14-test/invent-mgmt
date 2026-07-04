@@ -8,7 +8,9 @@
     "build": "vite build",
     "lint": "eslint .",
     "test": "node --test ../test/frontend/*.test.mjs",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "dev:prod": "vite --mode prod",
+    "build:prod": "vite build --mode prod"
   },
   "dependencies": {
     "axios": "^1.18.0",

@@ -57,12 +57,12 @@ async def lifespan(app: FastAPI):
     # create_default_superadmin()
     brand_name = await get_company_brand_name()
     app.title = f"{brand_name} Inventory API"
-    print(f"Starting up the {brand_name} Inventory API...")
+    print(f"\n🚀 Starting up the {brand_name} Inventory API...\n")
     await create_indexes()
     await create_default_superadmin()
     yield
     brand_name = await get_company_brand_name()
-    print(f"Shutting down the {brand_name} Inventory API...")
+    print(f"\n🛑 Shutting down the {brand_name} Inventory API...\n")
 
 
 app = FastAPI(
@@ -72,10 +72,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "https://inventory-frontend-owht.vercel.app"
-    ],
+    allow_origins=Settings.ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -92,12 +92,14 @@ function Stocks() {
             Monitor stock quantities and alerts in real time.
           </p>
         </div>
-        <ExportMenu
-          rows={stocks}
-          columns={stockExportColumns}
-          filename="stocks"
-          title="Stocks"
-        />
+        <div className="flex justify-end">
+          <ExportMenu
+            rows={stocks}
+            columns={stockExportColumns}
+            filename="stocks"
+            title="Stocks"
+          />
+        </div>
       </div>
 
       <Card>

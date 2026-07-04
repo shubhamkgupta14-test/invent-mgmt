@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Sidebar from "../components/common/Sidebar";
 import Navbar from "../components/common/Navbar";
 import useCompanySettings from "../hooks/useCompanySettings";
@@ -6,6 +6,17 @@ import useCompanySettings from "../hooks/useCompanySettings";
 function MainLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { brand } = useCompanySettings();
+
+  useEffect(() => {
+    if (!sidebarOpen) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [sidebarOpen]);
 
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">

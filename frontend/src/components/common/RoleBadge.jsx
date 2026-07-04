@@ -44,7 +44,7 @@ function RoleBadge({ role, tone = "light", size = "sm", className = "", children
 
   return (
     <span
-      className={`inline-flex items-center rounded-full font-semibold ring-1 ${colorClass} ${
+      className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full font-semibold ring-1 ${colorClass} ${
         sizes[size] || sizes.sm
       } ${className}`}
     >

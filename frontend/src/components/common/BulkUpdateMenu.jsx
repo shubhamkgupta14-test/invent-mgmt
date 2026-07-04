@@ -17,8 +17,10 @@ function BulkUpdateMenu({
   disabled = false,
 }) {
   const [open, setOpen] = useState(false);
+  const [menuAlign, setMenuAlign] = useState("right");
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef(null);
+  const buttonRef = useRef(null);
   const inFlightRef = useRef("");
 
   const downloadSample = () => {
@@ -74,6 +76,14 @@ function BulkUpdateMenu({
     }
   };
 
+  const toggleOpen = () => {
+    if (!open) {
+      const buttonRect = buttonRef.current?.getBoundingClientRect();
+      setMenuAlign(buttonRect && buttonRect.left < 224 ? "left" : "right");
+    }
+    setOpen((current) => !current);
+  };
+
   return (
     <div className="relative">
       <input
@@ -85,19 +95,20 @@ function BulkUpdateMenu({
         disabled={uploading || disabled}
       />
       <Button
+        ref={buttonRef}
         variant="secondary"
         size="md"
         icon={FaUpload}
         loading={uploading}
         disabled={uploading || disabled}
-        onClick={() => setOpen((current) => !current)}
+        onClick={toggleOpen}
         className="border-amber-200 bg-amber-50 text-amber-800 hover:border-amber-300 hover:bg-amber-100"
       >
         Bulk Upload
         {!uploading && <FaChevronDown size={12} />}
       </Button>
       {open && (
-        <div className="absolute right-0 z-30 mt-2 w-56 overflow-hidden rounded-xl border border-[var(--border)] bg-white shadow-xl">
+        <div className={`absolute z-30 mt-2 w-56 overflow-hidden rounded-xl border border-[var(--border)] bg-white shadow-xl ${menuAlign === "left" ? "left-0" : "right-0"}`}>
           <button
             type="button"
             onClick={downloadSample}

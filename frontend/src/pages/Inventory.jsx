@@ -325,7 +325,7 @@ function Inventory() {
             All products and stock details in one place.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center justify-end gap-3">
           <ExportMenu
             rows={products}
             columns={inventoryExportColumns}

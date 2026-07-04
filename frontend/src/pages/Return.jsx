@@ -316,7 +316,7 @@ function ReturnPage() {
           <h1 className="text-3xl font-bold text-slate-900">Returns</h1>
           <p className="mt-1 text-slate-600">Track returned products and stock reversals.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center justify-end gap-3">
           <ExportMenu
             rows={returns}
             columns={returnExportColumns}
