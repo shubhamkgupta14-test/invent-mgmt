@@ -111,6 +111,32 @@ def build_sales_response(sale: dict):
     }
 
 
+def build_invoice_response(invoice: dict):
+    return {
+        "invoice_record_id": str(invoice.get("_id", "")),
+        "invoice_id": invoice.get("invoice_id"),
+        "invoice_sequence": invoice.get("invoice_sequence"),
+        "invoice_date": format_datetime_iso(invoice.get("invoice_date")),
+        "company": invoice.get("company", {}),
+        "buyer": invoice.get("buyer", {}),
+        "items": invoice.get("items", []),
+        "sold_offline": invoice.get("sold_offline", False),
+        "subtotal": invoice.get("subtotal", 0),
+        "offline_discount_percentage": invoice.get("offline_discount_percentage", 0),
+        "offline_discount_amount": invoice.get("offline_discount_amount", 0),
+        "additional_discount": invoice.get("additional_discount", 0),
+        "total_discount": invoice.get("total_discount", 0),
+        "total_tax": invoice.get("total_tax", 0),
+        "final_total_amount": invoice.get("final_total_amount", 0),
+        "payment_method": invoice.get("payment_method"),
+        "payment_status": invoice.get("payment_status"),
+        "notes": invoice.get("notes"),
+        "created_by": invoice.get("created_by"),
+        "created_at": format_datetime_iso(invoice.get("created_at")),
+        "updated_at": format_datetime_iso(invoice.get("updated_at")),
+    }
+
+
 def build_return_response(return_record: dict):
     return {
         "return_id": return_record.get("return_id") or str(return_record.get("_id", "")),

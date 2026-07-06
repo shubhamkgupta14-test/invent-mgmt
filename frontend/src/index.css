@@ -9,3 +9,60 @@ body {
   font-family: var(--font-body);
   background-color: var(--background);
 }
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm;
+  }
+
+  body {
+    background: #fff;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .invoice-print,
+  .invoice-print * {
+    visibility: visible;
+  }
+
+  .invoice-print {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    box-shadow: none;
+  }
+
+  .invoice-print .invoice-party-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .invoice-print .invoice-summary-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: 16px;
+    align-items: start;
+  }
+
+  .invoice-print table {
+    page-break-inside: auto;
+  }
+
+  .invoice-print tr,
+  .invoice-print .invoice-party-grid > div,
+  .invoice-print .invoice-summary-grid > div {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .invoice-screen {
+    display: none;
+  }
+}

@@ -60,6 +60,7 @@ SUPERADMIN_CLEANABLE_COLLECTIONS = {
     "audits": db.audits,
     "company-settings": db.company_settings,
     "exchanges": db.exchanges,
+    "invoices": db.invoices,
     "loyalty": db.loyalty,
     "manufacturing": db.manufacturing,
     "notification-reads": db.notification_reads,
@@ -397,6 +398,10 @@ async def clean_database_collections(auth_user: dict, collections: list[str]):
         if collection_name == "notifications":
             read_delete_result = await db.notification_reads.delete_many({})
             result["notification_reads"] = read_delete_result.deleted_count
+
+        if collection_name == "invoices":
+            counter_delete_result = await db.invoice_counters.delete_many({})
+            result["invoice_counters"] = counter_delete_result.deleted_count
 
     return result
 

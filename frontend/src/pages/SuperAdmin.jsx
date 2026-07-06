@@ -40,6 +40,7 @@ const cleanOptions = [
   { label: "Activity Audit Trail", value: "audits" },
   { label: "Company Settings", value: "company-settings" },
   { label: "Exchanges", value: "exchanges" },
+  { label: "Invoices", value: "invoices" },
   { label: "Loyalty Records", value: "loyalty" },
   { label: "Manufacturing", value: "manufacturing" },
   { label: "Notification Read Status", value: "notification-reads" },
