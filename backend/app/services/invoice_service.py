@@ -132,6 +132,9 @@ def _invoice_item_to_sale_item(item: dict):
         "name": item.get("name"),
         "quantity": item.get("quantity", 0),
         "unit_price": item.get("unit_price", 0),
+        "actual_price": item.get("actual_price", 0),
+        "mrp_discount_amount": item.get("mrp_discount_amount", 0),
+        "customer_discount_amount": item.get("customer_discount_amount", 0),
         "subtotal": subtotal,
         "tax_percentage": item.get("tax_percentage", 0),
         "tax_amount": item.get("tax_amount", 0),
@@ -219,6 +222,8 @@ async def create_invoice(auth_user: dict, invoice_data: dict):
 
     prepared_items = []
     gross_subtotal = 0
+    actual_subtotal_total = 0
+    mrp_discount_total = 0
     offline_discount_total = 0
     taxable_before_additional_discount = 0
     required_quantity_by_sku = {}
@@ -246,14 +251,24 @@ async def create_invoice(auth_user: dict, invoice_data: dict):
         if unit_price is None:
             unit_price = min_selling_price
         unit_price = round_price(unit_price)
+        actual_price = round_price(
+            stock.get("actual_price", 0)
+            or max(unit_price, min_selling_price)
+        )
 
         line_subtotal = round_price(quantity * unit_price)
+        actual_subtotal = round_price(quantity * actual_price)
+        mrp_discount_amount = round_price(
+            max(actual_price - unit_price, 0) * quantity
+        )
         offline_discount_amount = round_price(
             line_subtotal * (OFFLINE_DISCOUNT_PERCENTAGE / 100)
         ) if invoice_data.get("sold_offline") else 0
         taxable_base = round_price(line_subtotal - offline_discount_amount)
 
         gross_subtotal += line_subtotal
+        actual_subtotal_total += actual_subtotal
+        mrp_discount_total += mrp_discount_amount
         offline_discount_total += offline_discount_amount
         taxable_before_additional_discount += taxable_base
 
@@ -264,9 +279,12 @@ async def create_invoice(auth_user: dict, invoice_data: dict):
             "hsn_sac": product.get("hsn_sac", ""),
             "unit_of_measure": product.get("unit_of_measure", "pcs"),
             "quantity": quantity,
+            "actual_price": actual_price,
+            "actual_subtotal": actual_subtotal,
             "min_selling_price": min_selling_price,
             "unit_price": unit_price,
             "subtotal": line_subtotal,
+            "mrp_discount_amount": mrp_discount_amount,
             "offline_discount_percentage": (
                 OFFLINE_DISCOUNT_PERCENTAGE if invoice_data.get("sold_offline") else 0
             ),
@@ -308,6 +326,11 @@ async def create_invoice(auth_user: dict, invoice_data: dict):
         final_items.append({
             **item,
             "additional_discount_amount": item_additional_discount,
+            "customer_discount_amount": round_price(
+                item.get("mrp_discount_amount", 0)
+                + item.get("offline_discount_amount", 0)
+                + item_additional_discount
+            ),
             "taxable_amount": taxable_amount,
             "tax_amount": tax_amount,
             "total_price": total_price,
@@ -333,6 +356,8 @@ async def create_invoice(auth_user: dict, invoice_data: dict):
         },
         "items": final_items,
         "sold_offline": bool(invoice_data.get("sold_offline")),
+        "actual_subtotal": round_price(actual_subtotal_total),
+        "mrp_discount_amount": round_price(mrp_discount_total),
         "subtotal": round_price(gross_subtotal),
         "offline_discount_percentage": (
             OFFLINE_DISCOUNT_PERCENTAGE if invoice_data.get("sold_offline") else 0

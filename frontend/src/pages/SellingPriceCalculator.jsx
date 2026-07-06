@@ -238,6 +238,7 @@ function SellingPriceCalculator() {
   const [chargeSettings, setChargeSettings] = useState(defaultChargeSettings);
   const [form, setForm] = useState({
     sku: "",
+    actual_price: "",
     dead_weight: "",
     volumetric_weight: "",
     packing_types: [],
@@ -393,6 +394,7 @@ function SellingPriceCalculator() {
       shipping_charges: optionalSetting(chargeSettings, "shipping_charges"),
       packaging_charges: optionalSetting(chargeSettings, "packaging_charges"),
     },
+    actual_price: form.actual_price === "" ? null : Number(form.actual_price || 0),
     save_default: saveDefault,
   });
 
@@ -411,7 +413,14 @@ function SellingPriceCalculator() {
         setStocks((prev) =>
           prev.map((stock) =>
             stock.sku === data.sku
-              ? { ...stock, min_selling_price: data.default_selling_price }
+              ? {
+                  ...stock,
+                  min_selling_price: data.default_selling_price,
+                  actual_price:
+                    form.actual_price === ""
+                      ? stock.actual_price
+                      : Number(form.actual_price || 0),
+                }
               : stock,
           ),
         );
@@ -472,7 +481,12 @@ function SellingPriceCalculator() {
                 label="Stock Item"
                 value={form.sku}
                 onChange={(value) => {
-                  updateForm("sku", value);
+                  const stock = stocks.find((item) => item.sku === value);
+                  setForm((prev) => ({
+                    ...prev,
+                    sku: value,
+                    actual_price: stock?.actual_price || "",
+                  }));
                   setResult(null);
                 }}
                 options={stockOptions}
@@ -506,6 +520,17 @@ function SellingPriceCalculator() {
                     : "-"
                 }
                 disabled
+                className="text-right"
+              />
+            </div>
+            <div className="w-40">
+              <Input
+                label="Actual Price / MRP"
+                type="number"
+                min="0"
+                value={form.actual_price}
+                onChange={(value) => updateForm("actual_price", value)}
+                placeholder="MRP"
                 className="text-right"
               />
             </div>

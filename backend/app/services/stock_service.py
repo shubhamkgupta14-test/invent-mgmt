@@ -270,26 +270,29 @@ async def calculate_selling_price(auth_user: dict, calculation_data: dict):
     custom_selling_price = pricing["custom_selling_price"]
 
     if calculation_data.get("save_default"):
+        actual_price = calculation_data.get("actual_price")
+        set_data = {
+            "min_selling_price": default_selling_price,
+            "selling_price_calculation": {
+                "base_price": base_price,
+                "tax_rate": tax_rate,
+                "dead_weight": dead_weight,
+                "volumetric_weight": volumetric_weight,
+                "chargeable_weight": chargeable_weight,
+                "packing_types": packing_types,
+                "packing_size": packing_size,
+                "charges": charges,
+                "settings": {**DEFAULT_CHARGE_SETTINGS, **settings},
+                "default_selling_price": default_selling_price,
+            },
+            "updated_at": datetime.now(UTC),
+        }
+        if actual_price is not None:
+            set_data["actual_price"] = round_price(actual_price)
+
         await stocks_collection.update_one(
             {"sku": sku},
-            {
-                "$set": {
-                    "min_selling_price": default_selling_price,
-                    "selling_price_calculation": {
-                        "base_price": base_price,
-                        "tax_rate": tax_rate,
-                        "dead_weight": dead_weight,
-                        "volumetric_weight": volumetric_weight,
-                        "chargeable_weight": chargeable_weight,
-                        "packing_types": packing_types,
-                        "packing_size": packing_size,
-                        "charges": charges,
-                        "settings": {**DEFAULT_CHARGE_SETTINGS, **settings},
-                        "default_selling_price": default_selling_price,
-                    },
-                    "updated_at": datetime.now(UTC),
-                }
-            }
+            {"$set": set_data}
         )
 
     return {
@@ -344,6 +347,7 @@ async def increase_stock(
                 quantity
             ),
             "min_selling_price": _default_selling_price_for_stock(avg_price, tax_rate),
+            "actual_price": _default_selling_price_for_stock(avg_price, tax_rate),
             "created_at": datetime.now(UTC),
             "updated_at": datetime.now(UTC)
         }
@@ -407,6 +411,10 @@ async def increase_stock(
         "avg_price": avg_price,
         "inventory_value": inventory_value,
         "min_selling_price": _default_selling_price_for_stock(avg_price, tax_rate),
+        "actual_price": existing_stock.get(
+            "actual_price",
+            existing_stock.get("min_selling_price", _default_selling_price_for_stock(avg_price, tax_rate)),
+        ),
         "stock_status": calculate_stock_status(
             new_quantity
         ),
@@ -617,6 +625,7 @@ async def get_stocks(
         "quantity",
         "stock_status",
         "avg_price",
+        "actual_price",
         "min_selling_price",
         "inventory_value",
     ]
@@ -671,3 +680,39 @@ async def get_stocks(
             "has_next": page * limit < total,
         },
     }
+
+
+async def update_stock_actual_price(auth_user: dict, sku: str, actual_price: float):
+    if auth_user.get("role") not in [UserRole.SUPERADMIN, UserRole.ADMIN]:
+        forbidden()
+
+    sku = normalize_sku(sku)
+    stock = await stocks_collection.find_one({"sku": sku})
+    if not stock:
+        not_found(Messages.STOCK_NOT_FOUND)
+
+    actual_price = round_price(actual_price or 0)
+    await stocks_collection.update_one(
+        {"sku": sku},
+        {
+            "$set": {
+                "actual_price": actual_price,
+                "updated_at": datetime.now(UTC),
+            }
+        },
+    )
+
+    updated_stock = await stocks_collection.find_one({"sku": sku})
+    product = await products_collection.find_one({"sku": sku}, {"_id": 0, "tax_rate": 1})
+    updated_stock["tax_rate"] = (product or {}).get("tax_rate", 0)
+
+    await create_audit_log(
+        module_name=AuditModule.STOCK,
+        event_type=AuditEvent.UPDATED,
+        sku=sku,
+        performed_by=auth_user.get("username"),
+        old_data={"actual_price": stock.get("actual_price", 0)},
+        new_data={"actual_price": actual_price},
+    )
+
+    return build_stock_response(updated_stock)

@@ -13,6 +13,7 @@ import Loader from "../components/common/Loader";
 import SearchBar from "../components/common/SearchBar";
 import Select from "../components/common/Select";
 import SelectDropdown from "../components/common/SelectDropdown";
+import TablePagination from "../components/common/TablePagination";
 import Textarea from "../components/common/Textarea";
 import { createInvoice, getInvoices } from "../api/invoiceApi";
 import { getProductOptions } from "../api/productApi";
@@ -20,7 +21,7 @@ import { getStocks } from "../api/stockApi";
 import { getCompanySettings } from "../api/companyApi";
 import { useToast } from "../context/useToast";
 import { formatDateIST, formatMoney } from "../utils/formatters";
-import { listParams, parseListResponse } from "../utils/tableQuery";
+import { defaultPagination, listParams, parseListResponse } from "../utils/tableQuery";
 
 const emptyItem = () => ({
   sku: "",
@@ -70,6 +71,10 @@ function InvoiceGenerator() {
   const [products, setProducts] = useState([]);
   const [companySettings, setCompanySettings] = useState({});
   const [recentInvoices, setRecentInvoices] = useState([]);
+  const [invoicePagination, setInvoicePagination] = useState({
+    ...defaultPagination,
+    limit: 5,
+  });
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [search, setSearch] = useState("");
   const [form, setForm] = useState({
@@ -99,7 +104,10 @@ function InvoiceGenerator() {
       const product = productBySku.get(item.sku) || {};
       const quantity = numberValue(item.quantity);
       const unitPrice = numberValue(item.unit_price || product.min_selling_price);
+      const actualPrice = numberValue(product.actual_price || Math.max(unitPrice, product.min_selling_price || 0));
       const subtotal = quantity * unitPrice;
+      const actualSubtotal = quantity * actualPrice;
+      const mrpDiscount = Math.max(actualPrice - unitPrice, 0) * quantity;
       const offlineDiscount = form.sold_offline ? subtotal * 0.2 : 0;
       const taxableBase = subtotal - offlineDiscount;
       return {
@@ -107,9 +115,12 @@ function InvoiceGenerator() {
         name: product.name || item.sku || "-",
         unit_of_measure: product.unit_of_measure || "pcs",
         quantity,
+        actual_price: actualPrice,
+        actual_subtotal: actualSubtotal,
         min_selling_price: product.min_selling_price || 0,
         unit_price: unitPrice,
         subtotal,
+        mrp_discount_amount: mrpDiscount,
         offline_discount_percentage: form.sold_offline ? 20 : 0,
         offline_discount_amount: offlineDiscount,
         additional_discount_amount: 0,
@@ -158,9 +169,14 @@ function InvoiceGenerator() {
       const itemAdditionalDiscount = itemDiscounts[index] || 0;
       const taxableAmount = Math.max(base - itemAdditionalDiscount, 0);
       const taxAmount = taxableAmount * (numberValue(item.tax_percentage) / 100);
+      const customerDiscountAmount =
+        numberValue(item.mrp_discount_amount) +
+        numberValue(item.offline_discount_amount) +
+        itemAdditionalDiscount;
       return {
         ...item,
         additional_discount_amount: itemAdditionalDiscount,
+        customer_discount_amount: customerDiscountAmount,
         taxable_amount: taxableAmount,
         tax_amount: taxAmount,
         total_price: taxableAmount + taxAmount,
@@ -168,10 +184,20 @@ function InvoiceGenerator() {
     });
 
     const totalTax = items.reduce((sum, item) => sum + numberValue(item.tax_amount), 0);
+    const mrpDiscount = items.reduce(
+      (sum, item) => sum + numberValue(item.mrp_discount_amount),
+      0,
+    );
+    const actualSubtotal = items.reduce(
+      (sum, item) => sum + numberValue(item.actual_subtotal),
+      0,
+    );
     const finalTotal = Math.ceil(subtotal - offlineDiscount - additionalDiscount + totalTax);
     return {
       items,
+      actualSubtotal,
       subtotal,
+      mrpDiscount,
       offlineDiscount,
       additionalDiscount,
       totalDiscount: offlineDiscount + additionalDiscount,
@@ -183,6 +209,8 @@ function InvoiceGenerator() {
   const invoiceForPrint = selectedInvoice || {
     ...printableInvoice,
     items: previewTotals.items,
+    actual_subtotal: previewTotals.actualSubtotal,
+    mrp_discount_amount: previewTotals.mrpDiscount,
     subtotal: previewTotals.subtotal,
     offline_discount_amount: previewTotals.offlineDiscount,
     additional_discount: previewTotals.additionalDiscount,
@@ -191,15 +219,21 @@ function InvoiceGenerator() {
     final_total_amount: previewTotals.finalTotal,
   };
 
-  const loadRecentInvoices = async (query = search) => {
+  const loadRecentInvoices = async ({
+    query = search,
+    page = invoicePagination.page,
+    limit = invoicePagination.limit,
+  } = {}) => {
     const response = await getInvoices(
       listParams({
         search: query,
         sortConfig: { field: "created_at", order: "desc" },
-        pagination: { page: 1, limit: 5 },
+        pagination: { page, limit },
       }),
     );
-    setRecentInvoices(parseListResponse(response).items);
+    const parsed = parseListResponse(response);
+    setRecentInvoices(parsed.items);
+    setInvoicePagination(parsed.pagination);
   };
 
   useEffect(() => {
@@ -226,11 +260,14 @@ function InvoiceGenerator() {
             quantity: stockBySku.get(product.sku)?.quantity || 0,
             stock_status: stockBySku.get(product.sku)?.stock_status,
             min_selling_price: stockBySku.get(product.sku)?.min_selling_price || 0,
+            actual_price: stockBySku.get(product.sku)?.actual_price || 0,
           }));
 
         setProducts(sellableProducts);
         setCompanySettings(companyResponse.data.data || {});
-        setRecentInvoices(parseListResponse(invoiceResponse).items);
+        const parsedInvoices = parseListResponse(invoiceResponse);
+        setRecentInvoices(parsedInvoices.items);
+        setInvoicePagination(parsedInvoices.pagination);
       })
       .catch((error) => {
         addToast(
@@ -333,7 +370,7 @@ function InvoiceGenerator() {
         notes: "",
       });
       addToast("Invoice saved successfully", "success");
-      await loadRecentInvoices("");
+      await loadRecentInvoices({ query: "", page: 1 });
       setSearch("");
     } catch (error) {
       addToast(error.response?.data?.message || "Failed to save invoice", "error");
@@ -345,9 +382,25 @@ function InvoiceGenerator() {
   const handleSearchChange = async (value) => {
     setSearch(value);
     try {
-      await loadRecentInvoices(value);
+      await loadRecentInvoices({ query: value, page: 1 });
     } catch (error) {
       addToast(error.response?.data?.message || "Failed to search invoices", "error");
+    }
+  };
+
+  const handleInvoicePageChange = async (page) => {
+    try {
+      await loadRecentInvoices({ page });
+    } catch (error) {
+      addToast(error.response?.data?.message || "Failed to load invoices", "error");
+    }
+  };
+
+  const handleInvoiceLimitChange = async (limit) => {
+    try {
+      await loadRecentInvoices({ page: 1, limit });
+    } catch (error) {
+      addToast(error.response?.data?.message || "Failed to load invoices", "error");
     }
   };
 
@@ -379,17 +432,17 @@ function InvoiceGenerator() {
               Create GST invoices from sold stock with discounts and printable totals.
             </p>
           </div>
-          <div className="flex flex-wrap gap-3">
-            <Button variant="secondary" icon={FaPlus} onClick={resetForm}>
+          <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:justify-end">
+            <Button variant="secondary" icon={FaPlus} onClick={resetForm} className="w-full sm:w-auto">
               New Invoice
             </Button>
-            <Button variant="primary" icon={FaPrint} onClick={handlePrint}>
+            <Button variant="primary" icon={FaPrint} onClick={handlePrint} className="w-full sm:w-auto">
               Print PDF
             </Button>
           </div>
         </div>
 
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_430px]">
+        <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(320px,430px)]">
           <form onSubmit={handleSubmit} className="space-y-6">
             <Card>
               <div className="grid gap-4 md:grid-cols-3">
@@ -485,7 +538,7 @@ function InvoiceGenerator() {
                 <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
                   Sold Items
                 </h2>
-                <Button type="button" variant="secondary" size="sm" icon={FaPlus} onClick={addItem}>
+                <Button type="button" variant="secondary" size="sm" icon={FaPlus} onClick={addItem} className="shrink-0">
                   Add Item
                 </Button>
               </div>
@@ -496,8 +549,9 @@ function InvoiceGenerator() {
                   return (
                     <div
                       key={index}
-                      className="grid gap-3 rounded-xl border border-[var(--border)] bg-slate-50 p-3 lg:grid-cols-[minmax(230px,1fr)_110px_150px_44px]"
+                      className="grid min-w-0 gap-3 rounded-xl border border-[var(--border)] bg-slate-50 p-3 sm:grid-cols-2 lg:grid-cols-[minmax(230px,1fr)_110px_150px_44px]"
                     >
+                      <div className="min-w-0 sm:col-span-2 lg:col-span-1">
                       <SelectDropdown
                         label={
                           <span className="flex flex-wrap items-center gap-2">
@@ -505,6 +559,11 @@ function InvoiceGenerator() {
                             {selectedProduct?.min_selling_price ? (
                               <span className="rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-700">
                                 Min {formatMoney(selectedProduct.min_selling_price)}
+                              </span>
+                            ) : null}
+                            {selectedProduct?.actual_price ? (
+                              <span className="rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-700">
+                                MRP {formatMoney(selectedProduct.actual_price)}
                               </span>
                             ) : null}
                             {selectedProduct?.quantity ? (
@@ -522,6 +581,7 @@ function InvoiceGenerator() {
                           label: `${product.sku} - ${product.name}`,
                         }))}
                       />
+                      </div>
                       <Input
                         type="number"
                         label="Quantity"
@@ -532,7 +592,7 @@ function InvoiceGenerator() {
                       />
                       <Input
                         type="number"
-                        label="Selling Price"
+                        label="Our Price"
                         value={item.unit_price}
                         min="0"
                         onChange={(value) => updateItem(index, "unit_price", Number(value))}
@@ -542,7 +602,7 @@ function InvoiceGenerator() {
                         type="button"
                         onClick={() => removeItem(index)}
                         disabled={form.items.length === 1}
-                        className="mt-7 flex h-11 w-11 items-center justify-center rounded-xl border border-rose-200 bg-white text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40"
+                        className="flex h-11 w-full items-center justify-center rounded-xl border border-rose-200 bg-white text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40 sm:mt-7 sm:w-11"
                         aria-label="Remove item"
                         title="Remove item"
                       >
@@ -561,21 +621,22 @@ function InvoiceGenerator() {
                 onChange={(value) => updateForm("notes", value)}
                 rows={3}
               />
-              <div className="mt-5 flex flex-col gap-4 border-t border-[var(--border)] pt-5 md:flex-row md:items-center md:justify-between">
-                <div className="grid gap-2 text-sm text-slate-700 sm:grid-cols-3">
-                  <span>Discount: <strong>{formatMoney(previewTotals.totalDiscount)}</strong></span>
+              <div className="mt-5 flex flex-col gap-4 border-t border-[var(--border)] pt-5 lg:flex-row lg:items-center lg:justify-between">
+                <div className="grid gap-2 text-sm text-slate-700 sm:grid-cols-4">
+                  <span>MRP Savings: <strong>{formatMoney(previewTotals.mrpDiscount)}</strong></span>
+                  <span>Bill Discount: <strong>{formatMoney(previewTotals.totalDiscount)}</strong></span>
                   <span>GST: <strong>{formatMoney(previewTotals.totalTax)}</strong></span>
                   <span>Total: <strong>{formatMoney(previewTotals.finalTotal)}</strong></span>
                 </div>
-                <Button type="submit" variant="primary" icon={FaFileInvoice} loading={saving}>
+                <Button type="submit" variant="primary" icon={FaFileInvoice} loading={saving} className="w-full sm:w-auto">
                   Save Invoice
                 </Button>
               </div>
             </Card>
           </form>
 
-          <div className="space-y-6">
-            <Card>
+          <div className="min-w-0 space-y-6">
+            <Card className="min-w-0">
               <div className="mb-4">
                 <SearchBar
                   value={search}
@@ -591,13 +652,13 @@ function InvoiceGenerator() {
                     onClick={() => setSelectedInvoice(invoice)}
                     className="w-full rounded-xl border border-[var(--border)] bg-white p-3 text-left transition hover:border-[var(--primary)] hover:bg-indigo-50"
                   >
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="font-semibold text-slate-900">{invoice.invoice_id}</span>
-                      <span className="font-mono text-sm font-semibold text-slate-900">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                      <span className="break-all font-semibold text-slate-900">{invoice.invoice_id}</span>
+                      <span className="font-mono text-sm font-semibold text-slate-900 sm:text-right">
                         {formatMoney(invoice.final_total_amount)}
                       </span>
                     </div>
-                    <div className="mt-1 flex items-center justify-between gap-3 text-xs text-slate-500">
+                    <div className="mt-1 flex flex-col gap-1 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                       <span>{invoice.buyer?.name || "-"}</span>
                       <span>{formatDateIST(invoice.invoice_date || invoice.created_at)}</span>
                     </div>
@@ -608,15 +669,23 @@ function InvoiceGenerator() {
                   </p>
                 )}
               </div>
+              <div className="invoice-side-pagination">
+                <TablePagination
+                  pagination={invoicePagination}
+                  label="invoices"
+                  onPageChange={handleInvoicePageChange}
+                  onLimitChange={handleInvoiceLimitChange}
+                />
+              </div>
             </Card>
           </div>
         </div>
       </div>
 
-      <section className="invoice-print mt-8 bg-white p-8 text-slate-950 shadow-sm">
+      <section className="invoice-print mt-8 overflow-hidden bg-white p-4 text-slate-950 shadow-sm sm:p-6 lg:p-8">
         <div className="border-b-2 border-slate-900 pb-4">
-          <div className="flex items-start justify-between gap-6">
-            <div>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+            <div className="min-w-0">
               <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Tax Invoice</p>
               <h2 className="mt-1 text-2xl font-bold">
                 {company.company_name || company.brand_name || "Company Name"}
@@ -630,7 +699,7 @@ function InvoiceGenerator() {
                 {company.website ? <span>Website: {company.website}</span> : null}
               </div>
             </div>
-            <div className="min-w-52 rounded-lg border border-slate-300 p-3 text-sm">
+            <div className="w-full rounded-lg border border-slate-300 p-3 text-sm sm:min-w-52 sm:max-w-64">
               <div className="flex justify-between gap-4">
                 <span className="text-slate-500">Invoice No.</span>
                 <strong>{invoiceForPrint.invoice_id || "-"}</strong>
@@ -669,11 +738,11 @@ function InvoiceGenerator() {
           </div>
         </div>
 
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full border-collapse text-sm">
+        <div className="invoice-items-wrap mt-4 overflow-x-auto">
+          <table className="invoice-items-table w-full min-w-[760px] border-collapse text-sm">
             <thead>
               <tr className="bg-slate-100">
-                {["#", "Item", "HSN/SAC", "Qty", "Rate", "Discount", "Taxable", "GST", "Amount"].map((label) => (
+                {["#", "Item", "HSN/SAC", "Qty", "MRP", "Our Price", "Discount", "Taxable", "GST", "Amount"].map((label) => (
                   <th key={label} className="border border-slate-300 px-2 py-2 text-left font-bold">
                     {label}
                   </th>
@@ -692,9 +761,15 @@ function InvoiceGenerator() {
                   <td className="border border-slate-300 px-2 py-2">
                     {item.quantity} {item.unit_of_measure || "pcs"}
                   </td>
+                  <td className="border border-slate-300 px-2 py-2">{formatMoney(item.actual_price || item.unit_price)}</td>
                   <td className="border border-slate-300 px-2 py-2">{formatMoney(item.unit_price)}</td>
                   <td className="border border-slate-300 px-2 py-2">
-                    {formatMoney(numberValue(item.offline_discount_amount) + numberValue(item.additional_discount_amount))}
+                    {formatMoney(
+                      numberValue(item.customer_discount_amount) ||
+                        numberValue(item.mrp_discount_amount) +
+                          numberValue(item.offline_discount_amount) +
+                          numberValue(item.additional_discount_amount),
+                    )}
                   </td>
                   <td className="border border-slate-300 px-2 py-2">{formatMoney(item.taxable_amount)}</td>
                   <td className="border border-slate-300 px-2 py-2">
@@ -731,7 +806,15 @@ function InvoiceGenerator() {
 
           <div className="rounded-lg border border-slate-300 p-3 text-sm">
             <div className="flex justify-between gap-4 py-1">
-              <span>Subtotal</span>
+              <span>MRP Total</span>
+              <strong>{formatMoney(invoiceForPrint.actual_subtotal || invoiceForPrint.subtotal)}</strong>
+            </div>
+            <div className="flex justify-between gap-4 py-1">
+              <span>MRP Savings</span>
+              <strong>{formatMoney(invoiceForPrint.mrp_discount_amount)}</strong>
+            </div>
+            <div className="flex justify-between gap-4 py-1">
+              <span>Our Price Subtotal</span>
               <strong>{formatMoney(invoiceForPrint.subtotal)}</strong>
             </div>
             <div className="flex justify-between gap-4 py-1">
@@ -766,6 +849,12 @@ function InvoiceGenerator() {
           </div>
         </div>
       </section>
+
+      <div className="invoice-screen mt-5 flex justify-end">
+        <Button variant="primary" icon={FaPrint} onClick={handlePrint} className="w-full sm:w-auto">
+          Print PDF
+        </Button>
+      </div>
     </MainLayout>
   );
 }

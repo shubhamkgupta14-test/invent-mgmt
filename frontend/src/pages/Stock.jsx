@@ -4,12 +4,16 @@ import SearchBar from "../components/common/SearchBar";
 import StockTable from "../components/pages/stock/StockTable";
 import Loader from "../components/common/Loader";
 import Card from "../components/common/Card";
+import Button from "../components/common/Button";
 import DetailModal from "../components/common/DetailModal";
 import ExportMenu from "../components/common/ExportMenu";
+import Input from "../components/common/Input";
 import TablePagination from "../components/common/TablePagination";
 import StockStatusBadge from "../components/common/StockStatusBadge";
-import { getStocks } from "../api/stockApi";
-import { formatDateIST } from "../utils/formatters";
+import { getStocks, updateStockActualPrice } from "../api/stockApi";
+import { getMyDetails } from "../api/userApi";
+import { useToast } from "../context/useToast";
+import { formatDateIST, formatMoney } from "../utils/formatters";
 import { toggleSort } from "../utils/sortUtils";
 import { defaultPagination, listParams, parseListResponse } from "../utils/tableQuery";
 
@@ -22,7 +26,7 @@ const stockExportColumns = [
   { header: "Lost", key: "lost_quantity" },
   { header: "Tax Rate", value: (item) => `${item.tax_rate ?? 0}%` },
   { header: "Avg Purchase Price", key: "avg_price" },
-  { header: "Min Selling Price", key: "min_selling_price" },
+  { header: "Actual Price", key: "actual_price" },
   { header: "Inventory Value", key: "inventory_value" },
   { header: "Status", key: "stock_status" },
   { header: "Created", value: (item) => formatDateIST(item.created_at) },
@@ -33,22 +37,33 @@ function Stocks() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedStock, setSelectedStock] = useState(null);
+  const [actualPriceValue, setActualPriceValue] = useState("");
+  const [savingActualPrice, setSavingActualPrice] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
   const [pagination, setPagination] = useState(defaultPagination);
   const [sortConfig, setSortConfig] = useState({
     field: "created_at",
     order: "desc",
   });
   const { page, limit } = pagination;
+  const { addToast } = useToast();
+  const canEditActualPrice = ["admin", "superadmin"].includes(
+    String(currentUser?.role || "").toLowerCase(),
+  );
 
   useEffect(() => {
     let isActive = true;
 
-    getStocks(listParams({ search, sortConfig, pagination: { page, limit } }))
-      .then((stocksResponse) => {
+    Promise.all([
+      getStocks(listParams({ search, sortConfig, pagination: { page, limit } })),
+      getMyDetails(),
+    ])
+      .then(([stocksResponse, userResponse]) => {
         if (!isActive) return;
         const parsed = parseListResponse(stocksResponse);
         setStocks(parsed.items);
         setPagination(parsed.pagination);
+        setCurrentUser(userResponse.data.data);
       })
       .catch((error) => {
         console.error(error);
@@ -72,6 +87,37 @@ function Stocks() {
   };
   const handlePageChange = (page) => setPagination((current) => ({ ...current, page }));
   const handleLimitChange = (limit) => setPagination((current) => ({ ...current, limit, page: 1 }));
+  const handleViewStock = (stock) => {
+    setSelectedStock(stock);
+    setActualPriceValue(stock.actual_price || "");
+  };
+  const handleSaveActualPrice = async () => {
+    if (!selectedStock?.sku) return;
+
+    try {
+      setSavingActualPrice(true);
+      const response = await updateStockActualPrice(
+        selectedStock.sku,
+        actualPriceValue,
+      );
+      const updatedStock = response.data.data;
+      setStocks((current) =>
+        current.map((stock) =>
+          stock.sku === updatedStock.sku ? updatedStock : stock,
+        ),
+      );
+      setSelectedStock(updatedStock);
+      setActualPriceValue(updatedStock.actual_price || "");
+      addToast("Actual price updated successfully", "success");
+    } catch (error) {
+      addToast(
+        error.response?.data?.message || "Failed to update actual price",
+        "error",
+      );
+    } finally {
+      setSavingActualPrice(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -118,7 +164,7 @@ function Stocks() {
             stocks={stocks}
             sortConfig={sortConfig}
             handleSort={handleSort}
-            onView={setSelectedStock}
+            onView={handleViewStock}
           />
         )}
 
@@ -143,7 +189,21 @@ function Stocks() {
               { label: "Quantity", value: selectedStock?.quantity },
               { label: "Tax", value: `${selectedStock?.tax_rate ?? 0}%` },
               { label: "Avg Purchase Price", value: selectedStock?.avg_price, money: true },
+              { label: "Actual Price", value: selectedStock?.actual_price, money: true },
               { label: "Min Selling Price", value: selectedStock?.min_selling_price, money: true },
+              {
+                label: "Visible Discount",
+                value:
+                  selectedStock?.actual_price && selectedStock?.min_selling_price
+                    ? formatMoney(
+                        Math.max(
+                          Number(selectedStock.actual_price || 0) -
+                            Number(selectedStock.min_selling_price || 0),
+                          0,
+                        ),
+                      )
+                    : "-",
+              },
               { label: "Inventory Value", value: selectedStock?.inventory_value, money: true },
               {
                 label: "Status",
@@ -152,6 +212,31 @@ function Stocks() {
               },
               { label: "Created", value: formatDateIST(selectedStock?.created_at) },
             ],
+          },
+          {
+            title: "Actual / MRP Price",
+            render: () => (
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                <Input
+                  type="number"
+                  label="Actual Price / MRP"
+                  min="0"
+                  value={actualPriceValue}
+                  disabled={!canEditActualPrice}
+                  onChange={setActualPriceValue}
+                />
+                <Button
+                  type="button"
+                  variant="primary"
+                  disabled={!canEditActualPrice}
+                  loading={savingActualPrice}
+                  onClick={handleSaveActualPrice}
+                  className="whitespace-nowrap sm:mb-0.5"
+                >
+                  Save Price
+                </Button>
+              </div>
+            ),
           },
         ]}
       />
