@@ -74,3 +74,7 @@ class SellingPriceCalculationRequest(BaseModel):
 
 class StockActualPriceUpdate(BaseModel):
     actual_price: float = Field(default=0, ge=0)
+
+
+class StockBarcodeUpdate(BaseModel):
+    barcode: Optional[str] = Field(default=None, max_length=128)

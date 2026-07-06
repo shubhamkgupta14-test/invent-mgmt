@@ -28,6 +28,12 @@ async def create_indexes():
         "created_at"
     )
 
+    await db.stocks.create_index(
+        "barcode",
+        unique=True,
+        sparse=True
+    )
+
     await db.suppliers.create_index(
         "supplier_id",
         unique=True

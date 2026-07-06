@@ -124,6 +124,7 @@ function Sales() {
         quantity: stockBySku.get(product.sku)?.quantity || 0,
         stock_status: stockBySku.get(product.sku)?.stock_status,
         min_selling_price: stockBySku.get(product.sku)?.min_selling_price,
+        barcode: stockBySku.get(product.sku)?.barcode || "",
       }));
 
     setProducts(sellableProducts);

@@ -46,6 +46,22 @@ PERCENTAGE_CHARGES = {
     "advertisement": {"percent": 2},
     "promotion": {"percent": 5},
 }
+
+
+def normalize_barcode(barcode: str | None) -> str:
+    return str(barcode or "").strip()
+
+
+async def ensure_barcode_available(barcode: str, sku: str):
+    if not barcode:
+        return
+
+    existing_stock = await stocks_collection.find_one({
+        "barcode": barcode,
+        "sku": {"$ne": sku},
+    })
+    if existing_stock:
+        bad_request("Barcode is already assigned to another stock item")
 DEFAULT_CHARGE_SETTINGS = {
     "marketplace_commission": 0,
     "shipping_charges": None,
@@ -318,12 +334,16 @@ async def increase_stock(
     name: str,
     quantity: int,
     unit_price: float,
-    supplier_id: str = None
+    supplier_id: str = None,
+    barcode: str = None
 ):
+    barcode = normalize_barcode(barcode)
 
     existing_stock = await stocks_collection.find_one({
         "sku": sku
     })
+
+    await ensure_barcode_available(barcode, sku)
 
     # CREATE NEW STOCK
     if not existing_stock:
@@ -351,6 +371,8 @@ async def increase_stock(
             "created_at": datetime.now(UTC),
             "updated_at": datetime.now(UTC)
         }
+        if barcode:
+            stock_data["barcode"] = barcode
 
         await stocks_collection.insert_one(
             stock_data
@@ -423,6 +445,9 @@ async def increase_stock(
 
     if supplier_id:
         set_data["supplier_id"] = supplier_id
+
+    if barcode:
+        set_data["barcode"] = barcode
 
     await stocks_collection.update_one(
         {
@@ -682,6 +707,28 @@ async def get_stocks(
     }
 
 
+async def get_stock_by_barcode(auth_user: dict, barcode: str):
+    if auth_user.get("role") not in [
+        UserRole.SUPERADMIN,
+        UserRole.ADMIN,
+        UserRole.USER
+    ]:
+        forbidden()
+
+    barcode = normalize_barcode(barcode)
+    if not barcode:
+        bad_request("Barcode is required")
+
+    stock = await stocks_collection.find_one({"barcode": barcode})
+    if not stock:
+        not_found("Stock not found for this barcode")
+
+    product = await products_collection.find_one({"sku": stock.get("sku")}, {"_id": 0, "tax_rate": 1})
+    stock["tax_rate"] = (product or {}).get("tax_rate", 0)
+
+    return build_stock_response(stock)
+
+
 async def update_stock_actual_price(auth_user: dict, sku: str, actual_price: float):
     if auth_user.get("role") not in [UserRole.SUPERADMIN, UserRole.ADMIN]:
         forbidden()
@@ -713,6 +760,46 @@ async def update_stock_actual_price(auth_user: dict, sku: str, actual_price: flo
         performed_by=auth_user.get("username"),
         old_data={"actual_price": stock.get("actual_price", 0)},
         new_data={"actual_price": actual_price},
+    )
+
+    return build_stock_response(updated_stock)
+
+
+async def update_stock_barcode(auth_user: dict, sku: str, barcode: str | None):
+    if auth_user.get("role") not in [UserRole.SUPERADMIN, UserRole.ADMIN]:
+        forbidden()
+
+    sku = normalize_sku(sku)
+    barcode = normalize_barcode(barcode)
+    stock = await stocks_collection.find_one({"sku": sku})
+    if not stock:
+        not_found(Messages.STOCK_NOT_FOUND)
+
+    await ensure_barcode_available(barcode, sku)
+
+    update_query = {
+        "$set": {
+            "updated_at": datetime.now(UTC),
+        }
+    }
+    if barcode:
+        update_query["$set"]["barcode"] = barcode
+    else:
+        update_query["$unset"] = {"barcode": ""}
+
+    await stocks_collection.update_one({"sku": sku}, update_query)
+
+    updated_stock = await stocks_collection.find_one({"sku": sku})
+    product = await products_collection.find_one({"sku": sku}, {"_id": 0, "tax_rate": 1})
+    updated_stock["tax_rate"] = (product or {}).get("tax_rate", 0)
+
+    await create_audit_log(
+        module_name=AuditModule.STOCK,
+        event_type=AuditEvent.UPDATED,
+        sku=sku,
+        performed_by=auth_user.get("username"),
+        old_data={"barcode": stock.get("barcode", "")},
+        new_data={"barcode": barcode},
     )
 
     return build_stock_response(updated_stock)

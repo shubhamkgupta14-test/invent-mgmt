@@ -10,7 +10,7 @@ import ExportMenu from "../components/common/ExportMenu";
 import Input from "../components/common/Input";
 import TablePagination from "../components/common/TablePagination";
 import StockStatusBadge from "../components/common/StockStatusBadge";
-import { getStocks, updateStockActualPrice } from "../api/stockApi";
+import { getStocks, updateStockActualPrice, updateStockBarcode } from "../api/stockApi";
 import { getMyDetails } from "../api/userApi";
 import { useToast } from "../context/useToast";
 import { formatDateIST, formatMoney } from "../utils/formatters";
@@ -39,6 +39,8 @@ function Stocks() {
   const [selectedStock, setSelectedStock] = useState(null);
   const [actualPriceValue, setActualPriceValue] = useState("");
   const [savingActualPrice, setSavingActualPrice] = useState(false);
+  const [barcodeValue, setBarcodeValue] = useState("");
+  const [savingBarcode, setSavingBarcode] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [pagination, setPagination] = useState(defaultPagination);
   const [sortConfig, setSortConfig] = useState({
@@ -90,6 +92,7 @@ function Stocks() {
   const handleViewStock = (stock) => {
     setSelectedStock(stock);
     setActualPriceValue(stock.actual_price || "");
+    setBarcodeValue(stock.barcode || "");
   };
   const handleSaveActualPrice = async () => {
     if (!selectedStock?.sku) return;
@@ -116,6 +119,30 @@ function Stocks() {
       );
     } finally {
       setSavingActualPrice(false);
+    }
+  };
+  const handleSaveBarcode = async () => {
+    if (!selectedStock?.sku) return;
+
+    try {
+      setSavingBarcode(true);
+      const response = await updateStockBarcode(selectedStock.sku, barcodeValue);
+      const updatedStock = response.data.data;
+      setStocks((current) =>
+        current.map((stock) =>
+          stock.sku === updatedStock.sku ? updatedStock : stock,
+        ),
+      );
+      setSelectedStock(updatedStock);
+      setBarcodeValue(updatedStock.barcode || "");
+      addToast("Barcode updated successfully", "success");
+    } catch (error) {
+      addToast(
+        error.response?.data?.message || "Failed to update barcode",
+        "error",
+      );
+    } finally {
+      setSavingBarcode(false);
     }
   };
 
@@ -180,11 +207,13 @@ function Stocks() {
         isOpen={Boolean(selectedStock)}
         onClose={() => setSelectedStock(null)}
         title={selectedStock?.name || "Stock Details"}
+        size="4xl"
         sections={[
           {
             title: "Stock",
             fields: [
               { label: "SKU", value: selectedStock?.sku },
+              { label: "Barcode", value: selectedStock?.barcode || "-" },
               { label: "Product", value: selectedStock?.name },
               { label: "Quantity", value: selectedStock?.quantity },
               { label: "Tax", value: `${selectedStock?.tax_rate ?? 0}%` },
@@ -216,25 +245,46 @@ function Stocks() {
           {
             title: "Actual / MRP Price",
             render: () => (
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                <Input
-                  type="number"
-                  label="Actual Price / MRP"
-                  min="0"
-                  value={actualPriceValue}
-                  disabled={!canEditActualPrice}
-                  onChange={setActualPriceValue}
-                />
-                <Button
-                  type="button"
-                  variant="primary"
-                  disabled={!canEditActualPrice}
-                  loading={savingActualPrice}
-                  onClick={handleSaveActualPrice}
-                  className="whitespace-nowrap sm:mb-0.5"
-                >
-                  Save Price
-                </Button>
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="grid gap-3 sm:grid-cols-[minmax(160px,1fr)_auto] sm:items-end">
+                  <Input
+                    type="number"
+                    label="Actual Price / MRP"
+                    min="0"
+                    value={actualPriceValue}
+                    disabled={!canEditActualPrice}
+                    onChange={setActualPriceValue}
+                  />
+                  <Button
+                    type="button"
+                    variant="primary"
+                    disabled={!canEditActualPrice}
+                    loading={savingActualPrice}
+                    onClick={handleSaveActualPrice}
+                    className="whitespace-nowrap sm:mb-0.5"
+                  >
+                    Save Price
+                  </Button>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-[minmax(160px,1fr)_auto] sm:items-end">
+                  <Input
+                    label="Barcode"
+                    value={barcodeValue}
+                    disabled={!canEditActualPrice}
+                    onChange={setBarcodeValue}
+                    placeholder="Scan or enter barcode"
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={!canEditActualPrice}
+                    loading={savingBarcode}
+                    onClick={handleSaveBarcode}
+                    className="whitespace-nowrap sm:mb-0.5"
+                  >
+                    Save Barcode
+                  </Button>
+                </div>
               </div>
             ),
           },

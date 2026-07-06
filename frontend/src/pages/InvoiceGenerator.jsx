@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   FaFileInvoice,
+  FaBarcode,
   FaPlus,
   FaPrint,
   FaTrash,
@@ -17,7 +18,7 @@ import TablePagination from "../components/common/TablePagination";
 import Textarea from "../components/common/Textarea";
 import { createInvoice, getInvoices } from "../api/invoiceApi";
 import { getProductOptions } from "../api/productApi";
-import { getStocks } from "../api/stockApi";
+import { getStockByBarcode, getStocks } from "../api/stockApi";
 import { getCompanySettings } from "../api/companyApi";
 import { useToast } from "../context/useToast";
 import { formatDateIST, formatMoney } from "../utils/formatters";
@@ -77,6 +78,8 @@ function InvoiceGenerator() {
   });
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [search, setSearch] = useState("");
+  const [barcodeInput, setBarcodeInput] = useState("");
+  const [scanningBarcode, setScanningBarcode] = useState(false);
   const [form, setForm] = useState({
     invoice_id: "",
     invoice_date: todayInputValue(),
@@ -259,6 +262,7 @@ function InvoiceGenerator() {
             ...product,
             quantity: stockBySku.get(product.sku)?.quantity || 0,
             stock_status: stockBySku.get(product.sku)?.stock_status,
+            barcode: stockBySku.get(product.sku)?.barcode || "",
             min_selling_price: stockBySku.get(product.sku)?.min_selling_price || 0,
             actual_price: stockBySku.get(product.sku)?.actual_price || 0,
           }));
@@ -312,6 +316,73 @@ function InvoiceGenerator() {
 
   const addItem = () => updateForm("items", [...form.items, emptyItem()]);
 
+  const addScannedStock = (stock) => {
+    setSelectedInvoice(null);
+    setProducts((current) => {
+      if (current.some((product) => product.sku === stock.sku)) return current;
+      return [
+        ...current,
+        {
+          sku: stock.sku,
+          name: stock.name,
+          quantity: stock.quantity || 0,
+          stock_status: stock.stock_status,
+          barcode: stock.barcode || "",
+          min_selling_price: stock.min_selling_price || 0,
+          actual_price: stock.actual_price || 0,
+          tax_rate: stock.tax_rate || 0,
+        },
+      ];
+    });
+    setForm((current) => {
+      const items = [...current.items];
+      const existingIndex = items.findIndex((item) => item.sku === stock.sku);
+      const nextItem = {
+        sku: stock.sku,
+        quantity: 1,
+        unit_price: stock.min_selling_price || "",
+      };
+
+      if (existingIndex >= 0) {
+        items[existingIndex] = {
+          ...items[existingIndex],
+          quantity: Number(items[existingIndex].quantity || 0) + 1,
+          unit_price: items[existingIndex].unit_price || nextItem.unit_price,
+        };
+      } else {
+        const emptyIndex = items.findIndex((item) => !item.sku);
+        if (emptyIndex >= 0) {
+          items[emptyIndex] = nextItem;
+        } else {
+          items.push(nextItem);
+        }
+      }
+
+      return { ...current, items };
+    });
+  };
+
+  const handleBarcodeScan = async () => {
+    const barcode = barcodeInput.trim();
+    if (!barcode) return;
+
+    try {
+      setScanningBarcode(true);
+      const response = await getStockByBarcode(barcode);
+      const stock = response.data.data;
+      addScannedStock(stock);
+      setBarcodeInput("");
+      addToast(`${stock.sku} added from barcode`, "success");
+    } catch (error) {
+      addToast(
+        error.response?.data?.message || "No stock found for this barcode",
+        "error",
+      );
+    } finally {
+      setScanningBarcode(false);
+    }
+  };
+
   const removeItem = (index) => {
     setSelectedInvoice(null);
     setForm((current) => ({
@@ -322,6 +393,7 @@ function InvoiceGenerator() {
 
   const resetForm = () => {
     setSelectedInvoice(null);
+    setBarcodeInput("");
     setForm({
       invoice_id: "",
       invoice_date: todayInputValue(),
@@ -369,6 +441,7 @@ function InvoiceGenerator() {
         payment_status: "PAID",
         notes: "",
       });
+      setBarcodeInput("");
       addToast("Invoice saved successfully", "success");
       await loadRecentInvoices({ query: "", page: 1 });
       setSearch("");
@@ -540,6 +613,31 @@ function InvoiceGenerator() {
                 </h2>
                 <Button type="button" variant="secondary" size="sm" icon={FaPlus} onClick={addItem} className="shrink-0">
                   Add Item
+                </Button>
+              </div>
+
+              <div className="mb-4 grid gap-3 sm:grid-cols-[minmax(180px,1fr)_auto] sm:items-end">
+                <Input
+                  label="Scan Barcode"
+                  value={barcodeInput}
+                  onChange={setBarcodeInput}
+                  placeholder="Scan barcode"
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      handleBarcodeScan();
+                    }
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  icon={FaBarcode}
+                  loading={scanningBarcode}
+                  onClick={handleBarcodeScan}
+                  className="whitespace-nowrap"
+                >
+                  Add by Barcode
                 </Button>
               </div>
 

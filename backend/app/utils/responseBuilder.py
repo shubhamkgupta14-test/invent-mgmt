@@ -220,6 +220,7 @@ def build_stock_response(stock: dict):
         "sku": stock.get("sku"),
         "name": stock.get("name"),
         "supplier_id": stock.get("supplier_id"),
+        "barcode": stock.get("barcode", ""),
         "quantity": stock.get("quantity"),
         "damaged_quantity": stock.get("damaged_quantity", 0),
         "lost_quantity": stock.get("lost_quantity", 0),
