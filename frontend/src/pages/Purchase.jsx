@@ -15,6 +15,7 @@ import TablePagination from "../components/common/TablePagination";
 import StatusBadge from "../components/common/StatusBadge";
 import { getProductOptions } from "../api/productApi";
 import { bulkUploadPurchases, createPurchase, getPurchases } from "../api/purchaseApi";
+import { getStocks } from "../api/stockApi";
 import { getMyDetails } from "../api/userApi";
 import { useToast } from "../context/useToast";
 import { formatDateIST, formatMoney } from "../utils/formatters";
@@ -96,8 +97,19 @@ function Purchases() {
 
   const loadProductOptions = async () => {
     if (products.length) return;
-    const response = await getProductOptions();
-    setProducts(response.data.data || []);
+    const [productResponse, stockResponse] = await Promise.all([
+      getProductOptions(),
+      getStocks({ limit: 500, sort_by: "sku", sort_order: "asc" }),
+    ]);
+    const stockBySku = new Map(
+      (stockResponse.data.data || []).map((stock) => [stock.sku, stock]),
+    );
+    setProducts(
+      (productResponse.data.data || []).map((product) => ({
+        ...product,
+        barcode: stockBySku.get(product.sku)?.barcode || "",
+      })),
+    );
   };
 
   useEffect(() => {
@@ -316,7 +328,7 @@ function Purchases() {
         isOpen={purchaseFormOpen}
         onClose={() => setPurchaseFormOpen(false)}
         title="Add Purchase"
-        size="4xl"
+        size="6xl"
       >
         <PurchaseForm
           key={purchaseFormOpen ? "new-purchase" : "closed-purchase"}

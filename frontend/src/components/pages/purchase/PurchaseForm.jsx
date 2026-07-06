@@ -4,9 +4,13 @@ import Input from "../../common/Input";
 import Textarea from "../../common/Textarea";
 import PaymentDetailsRow from "./PaymentDetailsRow";
 import PurchaseItemRow from "./PurchaseItemRow";
+import { getStockByBarcode } from "../../../api/stockApi";
+import { useToast } from "../../../context/useToast";
 import { formatMoney } from "../../../utils/formatters";
 
 function PurchaseForm({ products, onSubmit }) {
+  const { addToast } = useToast();
+  const [barcodeLookupIndex, setBarcodeLookupIndex] = useState(null);
   const [form, setForm] = useState({
     invoice_id: "",
     items: [{}],
@@ -37,9 +41,47 @@ function PurchaseForm({ products, onSubmit }) {
   };
 
   const updateItem = (index, key, value) => {
-    const updated = [...form.items];
-    updated[index][key] = value;
-    setForm({ ...form, items: updated });
+    setForm((current) => {
+      const updated = [...current.items];
+      const nextItem = { ...updated[index], [key]: value };
+      if (key === "sku" && !nextItem.barcode) {
+        nextItem.barcode = products.find((product) => product.sku === value)?.barcode || "";
+      }
+      updated[index] = nextItem;
+      return { ...current, items: updated };
+    });
+  };
+
+  const lookupBarcode = async (index) => {
+    const barcode = String(form.items[index]?.barcode || "").trim();
+    if (!barcode) return;
+
+    try {
+      setBarcodeLookupIndex(index);
+      const response = await getStockByBarcode(barcode);
+      const stock = response.data.data;
+      setForm((current) => {
+        const updated = [...current.items];
+        updated[index] = {
+          ...updated[index],
+          barcode: stock.barcode || barcode,
+          sku: stock.sku || updated[index].sku,
+        };
+        return { ...current, items: updated };
+      });
+      addToast(`${stock.sku} matched with barcode`, "success");
+    } catch (error) {
+      if (error.response?.status === 404) {
+        addToast("New barcode. Select product and it will save with this purchase.", "info");
+      } else {
+        addToast(
+          error.response?.data?.message || "Failed to lookup barcode",
+          "error",
+        );
+      }
+    } finally {
+      setBarcodeLookupIndex(null);
+    }
   };
 
   const updatePM = (index, key, value) => {
@@ -114,6 +156,8 @@ function PurchaseForm({ products, onSubmit }) {
               index={i}
               products={products}
               updateItem={updateItem}
+              lookupBarcode={lookupBarcode}
+              barcodeLookupLoading={barcodeLookupIndex === i}
             />
           ))}
         </div>

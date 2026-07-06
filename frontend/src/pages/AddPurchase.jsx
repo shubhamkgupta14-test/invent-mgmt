@@ -6,6 +6,7 @@ import Loader from "../components/common/Loader";
 import { useToast } from "../context/useToast";
 import { getProductOptions } from "../api/productApi";
 import { createPurchase } from "../api/purchaseApi";
+import { getStocks } from "../api/stockApi";
 import { getMyDetails } from "../api/userApi";
 
 function AddPurchase() {
@@ -17,10 +18,22 @@ function AddPurchase() {
   useEffect(() => {
     let isActive = true;
 
-    Promise.all([getProductOptions(), getMyDetails()])
-      .then(([productsResponse, userResponse]) => {
+    Promise.all([
+      getProductOptions(),
+      getStocks({ limit: 500, sort_by: "sku", sort_order: "asc" }),
+      getMyDetails(),
+    ])
+      .then(([productsResponse, stockResponse, userResponse]) => {
         if (!isActive) return;
-        setProducts(productsResponse.data.data);
+        const stockBySku = new Map(
+          (stockResponse.data.data || []).map((stock) => [stock.sku, stock]),
+        );
+        setProducts(
+          (productsResponse.data.data || []).map((product) => ({
+            ...product,
+            barcode: stockBySku.get(product.sku)?.barcode || "",
+          })),
+        );
         setCurrentUser(userResponse.data.data);
       })
       .catch((error) => {

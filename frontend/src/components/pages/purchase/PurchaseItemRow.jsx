@@ -1,10 +1,38 @@
+import { FaBarcode } from "react-icons/fa";
 import SelectDropdown from "../../common/SelectDropdown";
 
-function PurchaseItemRow({ item, index, products, updateItem }) {
+function PurchaseItemRow({
+  item,
+  index,
+  products,
+  updateItem,
+  lookupBarcode,
+  barcodeLookupLoading,
+}) {
   const selectedProduct = products.find((product) => product.sku === item.sku);
 
   return (
-    <div className="grid gap-3 rounded-2xl border border-[var(--border)] bg-white p-3 lg:grid-cols-[minmax(220px,1fr)_120px_140px_140px]">
+    <div className="grid gap-3 rounded-2xl border border-[var(--border)] bg-white p-3 sm:grid-cols-2 xl:grid-cols-[150px_minmax(220px,1fr)_120px_140px_140px]">
+      <div>
+        <label className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-700">
+          <FaBarcode size={15} />
+          Barcode
+        </label>
+        <input
+          type="text"
+          placeholder="Scan barcode"
+          value={item.barcode || ""}
+          onChange={(e) => updateItem(index, "barcode", e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              lookupBarcode(index);
+            }
+          }}
+          disabled={barcodeLookupLoading}
+          className="w-full rounded-xl border border-[var(--border)] bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-indigo-500/25 disabled:cursor-not-allowed disabled:opacity-60"
+        />
+      </div>
       <div>
         <SelectDropdown
           label={

@@ -26,6 +26,7 @@ class PurchaseStatus(str, Enum):
 class PurchaseItem(BaseModel):
     sku: str = Field(..., min_length=3,
                      description="Product SKU")
+    barcode: Optional[str] = Field(default=None, max_length=128)
     quantity: int = Field(..., gt=0,
                           description="Quantity of product purchased")
     unit_price: float = Field(..., gt=0, description="Purchase price per unit")

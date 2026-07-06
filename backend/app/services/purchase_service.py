@@ -150,6 +150,7 @@ async def create_purchase(
 
         purchase_items.append({
             "sku": sku,
+            "barcode": str(item.get("barcode") or "").strip(),
             "name": product.get("name"),
             "quantity": quantity,
             "unit_price": unit_price,
@@ -263,7 +264,8 @@ async def create_purchase(
             name=item.get("name"),
             quantity=item.get("quantity"),
             unit_price=item.get("unit_price") + additional_charge_per_unit,
-            supplier_id=supplier_id
+            supplier_id=supplier_id,
+            barcode=item.get("barcode")
         )
 
     created_purchase = await purchase_collection.find_one({
