@@ -33,6 +33,7 @@ function SaleItemRow({ item, index, products, updateItem }) {
           value={item.sku || ""}
           onChange={(value) => updateItem(index, "sku", value)}
           placeholder="Select product"
+          allowCustom
           options={products.map((product) => ({
             value: product.sku,
             label: `${product.sku} - ${product.name}`,

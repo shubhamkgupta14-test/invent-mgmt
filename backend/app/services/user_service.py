@@ -60,6 +60,7 @@ SUPERADMIN_CLEANABLE_COLLECTIONS = {
     "audits": db.audits,
     "company-settings": db.company_settings,
     "exchanges": db.exchanges,
+    "loyalty": db.loyalty,
     "manufacturing": db.manufacturing,
     "notification-reads": db.notification_reads,
     "notifications": db.notifications,

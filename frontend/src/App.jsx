@@ -11,6 +11,7 @@ import Exchange from "./pages/Exchange";
 import Manufacturing from "./pages/Manufacturing";
 import Stock from "./pages/Stock";
 import SellingPriceCalculator from "./pages/SellingPriceCalculator";
+import Loyalty from "./pages/Loyalty";
 import Supplier from "./pages/Supplier";
 import SuperAdmin from "./pages/SuperAdmin";
 import AuditLogs from "./pages/AuditLogs";
@@ -58,6 +59,14 @@ function App() {
           element={
             <ProtectedRoute>
               <SellingPriceCalculator />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/loyalty"
+          element={
+            <ProtectedRoute>
+              <Loyalty />
             </ProtectedRoute>
           }
         />

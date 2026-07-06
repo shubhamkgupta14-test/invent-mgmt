@@ -50,6 +50,27 @@ async def create_indexes():
     )
     await db.returns.create_index("return_id", unique=True, sparse=True)
     await db.exchanges.create_index("exchange_id", unique=True, sparse=True)
+
+    sales_indexes = await db.sales.index_information()
+    invoice_index = sales_indexes.get("invoice_id_1")
+    if invoice_index and invoice_index.get("unique"):
+        await db.sales.drop_index("invoice_id_1")
+    await db.sales.create_index("invoice_id")
+
+    loyalty_indexes = await db.loyalty.index_information()
+    email_index = loyalty_indexes.get("email_1")
+    if email_index and email_index.get("unique"):
+        await db.loyalty.drop_index("email_1")
+    await db.loyalty.create_index("ref_no", unique=True)
+    await db.loyalty.create_index(
+        "email",
+        unique=True,
+        name="active_email_unique",
+        partialFilterExpression={"status": {"$in": ["PENDING", "ELIGIBLE"]}},
+    )
+    await db.loyalty.create_index("status")
+    await db.loyalty.create_index("created_at")
+    await db.loyalty.create_index("orders.order_id", unique=True, sparse=True)
     manufacturing_indexes = await db.manufacturing.index_information()
     if "lot_no_1" in manufacturing_indexes:
         await db.manufacturing.drop_index("lot_no_1")

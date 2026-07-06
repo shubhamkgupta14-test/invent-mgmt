@@ -13,6 +13,7 @@ class AuditModule(str, Enum):
     RETURN = "RETURN"
     EXCHANGE = "EXCHANGE"
     MANUFACTURING = "MANUFACTURING"
+    LOYALTY = "LOYALTY"
 
 
 class AuditEvent(str, Enum):

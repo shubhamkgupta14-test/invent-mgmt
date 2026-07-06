@@ -303,6 +303,7 @@ function Manufacturing() {
               value={form.sku}
               onChange={(value) => updateForm("sku", value)}
               placeholder="Select product"
+              allowCustom
               required
               options={products.map((product) => ({
                 value: product.sku,
