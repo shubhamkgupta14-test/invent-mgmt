@@ -10,6 +10,7 @@ class AuditModule(str, Enum):
     STOCK = "STOCK"
     PURCHASE = "PURCHASE"
     SALES = "SALES"
+    INVOICE = "INVOICE"
     RETURN = "RETURN"
     EXCHANGE = "EXCHANGE"
     MANUFACTURING = "MANUFACTURING"

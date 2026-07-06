@@ -13,8 +13,9 @@ from app.services.auth_service import (
 from app.services.stock_service import (
     get_stocks,
     calculate_selling_price,
+    update_stock_actual_price,
 )
-from app.models.stock import SellingPriceCalculationRequest
+from app.models.stock import SellingPriceCalculationRequest, StockActualPriceUpdate
 
 from app.utils.messages import Messages
 from app.utils.response import success_response
@@ -70,5 +71,23 @@ async def calculate_selling_price_api(
 
     return success_response(
         message="Selling price calculated successfully",
+        data=result,
+    )
+
+
+@router.patch("/{sku}/actual-price")
+async def update_stock_actual_price_api(
+    auth_user: user_dependency,
+    sku: str,
+    req_body: StockActualPriceUpdate,
+):
+    result = await update_stock_actual_price(
+        auth_user=auth_user,
+        sku=sku,
+        actual_price=req_body.actual_price,
+    )
+
+    return success_response(
+        message="Actual price updated successfully",
         data=result,
     )

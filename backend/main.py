@@ -29,6 +29,7 @@ from app.routes.auth_routes import router as auth_router
 from app.routes.purchase_routes import router as purchase_router
 from app.routes.manufacturing_routes import router as manufacturing_router
 from app.routes.sale_routes import router as sale_router
+from app.routes.invoice_routes import router as invoice_router
 from app.routes.return_exchange_routes import (
     exchange_router,
     return_router,
@@ -114,6 +115,7 @@ app.include_router(stock_router)
 app.include_router(purchase_router)
 app.include_router(manufacturing_router)
 app.include_router(sale_router)
+app.include_router(invoice_router)
 app.include_router(return_router)
 app.include_router(exchange_router)
 app.include_router(audit_router)

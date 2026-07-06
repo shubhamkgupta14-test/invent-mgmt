@@ -57,6 +57,15 @@ async def create_indexes():
         await db.sales.drop_index("invoice_id_1")
     await db.sales.create_index("invoice_id")
 
+    invoice_indexes = await db.invoices.index_information()
+    invoice_id_index = invoice_indexes.get("invoice_id_1")
+    if invoice_id_index and not invoice_id_index.get("unique"):
+        await db.invoices.drop_index("invoice_id_1")
+    await db.invoices.create_index("invoice_id", unique=True)
+    await db.invoices.create_index("invoice_sequence", unique=True, sparse=True)
+    await db.invoices.create_index("created_at")
+    await db.invoice_counters.create_index("config_key", unique=True)
+
     loyalty_indexes = await db.loyalty.index_information()
     email_index = loyalty_indexes.get("email_1")
     if email_index and email_index.get("unique"):

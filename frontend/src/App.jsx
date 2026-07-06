@@ -6,6 +6,7 @@ import Dashboard from "./pages/Dashboard";
 import Inventory from "./pages/Inventory";
 import Purchase from "./pages/Purchase";
 import Sale from "./pages/Sale";
+import InvoiceGenerator from "./pages/InvoiceGenerator";
 import Return from "./pages/Return";
 import Exchange from "./pages/Exchange";
 import Manufacturing from "./pages/Manufacturing";
@@ -83,6 +84,14 @@ function App() {
           element={
             <ProtectedRoute>
               <Sale />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/invoices"
+          element={
+            <ProtectedRoute>
+              <InvoiceGenerator />
             </ProtectedRoute>
           }
         />

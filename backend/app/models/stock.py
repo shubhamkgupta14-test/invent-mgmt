@@ -68,4 +68,9 @@ class SellingPriceCalculationRequest(BaseModel):
     settings: SellingPriceChargeSettings = Field(
         default_factory=SellingPriceChargeSettings
     )
+    actual_price: Optional[float] = Field(default=None, ge=0)
     save_default: bool = False
+
+
+class StockActualPriceUpdate(BaseModel):
+    actual_price: float = Field(default=0, ge=0)

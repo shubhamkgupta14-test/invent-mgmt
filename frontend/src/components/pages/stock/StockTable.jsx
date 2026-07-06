@@ -36,7 +36,7 @@ function StockTable({ stocks, sortConfig, handleSort, onView }) {
               <SortableHeader label="Quantity" field="quantity" sortConfig={sortConfig} onSort={handleSort} />
               <SortableHeader label="Tax" field="tax_rate" sortConfig={sortConfig} onSort={handleSort} />
               <SortableHeader label="Avg Purchase Price" field="avg_price" sortConfig={sortConfig} onSort={handleSort} />
-              <SortableHeader label="Min Selling Price" field="min_selling_price" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Actual Price" field="actual_price" sortConfig={sortConfig} onSort={handleSort} />
               <SortableHeader label="Inventory Value" field="inventory_value" sortConfig={sortConfig} onSort={handleSort} />
               <SortableHeader label="Stock Status" field="stock_status" sortConfig={sortConfig} onSort={handleSort} />
             </tr>
@@ -64,9 +64,7 @@ function StockTable({ stocks, sortConfig, handleSort, onView }) {
                   {formatMoney(stock.avg_price)}
                 </td>
                 <td className="px-5 py-4 text-slate-700">
-                  {stock.min_selling_price
-                    ? formatMoney(stock.min_selling_price)
-                    : "-"}
+                  {stock.actual_price ? formatMoney(stock.actual_price) : "-"}
                 </td>
                 <td className="px-5 py-4 text-slate-700">
                   {formatMoney(stock.inventory_value)}
