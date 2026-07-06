@@ -16,6 +16,7 @@ import {
   FaCalculator,
   FaBell,
   FaDatabase,
+  FaGift,
 } from "react-icons/fa";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { getMyDetails } from "../../api/userApi";
@@ -92,6 +93,11 @@ function Sidebar({ onNavigate, onClose }) {
             icon: FaCalculator,
             label: "Price Calculator",
             path: "/selling-price-calculator",
+          },
+          {
+            icon: FaGift,
+            label: "Loyalty",
+            path: "/loyalty",
           },
         ]
       : []),

@@ -6,6 +6,7 @@ from app.database.mongodb import db
 from app.models.audit import AuditEvent, AuditModule
 from app.models.auth import UserRole
 from app.services.audit_service import create_audit_log
+from app.services.loyalty_service import revalidate_loyalty_order
 from app.services.stock_service import (
     decrease_stock,
     increase_stock,
@@ -312,6 +313,10 @@ async def create_return(auth_user: dict, return_data: dict):
         invoice_id=return_data.get("invoice_id"),
         status="RETURN",
     )
+    await revalidate_loyalty_order(
+        sale.get("invoice_id") or str(sale.get("_id")),
+        auth_user,
+    )
 
     await create_audit_log(
         module_name=AuditModule.RETURN,
@@ -411,6 +416,10 @@ async def create_exchange(auth_user: dict, exchange_data: dict):
         sale_id=exchange_data.get("sale_id"),
         invoice_id=exchange_data.get("invoice_id"),
         status="EXCHANGE",
+    )
+    await revalidate_loyalty_order(
+        sale.get("invoice_id") or str(sale.get("_id")),
+        auth_user,
     )
 
     await create_audit_log(

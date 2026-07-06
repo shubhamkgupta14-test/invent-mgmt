@@ -20,6 +20,7 @@ function PurchaseItemRow({ item, index, products, updateItem }) {
           value={item.sku || ""}
           onChange={(value) => updateItem(index, "sku", value)}
           placeholder="Select product"
+          allowCustom
           options={products.map((p) => ({
             value: p.sku,
             label: `${p.sku} - ${p.name}`,

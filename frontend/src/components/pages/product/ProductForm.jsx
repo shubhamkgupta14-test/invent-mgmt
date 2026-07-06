@@ -179,6 +179,7 @@ function ProductForm({
             value={form.supplier_id}
             onChange={updateSupplier}
             placeholder="Select supplier"
+            allowCustom
             options={suppliers.map((supplier) => ({
               value: supplier.supplier_id,
               label: supplier.name

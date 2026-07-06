@@ -56,6 +56,7 @@ function TransactionItemRows({
               onChange={(value) => onChange(index, "sku", value)}
               placeholder="Select product"
               options={productOptions}
+              allowCustom
               required
             />
             <Input

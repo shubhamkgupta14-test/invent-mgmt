@@ -146,6 +146,46 @@ def build_exchange_response(exchange: dict):
     }
 
 
+def build_loyalty_response(loyalty: dict):
+    orders = []
+    for order in loyalty.get("orders", []):
+        orders.append({
+            **order,
+            "added_at": format_datetime_iso(order.get("added_at")) if order.get("added_at") else None,
+        })
+
+    notes = []
+    for note in loyalty.get("notes", []):
+        notes.append({
+            **note,
+            "created_at": format_datetime_iso(note.get("created_at")) if note.get("created_at") else None,
+        })
+
+    return {
+        "loyalty_id": str(loyalty.get("_id", "")),
+        "ref_no": loyalty.get("ref_no"),
+        "email": loyalty.get("email"),
+        "orders": orders,
+        "qualified_order_count": loyalty.get("qualified_order_count", 0),
+        "disqualified_order_count": loyalty.get("disqualified_order_count", 0),
+        "required_order_count": loyalty.get("required_order_count", 0),
+        "max_disqualified_orders": loyalty.get("max_disqualified_orders", 0),
+        "discount_type": loyalty.get("discount_type"),
+        "discount_value": loyalty.get("discount_value", 0),
+        "max_redeem_amount": loyalty.get("max_redeem_amount", 150),
+        "status": getattr(loyalty.get("status"), "value", loyalty.get("status")),
+        "redeemed_order_id": loyalty.get("redeemed_order_id"),
+        "redeemed_amount": loyalty.get("redeemed_amount"),
+        "redeemed_sale_amount": loyalty.get("redeemed_sale_amount"),
+        "redeemed_at": format_datetime_iso(loyalty.get("redeemed_at")) if loyalty.get("redeemed_at") else None,
+        "cancel_reason": loyalty.get("cancel_reason"),
+        "notes": notes,
+        "created_by": loyalty.get("created_by"),
+        "created_at": format_datetime_iso(loyalty.get("created_at")),
+        "updated_at": format_datetime_iso(loyalty.get("updated_at")),
+    }
+
+
 def build_stock_response(stock: dict):
     return {
         "stock_id": str(stock.get("_id")),

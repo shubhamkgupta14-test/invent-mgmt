@@ -40,6 +40,7 @@ from app.routes.supplier_routes import router as supplier_router
 from app.routes.notification_routes import router as notification_router
 from app.routes.api_logs import router as api_logs_router
 from app.routes.company_routes import router as company_router
+from app.routes.loyalty_routes import router as loyalty_router
 from app.middleware.api_logger import ApiLoggingMiddleware
 from app.services.company_service import get_company_brand_name
 from app.utils.settings import Settings
@@ -118,6 +119,7 @@ app.include_router(exchange_router)
 app.include_router(audit_router)
 app.include_router(api_logs_router)
 app.include_router(company_router)
+app.include_router(loyalty_router)
 app.include_router(user_router)
 app.include_router(notification_router)
 app.include_router(auth_router)

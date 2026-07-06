@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import MainLayout from "../layouts/MainLayout";
 import Card from "../components/common/Card";
 import Select from "../components/common/Select";
+import SelectDropdown from "../components/common/SelectDropdown";
 import Input from "../components/common/Input";
 import Button from "../components/common/Button";
 import Loader from "../components/common/Loader";
@@ -467,7 +468,7 @@ function SellingPriceCalculator() {
         <Card>
           <div className="flex flex-wrap items-end gap-4">
             <div className="w-full min-w-[260px] max-w-[420px] flex-1">
-              <Select
+              <SelectDropdown
                 label="Stock Item"
                 value={form.sku}
                 onChange={(value) => {
@@ -476,6 +477,7 @@ function SellingPriceCalculator() {
                 }}
                 options={stockOptions}
                 placeholder="Select stock item"
+                allowCustom
                 required
               />
             </div>

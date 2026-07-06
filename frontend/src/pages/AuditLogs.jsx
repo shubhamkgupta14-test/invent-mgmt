@@ -22,6 +22,7 @@ const moduleOptions = [
   { label: "Purchase", value: "PURCHASE" },
   { label: "Sales", value: "SALES" },
   { label: "Manufacturing", value: "MANUFACTURING" },
+  { label: "Loyalty", value: "LOYALTY" },
 ];
 
 const eventOptions = [
@@ -46,6 +47,7 @@ const moduleBadgeClasses = {
   PURCHASE: "bg-amber-100 text-amber-700 border border-amber-200",
   SALES: "bg-emerald-100 text-emerald-700 border border-emerald-200",
   MANUFACTURING: "bg-violet-100 text-violet-700 border border-violet-200",
+  LOYALTY: "bg-pink-100 text-pink-700 border border-pink-200",
 };
 
 const eventBadgeClasses = {
