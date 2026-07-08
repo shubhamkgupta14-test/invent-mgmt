@@ -151,14 +151,18 @@ function Sidebar({ onNavigate, onClose }) {
     {
       icon: FaClipboardList,
       label: "Activity Audit Trail",
-      path: "/audits",
-      isActive: location.pathname === "/audits",
+      path: "/superadmin?tab=audits",
+      isActive:
+        location.pathname === "/superadmin" &&
+        new URLSearchParams(location.search).get("tab") === "audits",
     },
     {
       icon: FaServer,
       label: "API Request Logs",
-      path: "/api-logs",
-      isActive: location.pathname === "/api-logs",
+      path: "/superadmin?tab=api-logs",
+      isActive:
+        location.pathname === "/superadmin" &&
+        new URLSearchParams(location.search).get("tab") === "api-logs",
     },
     {
       icon: FaDatabase,

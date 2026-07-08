@@ -15,6 +15,8 @@ import {
   getAllNotifications,
   resendNotification,
 } from "../api/notificationApi";
+import ApiLogs from "./ApiLogs";
+import AuditLogs from "./AuditLogs";
 import {
   activateUser,
   cleanDatabase,
@@ -89,7 +91,7 @@ const audienceOptions = [
   { label: "Specific Users", value: "USERS" },
 ];
 
-const adminTabs = ["users", "notifications", "cleanup"];
+const adminTabs = ["users", "notifications", "audits", "api-logs", "cleanup"];
 const cleanDbCollectionValues = cleanOptions
   .filter((option) => !["users", "company-settings"].includes(option.value))
   .map((option) => option.value);
@@ -412,6 +414,14 @@ function SuperAdmin() {
         </Card>
       </MainLayout>
     );
+  }
+
+  if (activeTab === "audits") {
+    return <AuditLogs />;
+  }
+
+  if (activeTab === "api-logs") {
+    return <ApiLogs />;
   }
 
   return (

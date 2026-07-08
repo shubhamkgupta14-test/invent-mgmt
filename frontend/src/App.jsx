@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Navigate, Routes, Route } from "react-router-dom";
 import { ToastProvider } from "./context/ToastContext";
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -15,8 +15,6 @@ import SellingPriceCalculator from "./pages/SellingPriceCalculator";
 import Loyalty from "./pages/Loyalty";
 import Supplier from "./pages/Supplier";
 import SuperAdmin from "./pages/SuperAdmin";
-import AuditLogs from "./pages/AuditLogs";
-import ApiLogs from "./pages/ApiLogs";
 import Notifications from "./pages/Notifications";
 import Mailer from "./pages/Mailer";
 import UserSettings from "./pages/UserSettings";
@@ -148,7 +146,7 @@ function App() {
           path="/audits"
           element={
             <ProtectedRoute>
-              <AuditLogs />
+              <Navigate to="/superadmin?tab=audits" replace />
             </ProtectedRoute>
           }
         />
@@ -156,7 +154,7 @@ function App() {
           path="/api-logs"
           element={
             <ProtectedRoute>
-              <ApiLogs />
+              <Navigate to="/superadmin?tab=api-logs" replace />
             </ProtectedRoute>
           }
         />
