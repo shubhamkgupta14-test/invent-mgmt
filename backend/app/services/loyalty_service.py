@@ -37,6 +37,11 @@ def _can_mutate(auth_user: dict):
         forbidden()
 
 
+def _can_cancel(auth_user: dict):
+    if auth_user.get("role") != UserRole.SUPERADMIN:
+        forbidden("Only super admins can cancel loyalty offers directly")
+
+
 def _normalize_email(email: str):
     return (email or "").strip().lower()
 
@@ -390,7 +395,7 @@ async def redeem_loyalty(auth_user: dict, payload: dict):
 
 
 async def cancel_loyalty(auth_user: dict, payload: dict):
-    _can_mutate(auth_user)
+    _can_cancel(auth_user)
     loyalty = await _find_loyalty_by_email_or_ref(payload.get("email"), payload.get("ref_no"))
     loyalty["status"] = LoyaltyStatus.CANCELLED
     loyalty["cancel_reason"] = payload.get("reason")

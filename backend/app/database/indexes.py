@@ -54,6 +54,13 @@ async def create_indexes():
         [("notification_id", 1), ("username", 1)],
         unique=True
     )
+    await db.mail_messages.create_index("to_username")
+    await db.mail_messages.create_index("from_username")
+    await db.mail_messages.create_index("owner_username")
+    await db.mail_messages.create_index("folder")
+    await db.mail_messages.create_index("created_at")
+    await db.mail_messages.create_index("starred")
+    await db.mail_messages.create_index("expire_at", expireAfterSeconds=0)
     await db.returns.create_index("return_id", unique=True, sparse=True)
     await db.exchanges.create_index("exchange_id", unique=True, sparse=True)
 

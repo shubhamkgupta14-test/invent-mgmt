@@ -37,9 +37,11 @@ const roleOptions = [
 
 const cleanOptions = [
   { label: "API Request Logs", value: "api-logs" },
+  { label: "App Config", value: "app-config" },
   { label: "Activity Audit Trail", value: "audits" },
   { label: "Company Settings", value: "company-settings" },
   { label: "Exchanges", value: "exchanges" },
+  { label: "Emails / Mailer", value: "mailer" },
   { label: "Invoices", value: "invoices" },
   { label: "Loyalty Records", value: "loyalty" },
   { label: "Manufacturing", value: "manufacturing" },

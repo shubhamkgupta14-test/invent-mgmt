@@ -3,7 +3,7 @@ import Sidebar from "../components/common/Sidebar";
 import Navbar from "../components/common/Navbar";
 import useCompanySettings from "../hooks/useCompanySettings";
 
-function MainLayout({ children }) {
+function MainLayout({ children, hideFooter = false }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { brand } = useCompanySettings();
 
@@ -38,12 +38,14 @@ function MainLayout({ children }) {
           <main className="flex-1 overflow-y-auto px-4 py-5 sm:px-6 lg:px-8">
             <div className="mx-auto flex min-h-full w-full max-w-[1400px] flex-col">
               <div className="flex-1">{children}</div>
-              <footer className="mt-8 border-t border-border py-4 text-xs text-slate-500">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <span>{brand.title}</span>
-                  <span>Products, stock, purchases, sales, returns, and exchanges.</span>
-                </div>
-              </footer>
+              {!hideFooter && (
+                <footer className="mt-8 border-t border-border py-4 text-xs text-slate-500">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <span>{brand.title}</span>
+                    <span>Products, stock, purchases, sales, returns, and exchanges.</span>
+                  </div>
+                </footer>
+              )}
             </div>
           </main>
         </div>

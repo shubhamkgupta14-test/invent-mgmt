@@ -27,6 +27,18 @@ body {
   min-width: 0;
 }
 
+.invoice-print {
+  display: none;
+}
+
+.invoice-create-preview {
+  display: block;
+}
+
+.invoice-cancelled-watermark span {
+  transform: rotate(-35deg);
+}
+
 @media (max-width: 480px) {
   .invoice-side-pagination > div > div:first-child {
     align-items: flex-start;
@@ -60,6 +72,7 @@ body {
   }
 
   .invoice-print {
+    display: block;
     position: absolute;
     inset: 0 auto auto 0;
     width: 100%;

@@ -57,12 +57,14 @@ def _delete_uploaded_file(url: str):
 
 SUPERADMIN_CLEANABLE_COLLECTIONS = {
     "api-logs": db.api_logs,
+    "app-config": db.app_config,
     "audits": db.audits,
     "company-settings": db.company_settings,
     "exchanges": db.exchanges,
     "invoices": db.invoices,
     "loyalty": db.loyalty,
     "manufacturing": db.manufacturing,
+    "mailer": db.mail_messages,
     "notification-reads": db.notification_reads,
     "notifications": db.notifications,
     "otp-records": db.password_otps,
@@ -170,7 +172,16 @@ async def get_me(auth_user: dict):
     user = await user_collection.find_one({
         "username": username
     })
-    return build_user_response(user)
+    response = build_user_response(user)
+    pending_otp = await _latest_pending_email_otp(str(user.get("_id")))
+    now = datetime.now(UTC).replace(tzinfo=None)
+    if (
+        pending_otp
+        and not user.get("email_verified")
+        and _utc_naive(pending_otp.get("expires_at")) > now
+    ):
+        response["email_verification_pending_until"] = pending_otp.get("expires_at").isoformat()
+    return response
 
 # GET ALL USERS
 
@@ -560,6 +571,7 @@ async def request_email_verification(auth_user: dict):
     )
 
     otp = f"{secrets.randbelow(1_000_000):06d}"
+    expires_at = now + timedelta(minutes=10)
     await password_otps_collection.insert_one({
         "user_id": user_id,
         "username": user.get("username"),
@@ -567,7 +579,7 @@ async def request_email_verification(auth_user: dict):
         "purpose": EMAIL_VERIFICATION_PURPOSE,
         "otp_hash": _secret_hash(otp),
         "status": "PENDING",
-        "expires_at": now + timedelta(minutes=10),
+        "expires_at": expires_at,
         "attempts": 0,
         "max_attempts": 5,
         "last_sent_at": now,
@@ -576,7 +588,11 @@ async def request_email_verification(auth_user: dict):
     })
 
     await send_email_verification_otp(user.get("email"), otp)
-    return {"sent": True, "verified": False}
+    return {
+        "sent": True,
+        "verified": False,
+        "expires_at": expires_at.isoformat(),
+    }
 
 
 async def verify_email(auth_user: dict, otp: str):

@@ -18,6 +18,7 @@ import SuperAdmin from "./pages/SuperAdmin";
 import AuditLogs from "./pages/AuditLogs";
 import ApiLogs from "./pages/ApiLogs";
 import Notifications from "./pages/Notifications";
+import Mailer from "./pages/Mailer";
 import UserSettings from "./pages/UserSettings";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./routes/ProtectedRoute";
@@ -124,6 +125,14 @@ function App() {
           element={
             <ProtectedRoute>
               <Supplier />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/mailer"
+          element={
+            <ProtectedRoute>
+              <Mailer />
             </ProtectedRoute>
           }
         />

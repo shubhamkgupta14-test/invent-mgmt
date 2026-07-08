@@ -185,7 +185,7 @@ function Purchases() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-slate-50">
-              {["Product", "Quantity", "Unit Price (Excl. Tax)", "Discount", "Tax", "Total"].map((label) => (
+              {["Product", "Quantity", "Unit Price (Excl. Tax)", "MRP / Actual", "Discount", "Tax", "Total"].map((label) => (
                 <th
                   key={label}
                   className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500"
@@ -201,6 +201,7 @@ function Purchases() {
                 <td className="px-4 py-3 font-semibold text-slate-900">{item.name || "-"}</td>
                 <td className="px-4 py-3 text-slate-700">{item.quantity || 0}</td>
                 <td className="px-4 py-3 text-slate-700">{formatMoney(item.unit_price)}</td>
+                <td className="px-4 py-3 text-slate-700">{item.actual_price ? formatMoney(item.actual_price) : "-"}</td>
                 <td className="px-4 py-3 text-slate-700">
                   {item.discount_percentage ?? 0}% / {formatMoney(item.discount_amount)}
                 </td>
