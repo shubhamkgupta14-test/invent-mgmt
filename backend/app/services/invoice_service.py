@@ -11,7 +11,9 @@ from app.models.auth import UserRole
 from app.models.audit import AuditEvent, AuditModule
 from app.services.audit_service import create_audit_log
 from app.services.company_service import DEFAULT_COMPANY_SETTINGS, SETTINGS_KEY
-from app.services.stock_service import decrease_stock
+from app.services.email_service import send_email
+from app.services.invoice_pdf_service import generate_invoice_pdf
+from app.services.stock_service import calculate_stock_status, decrease_stock
 from app.utils.helpers import (
     is_valid_object_id,
     normalize_sku,
@@ -203,6 +205,90 @@ async def _create_sale_from_invoice(auth_user: dict, invoice_document: dict):
     )
 
 
+async def _restore_invoice_stock(invoice: dict):
+    for item in invoice.get("items", []):
+        sku = item.get("sku")
+        quantity = int(item.get("quantity") or 0)
+        if not sku or quantity <= 0:
+            continue
+
+        stock = await stocks_collection.find_one({"sku": sku})
+        if not stock:
+            continue
+
+        next_quantity = int(stock.get("quantity") or 0) + quantity
+        avg_price = round_price(stock.get("avg_price", 0) or 0)
+        await stocks_collection.update_one(
+            {"sku": sku},
+            {
+                "$set": {
+                    "quantity": next_quantity,
+                    "inventory_value": round_final_amount(next_quantity * avg_price),
+                    "stock_status": calculate_stock_status(next_quantity),
+                    "updated_at": datetime.now(UTC),
+                }
+            },
+        )
+
+
+def _invoice_email_bodies(invoice: dict):
+    buyer = invoice.get("buyer") or {}
+    company = invoice.get("company") or {}
+    invoice_id = invoice.get("invoice_id") or "-"
+    company_name = company.get("company_name") or company.get("brand_name") or Settings.DEFAULT_BRAND_NAME
+    total = invoice.get("final_total_amount", 0)
+    item_rows_text = "\n".join(
+        f"- {item.get('name') or item.get('sku')} x {item.get('quantity', 0)}: {item.get('total_price', 0)}"
+        for item in invoice.get("items", [])
+    )
+    text_body = (
+        f"Hello {buyer.get('name') or 'Customer'},\n\n"
+        f"Please find your invoice {invoice_id} from {company_name}.\n\n"
+        f"{item_rows_text}\n\n"
+        f"Total: {total}\n\n"
+        "Thank you for your purchase."
+    )
+    html_rows = "".join(
+        "<tr>"
+        f"<td style='padding:10px;border-bottom:1px solid #e2e8f0;'>{item.get('name') or item.get('sku')}</td>"
+        f"<td style='padding:10px;border-bottom:1px solid #e2e8f0;text-align:center;'>{item.get('quantity', 0)}</td>"
+        f"<td style='padding:10px;border-bottom:1px solid #e2e8f0;text-align:right;'>{item.get('total_price', 0)}</td>"
+        "</tr>"
+        for item in invoice.get("items", [])
+    )
+    html_body = f"""
+    <!doctype html>
+    <html>
+      <body style="margin:0;background:#f8fafc;font-family:Arial,sans-serif;color:#0f172a;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fafc;padding:28px 12px;">
+          <tr><td align="center">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
+              <tr><td style="background:#1d4ed8;color:#ffffff;padding:22px 28px;">
+                <div style="font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:#dbeafe;">{company_name}</div>
+                <h1 style="margin:8px 0 0;font-size:22px;">Invoice {invoice_id}</h1>
+              </td></tr>
+              <tr><td style="padding:28px;">
+                <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#334155;">Hello {buyer.get('name') or 'Customer'}, please find your invoice details below.</p>
+                <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;font-size:14px;">
+                  <thead><tr style="background:#f1f5f9;">
+                    <th style="padding:10px;text-align:left;">Item</th>
+                    <th style="padding:10px;text-align:center;">Qty</th>
+                    <th style="padding:10px;text-align:right;">Amount</th>
+                  </tr></thead>
+                  <tbody>{html_rows}</tbody>
+                </table>
+                <div style="margin-top:18px;text-align:right;font-size:18px;font-weight:700;">Total: {total}</div>
+              </td></tr>
+              <tr><td style="padding:18px 28px;background:#f8fafc;border-top:1px solid #e2e8f0;color:#64748b;font-size:12px;">This is an automated invoice email.</td></tr>
+            </table>
+          </td></tr>
+        </table>
+      </body>
+    </html>
+    """
+    return text_body, html_body
+
+
 async def create_invoice(auth_user: dict, invoice_data: dict):
     if auth_user.get("role") == UserRole.USER:
         forbidden("Only admins can create invoices")
@@ -369,6 +455,12 @@ async def create_invoice(auth_user: dict, invoice_data: dict):
         "final_total_amount": final_total_amount,
         "payment_method": _clean_text(invoice_data.get("payment_method")) or "CASH",
         "payment_status": _clean_text(invoice_data.get("payment_status")) or "PAID",
+        "invoice_status": "ACTIVE",
+        "cancel_reason": None,
+        "cancelled_by": None,
+        "cancelled_at": None,
+        "email_sent_at": None,
+        "email_sent_count": 0,
         "notes": _clean_text(invoice_data.get("notes")),
         "created_by": auth_user.get("username"),
         "created_at": datetime.now(UTC),
@@ -484,3 +576,128 @@ async def get_invoice(auth_user: dict, invoice_record_id: str):
         not_found("Invoice not found")
 
     return build_invoice_response(invoice)
+
+
+async def cancel_invoice(auth_user: dict, invoice_record_id: str, reason: str):
+    if auth_user.get("role") != UserRole.SUPERADMIN:
+        forbidden("Only super admins can cancel invoices")
+
+    if not is_valid_object_id(invoice_record_id):
+        bad_request("Invalid invoice id")
+
+    invoice = await invoices_collection.find_one({"_id": ObjectId(invoice_record_id)})
+    if not invoice:
+        not_found("Invoice not found")
+    if invoice.get("invoice_status") == "CANCELLED":
+        bad_request("Invoice is already cancelled")
+
+    reason = _clean_text(reason)
+    if not reason:
+        bad_request("Cancellation reason is required")
+
+    now = datetime.now(UTC)
+    await _restore_invoice_stock(invoice)
+    await sales_collection.delete_many(
+        {
+            "$or": [
+                {"invoice_record_id": str(invoice.get("_id"))},
+                {"invoice_id": invoice.get("invoice_id")},
+            ]
+        },
+    )
+    await invoices_collection.update_one(
+        {"_id": invoice["_id"]},
+        {
+            "$set": {
+                "invoice_status": "CANCELLED",
+                "payment_status": "CANCELLED",
+                "cancel_reason": reason,
+                "cancelled_by": auth_user.get("username"),
+                "cancelled_at": now,
+                "updated_at": now,
+            }
+        },
+    )
+
+    await create_audit_log(
+        module_name=AuditModule.INVOICE,
+        event_type=AuditEvent.UPDATED,
+        reference_id=invoice.get("invoice_id"),
+        performed_by=auth_user.get("username"),
+        new_data={"invoice_status": "CANCELLED", "reason": reason},
+    )
+
+    updated_invoice = await invoices_collection.find_one({"_id": invoice["_id"]})
+    return build_invoice_response(updated_invoice)
+
+
+async def send_invoice_email(auth_user: dict, invoice_record_id: str):
+    if auth_user.get("role") not in [UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.USER]:
+        forbidden()
+
+    if not is_valid_object_id(invoice_record_id):
+        bad_request("Invalid invoice id")
+
+    invoice = await invoices_collection.find_one({"_id": ObjectId(invoice_record_id)})
+    if not invoice:
+        not_found("Invoice not found")
+    if invoice.get("invoice_status") == "CANCELLED":
+        bad_request("Cancelled invoice cannot be emailed")
+
+    buyer_email = _clean_text((invoice.get("buyer") or {}).get("email"))
+    if not buyer_email:
+        bad_request("Buyer email is not present on this invoice")
+
+    company = invoice.get("company") or {}
+    brand_name = company.get("brand_name") or company.get("company_name") or Settings.DEFAULT_BRAND_NAME
+    text_body, html_body = _invoice_email_bodies(invoice)
+    pdf_bytes = generate_invoice_pdf(invoice)
+    email_result = await send_email(
+        to_email=buyer_email,
+        subject=f"Invoice {invoice.get('invoice_id')} from {brand_name}",
+        body=text_body,
+        from_name=brand_name,
+        html_body=html_body,
+        attachments=[{
+            "filename": f"{invoice.get('invoice_id') or 'invoice'}.pdf",
+            "content": pdf_bytes,
+            "maintype": "application",
+            "subtype": "pdf",
+        }],
+    )
+    if not email_result.get("sent"):
+        bad_request("SMTP is not configured. Invoice email was not sent.")
+
+    now = datetime.now(UTC)
+    await invoices_collection.update_one(
+        {"_id": invoice["_id"]},
+        {
+            "$set": {
+                "email_sent_at": now,
+                "updated_at": now,
+            },
+            "$inc": {"email_sent_count": 1},
+        },
+    )
+
+    updated_invoice = await invoices_collection.find_one({"_id": invoice["_id"]})
+    return build_invoice_response(updated_invoice)
+
+
+async def send_bulk_invoice_emails(auth_user: dict, invoice_record_ids: list[str]):
+    results = []
+    for invoice_record_id in invoice_record_ids:
+        try:
+            invoice = await send_invoice_email(auth_user, invoice_record_id)
+            results.append({
+                "invoice_record_id": invoice_record_id,
+                "invoice_id": invoice.get("invoice_id"),
+                "status": "sent",
+            })
+        except Exception as exc:
+            results.append({
+                "invoice_record_id": invoice_record_id,
+                "status": "failed",
+                "message": str(exc),
+            })
+    return results

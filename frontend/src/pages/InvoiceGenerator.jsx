@@ -2,6 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import {
   FaFileInvoice,
   FaBarcode,
+  FaBan,
+  FaEnvelope,
+  FaEye,
   FaPlus,
   FaPrint,
   FaTrash,
@@ -14,12 +17,20 @@ import Loader from "../components/common/Loader";
 import SearchBar from "../components/common/SearchBar";
 import Select from "../components/common/Select";
 import SelectDropdown from "../components/common/SelectDropdown";
+import Modal from "../components/common/Modal";
 import TablePagination from "../components/common/TablePagination";
 import Textarea from "../components/common/Textarea";
-import { createInvoice, getInvoices } from "../api/invoiceApi";
+import {
+  cancelInvoice,
+  createInvoice,
+  getInvoices,
+  sendBulkInvoiceEmails,
+  sendInvoiceEmail,
+} from "../api/invoiceApi";
 import { getProductOptions } from "../api/productApi";
 import { getStockByBarcode, getStocks } from "../api/stockApi";
 import { getCompanySettings } from "../api/companyApi";
+import { getMyDetails } from "../api/userApi";
 import { useToast } from "../context/useToast";
 import { formatDateIST, formatMoney } from "../utils/formatters";
 import { defaultPagination, listParams, parseListResponse } from "../utils/tableQuery";
@@ -71,13 +82,18 @@ function InvoiceGenerator() {
   const [saving, setSaving] = useState(false);
   const [products, setProducts] = useState([]);
   const [companySettings, setCompanySettings] = useState({});
+  const [currentUser, setCurrentUser] = useState(null);
+  const [activeTab, setActiveTab] = useState("create");
   const [recentInvoices, setRecentInvoices] = useState([]);
-  const [invoicePagination, setInvoicePagination] = useState({
-    ...defaultPagination,
-    limit: 5,
-  });
+  const [viewInvoices, setViewInvoices] = useState([]);
+  const [viewPagination, setViewPagination] = useState(defaultPagination);
+  const [viewSearch, setViewSearch] = useState("");
+  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState([]);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [actionLoading, setActionLoading] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
-  const [search, setSearch] = useState("");
   const [barcodeInput, setBarcodeInput] = useState("");
   const [scanningBarcode, setScanningBarcode] = useState(false);
   const [form, setForm] = useState({
@@ -92,6 +108,11 @@ function InvoiceGenerator() {
     notes: "",
   });
   const { addToast } = useToast();
+  const canCreateInvoice = ["admin", "superadmin"].includes(
+    String(currentUser?.role || "").toLowerCase(),
+  );
+  const canCancelInvoice = String(currentUser?.role || "").toLowerCase() === "superadmin";
+  const visibleTab = canCreateInvoice ? activeTab : "view";
 
   const productBySku = useMemo(
     () => new Map(products.map((product) => [product.sku, product])),
@@ -223,9 +244,9 @@ function InvoiceGenerator() {
   };
 
   const loadRecentInvoices = async ({
-    query = search,
-    page = invoicePagination.page,
-    limit = invoicePagination.limit,
+    query = "",
+    page = 1,
+    limit = 5,
   } = {}) => {
     const response = await getInvoices(
       listParams({
@@ -236,7 +257,26 @@ function InvoiceGenerator() {
     );
     const parsed = parseListResponse(response);
     setRecentInvoices(parsed.items);
-    setInvoicePagination(parsed.pagination);
+  };
+
+  const loadViewInvoices = async ({
+    query = viewSearch,
+    page = viewPagination.page,
+    limit = viewPagination.limit,
+  } = {}) => {
+    const response = await getInvoices(
+      listParams({
+        search: query,
+        sortConfig: { field: "created_at", order: "desc" },
+        pagination: { page, limit },
+      }),
+    );
+    const parsed = parseListResponse(response);
+    setViewInvoices(parsed.items);
+    setViewPagination(parsed.pagination);
+    setSelectedInvoiceIds((current) =>
+      current.filter((id) => parsed.items.some((invoice) => invoice.invoice_record_id === id)),
+    );
   };
 
   useEffect(() => {
@@ -247,8 +287,10 @@ function InvoiceGenerator() {
       getStocks({ limit: 500, sort_by: "sku", sort_order: "asc" }),
       getCompanySettings(),
       getInvoices({ page: 1, limit: 5, sort_by: "created_at", order: "desc" }),
+      getInvoices({ page: 1, limit: 10, sort_by: "created_at", order: "desc" }),
+      getMyDetails(),
     ])
-      .then(([productResponse, stockResponse, companyResponse, invoiceResponse]) => {
+      .then(([productResponse, stockResponse, companyResponse, invoiceResponse, viewInvoiceResponse, userResponse]) => {
         if (!isActive) return;
 
         const stockBySku = new Map(
@@ -269,9 +311,12 @@ function InvoiceGenerator() {
 
         setProducts(sellableProducts);
         setCompanySettings(companyResponse.data.data || {});
+        setCurrentUser(userResponse.data.data);
         const parsedInvoices = parseListResponse(invoiceResponse);
         setRecentInvoices(parsedInvoices.items);
-        setInvoicePagination(parsedInvoices.pagination);
+        const parsedViewInvoices = parseListResponse(viewInvoiceResponse);
+        setViewInvoices(parsedViewInvoices.items);
+        setViewPagination(parsedViewInvoices.pagination);
       })
       .catch((error) => {
         addToast(
@@ -443,8 +488,10 @@ function InvoiceGenerator() {
       });
       setBarcodeInput("");
       addToast("Invoice saved successfully", "success");
-      await loadRecentInvoices({ query: "", page: 1 });
-      setSearch("");
+      await Promise.all([
+        loadRecentInvoices({ query: "", page: 1, limit: 5 }),
+        loadViewInvoices({ query: viewSearch, page: 1 }),
+      ]);
     } catch (error) {
       addToast(error.response?.data?.message || "Failed to save invoice", "error");
     } finally {
@@ -452,29 +499,119 @@ function InvoiceGenerator() {
     }
   };
 
-  const handleSearchChange = async (value) => {
-    setSearch(value);
+  const handleViewSearchChange = async (value) => {
+    setViewSearch(value);
     try {
-      await loadRecentInvoices({ query: value, page: 1 });
+      await loadViewInvoices({ query: value, page: 1 });
     } catch (error) {
       addToast(error.response?.data?.message || "Failed to search invoices", "error");
     }
   };
 
-  const handleInvoicePageChange = async (page) => {
+  const handleViewPageChange = async (page) => {
     try {
-      await loadRecentInvoices({ page });
+      await loadViewInvoices({ page });
     } catch (error) {
       addToast(error.response?.data?.message || "Failed to load invoices", "error");
     }
   };
 
-  const handleInvoiceLimitChange = async (limit) => {
+  const handleViewLimitChange = async (limit) => {
     try {
-      await loadRecentInvoices({ page: 1, limit });
+      await loadViewInvoices({ page: 1, limit });
     } catch (error) {
       addToast(error.response?.data?.message || "Failed to load invoices", "error");
     }
+  };
+
+  const openInvoicePreview = (invoice) => {
+    setSelectedInvoice(invoice);
+    setPreviewOpen(true);
+  };
+
+  const handleSendInvoice = async (invoice = selectedInvoice) => {
+    if (!invoice?.invoice_record_id) return;
+    try {
+      setActionLoading(true);
+      const response = await sendInvoiceEmail(invoice.invoice_record_id);
+      const updatedInvoice = response.data.data;
+      setSelectedInvoice(updatedInvoice);
+      addToast("Invoice email sent successfully", "success");
+      await Promise.all([
+        loadRecentInvoices({ limit: 5 }),
+        loadViewInvoices(),
+      ]);
+    } catch (error) {
+      addToast(error.response?.data?.message || "Failed to send invoice email", "error");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleBulkSend = async () => {
+    if (!selectedInvoiceIds.length) {
+      addToast("Select at least one invoice", "warning");
+      return;
+    }
+    try {
+      setActionLoading(true);
+      const response = await sendBulkInvoiceEmails(selectedInvoiceIds);
+      const sentCount = (response.data.data || []).filter((item) => item.status === "sent").length;
+      addToast(`${sentCount} invoice emails sent`, sentCount ? "success" : "warning");
+      setSelectedInvoiceIds([]);
+      await loadViewInvoices();
+    } catch (error) {
+      addToast(error.response?.data?.message || "Failed to send selected invoices", "error");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const openCancelInvoice = (invoice = selectedInvoice) => {
+    if (!invoice?.invoice_record_id) return;
+    setSelectedInvoice(invoice);
+    setCancelReason("");
+    setCancelOpen(true);
+  };
+
+  const handleCancelInvoice = async (event) => {
+    event.preventDefault();
+    if (!selectedInvoice?.invoice_record_id) return;
+    try {
+      setActionLoading(true);
+      const response = await cancelInvoice(selectedInvoice.invoice_record_id, cancelReason);
+      const updatedInvoice = response.data.data;
+      setSelectedInvoice(updatedInvoice);
+      setCancelOpen(false);
+      setCancelReason("");
+      addToast("Invoice cancelled successfully", "success");
+      await Promise.all([
+        loadRecentInvoices({ limit: 5 }),
+        loadViewInvoices(),
+      ]);
+    } catch (error) {
+      addToast(error.response?.data?.message || "Failed to cancel invoice", "error");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const toggleInvoiceSelection = (invoiceId, checked) => {
+    setSelectedInvoiceIds((current) =>
+      checked
+        ? [...new Set([...current, invoiceId])]
+        : current.filter((id) => id !== invoiceId),
+    );
+  };
+
+  const toggleAllVisibleInvoices = (checked) => {
+    setSelectedInvoiceIds(
+      checked
+        ? viewInvoices
+            .filter((invoice) => invoice.invoice_status !== "CANCELLED")
+            .map((invoice) => invoice.invoice_record_id)
+        : [],
+    );
   };
 
   const handlePrint = () => {
@@ -502,19 +639,53 @@ function InvoiceGenerator() {
           <div>
             <h1 className="text-3xl font-bold text-slate-900">Invoice Generator</h1>
             <p className="mt-1 text-slate-600">
-              Create GST invoices from sold stock with discounts and printable totals.
+              {canCreateInvoice
+                ? "Create GST invoices from sold stock with discounts and printable totals."
+                : "View saved GST invoices and print PDFs."}
             </p>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:justify-end">
-            <Button variant="secondary" icon={FaPlus} onClick={resetForm} className="w-full sm:w-auto">
-              New Invoice
-            </Button>
+            {canCreateInvoice && visibleTab === "create" ? (
+              <Button variant="secondary" icon={FaPlus} onClick={resetForm} className="w-full sm:w-auto">
+                New Invoice
+              </Button>
+            ) : null}
+            {visibleTab === "create" ? (
             <Button variant="primary" icon={FaPrint} onClick={handlePrint} className="w-full sm:w-auto">
               Print PDF
             </Button>
+            ) : null}
           </div>
         </div>
 
+        <div className="inline-flex w-full rounded-lg border border-[var(--border)] bg-white p-1 sm:w-auto">
+          {canCreateInvoice ? (
+            <button
+              type="button"
+              onClick={() => setActiveTab("create")}
+              className={`rounded-md px-3 py-1.5 text-xs font-semibold transition sm:min-w-32 ${
+                visibleTab === "create"
+                  ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
+                  : "text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              Create Invoice
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => setActiveTab("view")}
+            className={`rounded-md px-3 py-1.5 text-xs font-semibold transition sm:min-w-32 ${
+              visibleTab === "view"
+                ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
+                : "text-slate-600 hover:bg-slate-50"
+            }`}
+          >
+            View Invoice
+          </button>
+        </div>
+
+        {visibleTab === "create" ? (
         <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(320px,430px)]">
           <form onSubmit={handleSubmit} className="space-y-6">
             <Card>
@@ -735,12 +906,11 @@ function InvoiceGenerator() {
 
           <div className="min-w-0 space-y-6">
             <Card className="min-w-0">
-              <div className="mb-4">
-                <SearchBar
-                  value={search}
-                  onChange={handleSearchChange}
-                  placeholder="Search saved invoices"
-                />
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+                  Recent Invoices
+                </h2>
+                <span className="text-xs font-medium text-slate-500">Last 5</span>
               </div>
               <div className="space-y-2">
                 {recentInvoices.length ? recentInvoices.map((invoice) => (
@@ -767,20 +937,134 @@ function InvoiceGenerator() {
                   </p>
                 )}
               </div>
-              <div className="invoice-side-pagination">
-                <TablePagination
-                  pagination={invoicePagination}
-                  label="invoices"
-                  onPageChange={handleInvoicePageChange}
-                  onLimitChange={handleInvoiceLimitChange}
-                />
-              </div>
             </Card>
           </div>
         </div>
+        ) : (
+          <Card className="min-w-0">
+            <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+              <div className="w-full lg:max-w-md">
+                <SearchBar
+                  value={viewSearch}
+                  onChange={handleViewSearchChange}
+                  placeholder="Search invoices"
+                />
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                icon={FaEnvelope}
+                onClick={handleBulkSend}
+                loading={actionLoading}
+                disabled={!selectedInvoiceIds.length}
+                className="w-full lg:w-auto"
+              >
+                Send Selected
+              </Button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-border text-left text-sm">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={
+                          viewInvoices.length > 0 &&
+                          viewInvoices
+                            .filter((invoice) => invoice.invoice_status !== "CANCELLED")
+                            .every((invoice) => selectedInvoiceIds.includes(invoice.invoice_record_id))
+                        }
+                        onChange={(event) => toggleAllVisibleInvoices(event.target.checked)}
+                        className="h-4 w-4 accent-[var(--primary)]"
+                      />
+                    </th>
+                    {["Invoice", "Buyer", "Date", "Status", "Total", "Email", "Action"].map((label) => (
+                      <th key={label} className="px-4 py-3 text-xs font-bold uppercase text-slate-500">
+                        {label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border bg-white">
+                  {viewInvoices.map((invoice) => {
+                    const isCancelled = invoice.invoice_status === "CANCELLED";
+                    return (
+                      <tr key={invoice.invoice_record_id} className={isCancelled ? "bg-rose-50/40" : ""}>
+                        <td className="px-4 py-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedInvoiceIds.includes(invoice.invoice_record_id)}
+                            disabled={isCancelled}
+                            onChange={(event) => toggleInvoiceSelection(invoice.invoice_record_id, event.target.checked)}
+                            className="h-4 w-4 accent-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-40"
+                          />
+                        </td>
+                        <td className="px-4 py-3 font-semibold text-slate-900">{invoice.invoice_id}</td>
+                        <td className="px-4 py-3 text-slate-700">
+                          <div className="font-medium">{invoice.buyer?.name || "-"}</div>
+                          <div className="text-xs text-slate-500">{invoice.buyer?.email || "No email"}</div>
+                        </td>
+                        <td className="px-4 py-3 text-slate-700">{formatDateIST(invoice.invoice_date || invoice.created_at)}</td>
+                        <td className="px-4 py-3">
+                          <span className={`rounded-full px-2 py-1 text-xs font-semibold ${
+                            isCancelled ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"
+                          }`}>
+                            {invoiceStatusLabel(invoice.invoice_status)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 font-mono font-semibold text-slate-900">{formatMoney(invoice.final_total_amount)}</td>
+                        <td className="px-4 py-3 text-xs text-slate-500">
+                          {invoice.email_sent_count ? `Sent ${invoice.email_sent_count}` : "-"}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-1">
+                            <button type="button" title="View" onClick={() => openInvoicePreview(invoice)} className="rounded-lg p-2 text-slate-600 hover:bg-slate-100">
+                              <FaEye size={15} />
+                            </button>
+                            <button type="button" title="Print" onClick={() => { setSelectedInvoice(invoice); setTimeout(handlePrint, 0); }} className="rounded-lg p-2 text-[var(--primary)] hover:bg-indigo-50">
+                              <FaPrint size={15} />
+                            </button>
+                            <button type="button" title="Send email" disabled={isCancelled || !invoice.buyer?.email} onClick={() => handleSendInvoice(invoice)} className="rounded-lg p-2 text-sky-600 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-40">
+                              <FaEnvelope size={15} />
+                            </button>
+                            {canCancelInvoice ? (
+                              <button type="button" title="Cancel invoice" disabled={isCancelled} onClick={() => openCancelInvoice(invoice)} className="rounded-lg p-2 text-rose-600 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40">
+                                <FaBan size={15} />
+                              </button>
+                            ) : null}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {!viewInvoices.length ? (
+                    <tr>
+                      <td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-500">
+                        No invoices found.
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="border-t border-border pt-4">
+              <TablePagination
+                pagination={viewPagination}
+                label="invoices"
+                onPageChange={handleViewPageChange}
+                onLimitChange={handleViewLimitChange}
+                disabled={loading}
+              />
+            </div>
+          </Card>
+        )}
       </div>
 
-      <section className="invoice-print mt-8 overflow-hidden bg-white p-4 text-slate-950 shadow-sm sm:p-6 lg:p-8">
+      <section className={`invoice-print ${visibleTab === "create" ? "invoice-create-preview" : ""} relative mt-8 overflow-hidden bg-white p-4 text-slate-950 shadow-sm sm:p-6 lg:p-8`}>
+        <CancelledWatermark show={invoiceForPrint.invoice_status === "CANCELLED"} />
         <div className="border-b-2 border-slate-900 pb-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
             <div className="min-w-0">
@@ -940,7 +1224,7 @@ function InvoiceGenerator() {
           </p>
         ) : null}
 
-        <div className="mt-8 flex items-end justify-between gap-6 text-sm">
+        <div className="mt-16 flex items-end justify-between gap-6 pt-10 text-sm">
           <p className="text-slate-500">This is a computer generated invoice.</p>
           <div className="w-52 border-t border-slate-900 pt-2 text-center font-semibold">
             Authorised Signatory
@@ -948,12 +1232,155 @@ function InvoiceGenerator() {
         </div>
       </section>
 
-      <div className="invoice-screen mt-5 flex justify-end">
-        <Button variant="primary" icon={FaPrint} onClick={handlePrint} className="w-full sm:w-auto">
-          Print PDF
-        </Button>
-      </div>
+      <Modal
+        isOpen={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        title={`Invoice ${selectedInvoice?.invoice_id || ""}`}
+        size="6xl"
+      >
+        <div className="space-y-5">
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button type="button" variant="secondary" icon={FaPrint} onClick={handlePrint}>
+              Print
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              icon={FaEnvelope}
+              loading={actionLoading}
+              disabled={!selectedInvoice?.buyer?.email || selectedInvoice?.invoice_status === "CANCELLED"}
+              onClick={() => handleSendInvoice(selectedInvoice)}
+            >
+              Send
+            </Button>
+            {canCancelInvoice ? (
+              <Button
+                type="button"
+                variant="danger"
+                icon={FaBan}
+                disabled={selectedInvoice?.invoice_status === "CANCELLED"}
+                onClick={() => openCancelInvoice(selectedInvoice)}
+              >
+                Cancel
+              </Button>
+            ) : null}
+          </div>
+
+          <div className="relative overflow-hidden rounded-xl border border-border bg-white p-4">
+            <CancelledWatermark show={selectedInvoice?.invoice_status === "CANCELLED"} />
+            <div className="flex flex-col gap-3 border-b border-border pb-4 md:flex-row md:items-start md:justify-between">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Tax Invoice</p>
+                <h3 className="mt-1 text-xl font-bold text-slate-900">
+                  {selectedInvoice?.company?.company_name || selectedInvoice?.company?.brand_name || "Company"}
+                </h3>
+                <p className="mt-1 text-sm text-slate-600">{selectedInvoice?.company?.address || "-"}</p>
+              </div>
+              <div className="text-sm md:text-right">
+                <p><strong>{selectedInvoice?.invoice_id || "-"}</strong></p>
+                <p>{formatDateIST(selectedInvoice?.invoice_date || selectedInvoice?.created_at)}</p>
+                <p className={selectedInvoice?.invoice_status === "CANCELLED" ? "font-semibold text-rose-600" : "font-semibold text-emerald-600"}>
+                  {invoiceStatusLabel(selectedInvoice?.invoice_status)}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-4 border-b border-border py-4 md:grid-cols-2">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Bill To</p>
+                <p className="mt-1 font-semibold">{selectedInvoice?.buyer?.name || "-"}</p>
+                <p className="text-sm text-slate-600">{selectedInvoice?.buyer?.email || "-"}</p>
+                <p className="text-sm text-slate-600">{selectedInvoice?.buyer?.phone || "-"}</p>
+              </div>
+              <div className="text-sm text-slate-700 md:text-right">
+                <p>Payment: {selectedInvoice?.payment_method || "-"}</p>
+                <p>Status: {selectedInvoice?.payment_status || "-"}</p>
+                {selectedInvoice?.cancel_reason ? <p className="text-rose-600">Reason: {selectedInvoice.cancel_reason}</p> : null}
+              </div>
+            </div>
+
+            <div className="mt-4 overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead className="bg-slate-50">
+                  <tr>
+                    {["Item", "Qty", "Our Price", "GST", "Amount"].map((label) => (
+                      <th key={label} className="px-3 py-2 text-left text-xs font-bold uppercase text-slate-500">{label}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {(selectedInvoice?.items || []).map((item, index) => (
+                    <tr key={`${item.sku}-${index}`}>
+                      <td className="px-3 py-2">
+                        <div className="font-semibold text-slate-900">{item.name || "-"}</div>
+                        <div className="text-xs text-slate-500">{item.sku}</div>
+                      </td>
+                      <td className="px-3 py-2">{item.quantity}</td>
+                      <td className="px-3 py-2">{formatMoney(item.unit_price)}</td>
+                      <td className="px-3 py-2">{item.tax_percentage || 0}%</td>
+                      <td className="px-3 py-2 font-semibold">{formatMoney(item.total_price)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-4 flex justify-end">
+              <div className="w-full max-w-xs rounded-lg border border-border p-3 text-sm">
+                <div className="flex justify-between py-1"><span>Subtotal</span><strong>{formatMoney(selectedInvoice?.subtotal)}</strong></div>
+                <div className="flex justify-between py-1"><span>Discount</span><strong>{formatMoney(selectedInvoice?.total_discount)}</strong></div>
+                <div className="flex justify-between py-1"><span>GST</span><strong>{formatMoney(selectedInvoice?.total_tax)}</strong></div>
+                <div className="mt-2 flex justify-between border-t border-border pt-2 text-base"><span className="font-bold">Total</span><strong>{formatMoney(selectedInvoice?.final_total_amount)}</strong></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={cancelOpen}
+        onClose={() => setCancelOpen(false)}
+        title="Cancel Invoice"
+        size="lg"
+      >
+        <form onSubmit={handleCancelInvoice} className="space-y-4">
+          <p className="text-sm text-slate-600">
+            Please add a reason for cancelling invoice <strong>{selectedInvoice?.invoice_id}</strong>.
+          </p>
+          <Textarea
+            label="Cancellation Reason"
+            value={cancelReason}
+            onChange={setCancelReason}
+            rows={4}
+            required
+          />
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={() => setCancelOpen(false)} disabled={actionLoading}>
+              Close
+            </Button>
+            <Button type="submit" variant="danger" icon={FaBan} loading={actionLoading}>
+              Cancel Invoice
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </MainLayout>
+  );
+}
+
+function invoiceStatusLabel(status) {
+  return status === "CANCELLED" ? "Cancelled" : "Generated";
+}
+
+function CancelledWatermark({ show }) {
+  if (!show) return null;
+
+  return (
+    <div className="invoice-cancelled-watermark pointer-events-none absolute inset-0 z-10 flex items-center justify-center overflow-hidden">
+      <span className="select-none text-6xl font-black uppercase tracking-[0.24em] text-rose-600/15 sm:text-8xl">
+        CANCELLED
+      </span>
+    </div>
   );
 }
 

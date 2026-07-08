@@ -17,6 +17,7 @@ import TablePagination from "../components/common/TablePagination";
 import Textarea from "../components/common/Textarea";
 import { useToast } from "../context/useToast";
 import MainLayout from "../layouts/MainLayout";
+import { getMyDetails } from "../api/userApi";
 import { formatDateTimeIST, formatMoney } from "../utils/formatters";
 
 const emptyOrderForm = {
@@ -92,6 +93,7 @@ function Loyalty() {
   const [orderForm, setOrderForm] = useState(emptyOrderForm);
   const [redeemForm, setRedeemForm] = useState(emptyRedeemForm);
   const [cancelForm, setCancelForm] = useState(emptyCancelForm);
+  const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [savingOrder, setSavingOrder] = useState(false);
   const [redeeming, setRedeeming] = useState(false);
@@ -101,6 +103,7 @@ function Loyalty() {
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [cancelOpen, setCancelOpen] = useState(false);
   const { addToast } = useToast();
+  const canCancelLoyalty = String(currentUser?.role || "").toLowerCase() === "superadmin";
 
   const loadRecords = useCallback(async (nextFilters = filters, showLoader = false) => {
     try {
@@ -121,12 +124,14 @@ function Loyalty() {
     Promise.all([
       getLoyaltyConfig(),
       getLoyaltyRecords(defaultFilters),
+      getMyDetails(),
     ])
-      .then(([configResponse, recordsResponse]) => {
+      .then(([configResponse, recordsResponse, userResponse]) => {
         if (!isActive) return;
         setConfig(configResponse.data.data);
         setRecords(recordsResponse.data.data || []);
         setPagination(recordsResponse.data.pagination || { page: 1, limit: 10, total: 0, pages: 1 });
+        setCurrentUser(userResponse.data.data);
       })
       .catch((error) => {
         addToast(error.response?.data?.message || "Failed to load loyalty data", "error");
@@ -226,6 +231,7 @@ function Loyalty() {
   };
 
   const openCancel = (record) => {
+    if (!canCancelLoyalty) return;
     setCancelForm({
       ref_no: record.ref_no || "",
       email: record.email || "",
@@ -370,16 +376,18 @@ function Loyalty() {
                         >
                           <FaTicketAlt size={16} />
                         </button>
-                        <button
-                          type="button"
-                          className="rounded-lg p-2 text-[var(--destructive)] transition-colors hover:bg-rose-50 hover:text-[var(--destructive-hover)] disabled:cursor-not-allowed disabled:opacity-50"
-                          title="Cancel"
-                          aria-label="Cancel loyalty offer"
-                          onClick={(event) => stopAndRun(event, () => openCancel(record))}
-                          disabled={["REDEEMED", "CANCELLED"].includes(record.status)}
-                        >
-                          <FaBan size={16} />
-                        </button>
+                        {canCancelLoyalty ? (
+                          <button
+                            type="button"
+                            className="rounded-lg p-2 text-[var(--destructive)] transition-colors hover:bg-rose-50 hover:text-[var(--destructive-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+                            title="Cancel"
+                            aria-label="Cancel loyalty offer"
+                            onClick={(event) => stopAndRun(event, () => openCancel(record))}
+                            disabled={["REDEEMED", "CANCELLED"].includes(record.status)}
+                          >
+                            <FaBan size={16} />
+                          </button>
+                        ) : null}
                       </div>
                     </td>
                   </tr>

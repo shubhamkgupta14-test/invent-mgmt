@@ -33,3 +33,11 @@ class InvoiceCreate(BaseModel):
     payment_method: Optional[str] = Field(default="CASH", max_length=60)
     payment_status: Optional[str] = Field(default="PAID", max_length=40)
     notes: Optional[str] = Field(default="", max_length=500)
+
+
+class InvoiceCancelRequest(BaseModel):
+    reason: str = Field(..., min_length=3, max_length=500)
+
+
+class InvoiceBulkEmailRequest(BaseModel):
+    invoice_record_ids: List[str] = Field(..., min_length=1)

@@ -2,12 +2,15 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends
 
-from app.models.invoice import InvoiceCreate
+from app.models.invoice import InvoiceBulkEmailRequest, InvoiceCancelRequest, InvoiceCreate
 from app.services.auth_service import get_current_user
 from app.services.invoice_service import (
+    cancel_invoice,
     create_invoice,
     get_invoice,
     get_invoices,
+    send_bulk_invoice_emails,
+    send_invoice_email,
 )
 from app.utils.response import success_response
 
@@ -70,5 +73,45 @@ async def get_invoice_api(
 
     return success_response(
         message="Invoice fetched successfully",
+        data=result,
+    )
+
+
+@router.post("/{invoice_record_id}/cancel")
+async def cancel_invoice_api(
+    auth_user: user_dependency,
+    invoice_record_id: str,
+    payload: InvoiceCancelRequest,
+):
+    result = await cancel_invoice(auth_user, invoice_record_id, payload.reason)
+
+    return success_response(
+        message="Invoice cancelled successfully",
+        data=result,
+    )
+
+
+@router.post("/{invoice_record_id}/send-email")
+async def send_invoice_email_api(
+    auth_user: user_dependency,
+    invoice_record_id: str,
+):
+    result = await send_invoice_email(auth_user, invoice_record_id)
+
+    return success_response(
+        message="Invoice email sent successfully",
+        data=result,
+    )
+
+
+@router.post("/send-email/bulk")
+async def send_bulk_invoice_emails_api(
+    auth_user: user_dependency,
+    payload: InvoiceBulkEmailRequest,
+):
+    result = await send_bulk_invoice_emails(auth_user, payload.invoice_record_ids)
+
+    return success_response(
+        message="Bulk invoice email process completed",
         data=result,
     )

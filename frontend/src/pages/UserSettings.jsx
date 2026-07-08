@@ -39,6 +39,14 @@ const emptyProfileForm = {
 
 const OTP_BLOCKED_MESSAGE = "Too many wrong OTP attempts. Contact Super Admin to activate your account.";
 const sanitizeOtp = (value) => value.replace(/\D/g, "").slice(0, 6);
+const isFutureDate = (value) => {
+  if (!value) return false;
+  const normalizedValue = /[zZ]|[+-]\d{2}:\d{2}$/.test(value)
+    ? value
+    : `${value}Z`;
+  const date = new Date(normalizedValue);
+  return !Number.isNaN(date.getTime()) && date.getTime() > Date.now();
+};
 
 function FieldDisplay({ label, value }) {
   return (
@@ -84,11 +92,14 @@ function UserSettings() {
   useEffect(() => {
     let isActive = true;
 
-    const loadProfile = getMyDetails()
+    const loadProfile = getMyDetails({ force: true })
       .then((profileResponse) => {
         if (!isActive) return;
 
         const nextUser = profileResponse.data.data;
+        const otpStillPending =
+          !nextUser?.email_verified &&
+          isFutureDate(nextUser?.email_verification_pending_until);
 
         setUser(nextUser);
         setProfileForm({
@@ -96,6 +107,7 @@ function UserSettings() {
           lastname: nextUser?.lastname || "",
           email: nextUser?.email || "",
         });
+        setEmailOtpRequested(otpStillPending);
       })
       .catch((error) => {
         addToast(error.response?.data?.message || "Failed to load user details", "error");
@@ -124,6 +136,28 @@ function UserSettings() {
       isActive = false;
     };
   }, [addToast]);
+
+  useEffect(() => {
+    if (
+      !emailOtpRequested ||
+      !user?.email_verification_pending_until ||
+      !isFutureDate(user.email_verification_pending_until)
+    ) {
+      return undefined;
+    }
+
+    const normalizedValue = /[zZ]|[+-]\d{2}:\d{2}$/.test(user.email_verification_pending_until)
+      ? user.email_verification_pending_until
+      : `${user.email_verification_pending_until}Z`;
+    const timeoutMs = Math.max(new Date(normalizedValue).getTime() - Date.now(), 0);
+    const timeoutId = window.setTimeout(() => {
+      setEmailOtpRequested(false);
+      setEmailOtp("");
+      setEmailOtpError("");
+    }, timeoutMs);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [emailOtpRequested, user?.email_verification_pending_until]);
 
   const canEditCompany = user?.role === "superadmin";
 
@@ -222,8 +256,15 @@ function UserSettings() {
     try {
       setSendingEmailOtp(true);
       setEmailOtpError("");
-      await requestEmailVerification();
+      const response = await requestEmailVerification();
+      const expiresAt = response.data.data?.expires_at;
       setEmailOtpRequested(true);
+      if (expiresAt) {
+        setUser((current) => ({
+          ...current,
+          email_verification_pending_until: expiresAt,
+        }));
+      }
       addToast("Verification code sent to your email", "success");
     } catch (error) {
       addToast(error.response?.data?.message || "Failed to send verification code", "error");

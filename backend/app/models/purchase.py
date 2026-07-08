@@ -30,6 +30,8 @@ class PurchaseItem(BaseModel):
     quantity: int = Field(..., gt=0,
                           description="Quantity of product purchased")
     unit_price: float = Field(..., gt=0, description="Purchase price per unit")
+    actual_price: Optional[float] = Field(default=None, ge=0,
+                                          description="Optional MRP / actual price for stock")
     discount_percentage: float = Field(default=0, ge=0, le=100,
                                        description="Discount percentage applied on item")
 

@@ -118,6 +118,13 @@ function PurchaseForm({ products, onSubmit }) {
     event.preventDefault();
     onSubmit({
       ...form,
+      items: form.items.map((item) => ({
+        ...item,
+        actual_price:
+          item.actual_price === "" || item.actual_price === undefined
+            ? undefined
+            : Number(item.actual_price || 0),
+      })),
       total_amount: calculateTotal(),
     });
   };

@@ -335,9 +335,11 @@ async def increase_stock(
     quantity: int,
     unit_price: float,
     supplier_id: str = None,
-    barcode: str = None
+    barcode: str = None,
+    actual_price: float = None
 ):
     barcode = normalize_barcode(barcode)
+    actual_price = round_price(actual_price) if actual_price is not None else None
 
     existing_stock = await stocks_collection.find_one({
         "sku": sku
@@ -367,7 +369,7 @@ async def increase_stock(
                 quantity
             ),
             "min_selling_price": _default_selling_price_for_stock(avg_price, tax_rate),
-            "actual_price": _default_selling_price_for_stock(avg_price, tax_rate),
+            "actual_price": actual_price if actual_price is not None else _default_selling_price_for_stock(avg_price, tax_rate),
             "created_at": datetime.now(UTC),
             "updated_at": datetime.now(UTC)
         }
@@ -433,7 +435,7 @@ async def increase_stock(
         "avg_price": avg_price,
         "inventory_value": inventory_value,
         "min_selling_price": _default_selling_price_for_stock(avg_price, tax_rate),
-        "actual_price": existing_stock.get(
+        "actual_price": actual_price if actual_price is not None else existing_stock.get(
             "actual_price",
             existing_stock.get("min_selling_price", _default_selling_price_for_stock(avg_price, tax_rate)),
         ),

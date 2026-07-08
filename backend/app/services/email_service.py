@@ -2,11 +2,16 @@ import smtplib
 from html import escape
 from email.message import EmailMessage
 from email.utils import formataddr
+from datetime import UTC, datetime, timedelta
 
 from fastapi.concurrency import run_in_threadpool
 
+from app.database.mongodb import db
 from app.services.company_service import get_company_brand_name
 from app.utils.settings import Settings
+
+users_collection = db.users
+mail_collection = db.mail_messages
 
 
 class EmailNotConfiguredError(RuntimeError):
@@ -23,6 +28,7 @@ def _send_email_sync(
     body: str,
     from_name: str = None,
     html_body: str = None,
+    attachments: list[dict] = None,
 ):
     if not _smtp_configured():
         if Settings.ENVIRONMENT.lower() in ["dev", "development", "local", "test"]:
@@ -37,6 +43,13 @@ def _send_email_sync(
     message.set_content(body)
     if html_body:
         message.add_alternative(html_body, subtype="html")
+    for attachment in attachments or []:
+        message.add_attachment(
+            attachment["content"],
+            maintype=attachment.get("maintype", "application"),
+            subtype=attachment.get("subtype", "octet-stream"),
+            filename=attachment.get("filename"),
+        )
 
     with smtplib.SMTP(Settings.SMTP_HOST, Settings.SMTP_PORT, timeout=15) as server:
         if Settings.SMTP_USE_TLS:
@@ -54,6 +67,7 @@ async def send_email(
     body: str,
     from_name: str = None,
     html_body: str = None,
+    attachments: list[dict] = None,
 ):
     return await run_in_threadpool(
         _send_email_sync,
@@ -62,6 +76,7 @@ async def send_email(
         body,
         from_name,
         html_body,
+        attachments,
     )
 
 
@@ -154,6 +169,48 @@ def build_otp_email_template(
     return text_body, html_body
 
 
+def _is_dev_like_environment():
+    return Settings.ENVIRONMENT.lower() in ["dev", "development", "local", "test"]
+
+
+async def _send_dev_mailer_otp(to_email: str, subject: str, body: str, html_body: str):
+    user = await users_collection.find_one({
+        "email": (to_email or "").strip().lower(),
+        "active": True,
+    })
+    if not user:
+        return {"sent": False, "reason": "user_not_found"}
+
+    now = datetime.now(UTC)
+    brand_name = await get_company_brand_name()
+    display_name = " ".join(
+        part for part in [user.get("firstname"), user.get("lastname")] if part
+    ).strip() or user.get("username")
+    expire_days = 1 if _is_dev_like_environment() else 30
+
+    await mail_collection.insert_one({
+        "owner_username": user.get("username"),
+        "folder": "inbox",
+        "from_username": "system",
+        "from_name": f"{brand_name} Mailer",
+        "from_email": "",
+        "to_username": user.get("username"),
+        "to_name": display_name,
+        "to_email": user.get("email", ""),
+        "subject": subject,
+        "body": body,
+        "html_body": html_body,
+        "signature": "",
+        "system_generated": True,
+        "read": False,
+        "starred": False,
+        "created_at": now,
+        "updated_at": now,
+        "expire_at": now + timedelta(days=expire_days),
+    })
+    return {"sent": True, "channel": "mailer"}
+
+
 async def send_password_reset_otp(to_email: str, otp: str):
     if Settings.ENVIRONMENT.lower() in ["dev", "development", "local", "test"]:
         print(f"[DEV OTP] Password reset OTP for {to_email}: {otp}")
@@ -173,7 +230,7 @@ async def send_password_reset_otp(to_email: str, otp: str):
 
 
 async def send_email_verification_otp(to_email: str, otp: str):
-    if Settings.ENVIRONMENT.lower() in ["dev", "development", "local", "test"]:
+    if _is_dev_like_environment():
         print(f"[DEV OTP] Email verification OTP for {to_email}: {otp}")
 
     brand_name = await get_company_brand_name()
@@ -187,4 +244,7 @@ async def send_email_verification_otp(to_email: str, otp: str):
         reason="email verification",
         theme="teal",
     )
+    if _is_dev_like_environment():
+        await _send_dev_mailer_otp(to_email, subject, body, html_body)
+
     return await send_email(to_email, subject, body, brand_name, html_body)

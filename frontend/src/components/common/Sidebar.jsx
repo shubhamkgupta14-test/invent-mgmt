@@ -18,8 +18,10 @@ import {
   FaBell,
   FaDatabase,
   FaGift,
+  FaEnvelope,
 } from "react-icons/fa";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { getMail } from "../../api/mailerApi";
 import { getMyDetails } from "../../api/userApi";
 import { clearToken } from "../../utils/authUtils";
 import useCompanySettings from "../../hooks/useCompanySettings";
@@ -32,6 +34,7 @@ function Sidebar({ onNavigate, onClose }) {
   const [profileImageUrl, setProfileImageUrl] = useState("");
   const [role, setRole] = useState("");
   const [failedLogoUrl, setFailedLogoUrl] = useState("");
+  const [mailUnreadCount, setMailUnreadCount] = useState(0);
   const navRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
@@ -62,18 +65,33 @@ function Sidebar({ onNavigate, onClose }) {
       });
   }, []);
 
+  const loadMailerUnread = useCallback((isActive = true) => {
+    getMail({ folder: "inbox" })
+      .then((response) => {
+        if (!isActive) return;
+        setMailUnreadCount(response.data.data?.unread_count || 0);
+      })
+      .catch(() => {
+        if (isActive) setMailUnreadCount(0);
+      });
+  }, []);
+
   useEffect(() => {
     let isActive = true;
     const handleUserChange = () => loadUser(isActive);
+    const handleMailerChange = () => loadMailerUnread(isActive);
 
     loadUser(isActive);
+    loadMailerUnread(isActive);
     window.addEventListener("user:changed", handleUserChange);
+    window.addEventListener("mailer:changed", handleMailerChange);
 
     return () => {
       isActive = false;
       window.removeEventListener("user:changed", handleUserChange);
+      window.removeEventListener("mailer:changed", handleMailerChange);
     };
-  }, [loadUser]);
+  }, [loadUser, loadMailerUnread]);
 
   useEffect(() => {
     navRef.current?.scrollTo({ top: 0 });
@@ -109,6 +127,7 @@ function Sidebar({ onNavigate, onClose }) {
     { icon: FaUndo, label: "Return", path: "/returns" },
     { icon: FaExchangeAlt, label: "Exchange", path: "/exchanges" },
     { icon: FaUsers, label: "Suppliers", path: "/suppliers" },
+    { icon: FaEnvelope, label: "Mailer", path: "/mailer", badge: mailUnreadCount },
   ];
 
   const superAdminItems = [
@@ -202,7 +221,12 @@ function Sidebar({ onNavigate, onClose }) {
                 className={({ isActive }) => navLinkClass(isActive)}
               >
                 <item.icon size={18} className="flex-shrink-0" />
-                <span>{item.label}</span>
+                <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                {item.badge > 0 && (
+                  <span className="rounded-full bg-indigo-500 px-2 py-0.5 text-[11px] font-bold text-white">
+                    {item.badge > 99 ? "99+" : item.badge}
+                  </span>
+                )}
               </NavLink>
             </li>
           ))}
