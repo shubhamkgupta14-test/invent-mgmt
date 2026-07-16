@@ -76,7 +76,7 @@ class ModelValidationTests(unittest.TestCase):
     def test_create_user_allows_optional_lastname(self):
         user = CreateUserRequest(
             username="admin1",
-            password="secret",
+            password="Secret1!",
             firstname="Admin",
             email="admin@example.com",
             role=UserRole.ADMIN,

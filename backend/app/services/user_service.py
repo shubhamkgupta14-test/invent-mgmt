@@ -20,6 +20,7 @@ from app.utils.responseBuilder import build_user_response
 from app.utils.settings import Settings
 from app.utils.image_upload import validate_and_reencode_image
 from app.services.supplier_service import OWN_COMPANY_SUPPLIER_KEY
+from app.config.collections import CLEANABLE_COLLECTIONS
 
 from app.models.auth import UserRole
 from app.utils.messages import Messages
@@ -51,25 +52,8 @@ def _delete_uploaded_file(url: str):
         target.unlink()
 
 SUPERADMIN_CLEANABLE_COLLECTIONS = {
-    "api-logs": db.api_logs,
-    "app-config": db.app_config,
-    "audits": db.audits,
-    "company-settings": db.company_settings,
-    "exchanges": db.exchanges,
-    "invoices": db.invoices,
-    "loyalty": db.loyalty,
-    "manufacturing": db.manufacturing,
-    "mailer": db.mail_messages,
-    "notification-reads": db.notification_reads,
-    "notifications": db.notifications,
-    "otp-records": db.password_otps,
-    "products": db.products,
-    "purchases": db.purchases,
-    "returns": db.returns,
-    "sales": db.sales,
-    "stocks": db.stocks,
-    "suppliers": db.suppliers,
-    "users": db.users,
+    key: db[collection_name]
+    for key, collection_name in CLEANABLE_COLLECTIONS.items()
 }
 
 # CREATE USER
@@ -414,11 +398,11 @@ async def clean_database_collections(auth_user: dict, collections: list[str]):
 
         result[collection_name] = delete_result.deleted_count
 
-        if collection_name == "notifications":
+        if collection_name == "notifications" and "notification-reads" not in selected_collections:
             read_delete_result = await db.notification_reads.delete_many({})
             result["notification_reads"] = read_delete_result.deleted_count
 
-        if collection_name == "invoices":
+        if collection_name == "invoices" and "invoice-counters" not in selected_collections:
             counter_delete_result = await db.invoice_counters.delete_many({})
             result["invoice_counters"] = counter_delete_result.deleted_count
 

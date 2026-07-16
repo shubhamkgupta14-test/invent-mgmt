@@ -19,8 +19,8 @@ async def create_default_superadmin():
     username = os.getenv("SUPERADMIN_USERNAME")
     password = os.getenv("SUPERADMIN_PASSWORD")
     email = os.getenv("SUPERADMIN_EMAIL") or "superadmin@example.com"
-    firstname = os.getenv("SUPERADMIN_FIRSTNAME") or "Super"
-    lastname = os.getenv("SUPERADMIN_LASTNAME") or "Admin"
+    firstname = "Super"
+    lastname = "Admin"
 
     if not existing_superadmin:
         if not username or not password:

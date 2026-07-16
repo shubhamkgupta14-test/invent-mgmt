@@ -24,6 +24,7 @@ import { useToast } from "../context/useToast";
 import { toggleSort } from "../utils/sortUtils";
 import { defaultPagination, listParams, parseListResponse } from "../utils/tableQuery";
 import { downloadExcel } from "../utils/excelExport";
+import { configValue } from "../config/appConfig";
 
 const BULK_UPLOAD_HEADERS = [
   "SKU",
@@ -43,7 +44,7 @@ const BULK_UPLOAD_HEADERS = [
 ];
 const BULK_UPLOAD_MAX_FILE_SIZE_MB = 5;
 const BULK_UPLOAD_MAX_FILE_SIZE = BULK_UPLOAD_MAX_FILE_SIZE_MB * 1024 * 1024;
-const BULK_UPLOAD_MAX_ROWS = Number(import.meta.env.VITE_BULK_UPLOAD_MAX_ROWS || 51);
+const BULK_UPLOAD_MAX_ROWS = configValue("bulkUploadMaxRows", 51);
 const BULK_UPLOAD_SAMPLE_ROWS = [
   {
     SKU: "SKU-001",

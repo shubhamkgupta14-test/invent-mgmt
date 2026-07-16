@@ -2,7 +2,6 @@ from fastapi import FastAPI, Request
 from contextlib import asynccontextmanager
 from datetime import datetime, UTC
 
-from app.seeds.superadmin_seed import create_default_superadmin
 from fastapi.exceptions import (
     HTTPException,
     RequestValidationError
@@ -62,13 +61,11 @@ Settings.validate_security_configuration()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # create_default_superadmin()
     brand_name = await get_company_brand_name()
     app.title = f"{brand_name} Inventory API"
     print(f"\n🚀 Starting up the {brand_name} Inventory API...\n")
     await create_indexes()
     await redact_sensitive_api_log_headers()
-    await create_default_superadmin()
     yield
     brand_name = await get_company_brand_name()
     print(f"\n🛑 Shutting down the {brand_name} Inventory API...\n")

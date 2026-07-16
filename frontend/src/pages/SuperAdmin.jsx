@@ -21,6 +21,10 @@ import { cleanDatabase, getMyDetails } from "../api/userApi";
 import { useToast } from "../context/useToast";
 import MainLayout from "../layouts/MainLayout";
 import { formatDateTimeIST } from "../utils/formatters";
+import {
+  CLEAN_OPTIONS,
+  DEFAULT_CLEAN_COLLECTIONS,
+} from "../config/cleanupConfig";
 
 const roleOptions = [
   { label: "User", value: "user" },
@@ -28,27 +32,7 @@ const roleOptions = [
   { label: "Super Admin", value: "superadmin" },
 ];
 
-const cleanOptions = [
-  { label: "API Request Logs", value: "api-logs" },
-  { label: "App Config", value: "app-config" },
-  { label: "Activity Audit Trail", value: "audits" },
-  { label: "Company Settings", value: "company-settings" },
-  { label: "Exchanges", value: "exchanges" },
-  { label: "Emails / Mailer", value: "mailer" },
-  { label: "Invoices", value: "invoices" },
-  { label: "Loyalty Records", value: "loyalty" },
-  { label: "Manufacturing", value: "manufacturing" },
-  { label: "Notification Read Status", value: "notification-reads" },
-  { label: "Notifications", value: "notifications" },
-  { label: "OTP / Verification Records", value: "otp-records" },
-  { label: "Products", value: "products" },
-  { label: "Purchases", value: "purchases" },
-  { label: "Returns", value: "returns" },
-  { label: "Sales", value: "sales" },
-  { label: "Stocks", value: "stocks" },
-  { label: "Suppliers", value: "suppliers" },
-  { label: "Users", value: "users" },
-];
+const cleanOptions = CLEAN_OPTIONS;
 
 const emptyNotificationForm = {
   title: "",
@@ -73,9 +57,7 @@ const audienceOptions = [
 ];
 
 const adminTabs = ["users", "notifications", "audits", "api-logs", "cleanup"];
-const cleanDbCollectionValues = cleanOptions
-  .filter((option) => !["users", "company-settings"].includes(option.value))
-  .map((option) => option.value);
+const cleanDbCollectionValues = DEFAULT_CLEAN_COLLECTIONS;
 
 const typeBorderClasses = {
   INFO: "border-l-sky-500",

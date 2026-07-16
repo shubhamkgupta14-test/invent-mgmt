@@ -1,32 +1,26 @@
-import { defineConfig, loadEnv } from "vite";
+import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
-import process from "node:process";
+import { configValue } from "./src/config/appConfig.js";
 
 // https://vite.dev/config/
-export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), "VITE_");
-
-  return {
-    plugins: [react(), tailwindcss()],
-    server: {
-      host: env.VITE_DEV_SERVER_HOST || undefined,
-      port: env.VITE_DEV_SERVER_PORT
-        ? Number(env.VITE_DEV_SERVER_PORT)
-        : undefined,
-      proxy: {
-        "/api": {
-          target: env.VITE_API_PROXY_TARGET || "http://localhost:8000",
-          changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api/, ""),
-        },
-      },
-      headers: {
-        "X-Content-Type-Options": "nosniff",
-        "X-Frame-Options": "DENY",
-        "Referrer-Policy": "strict-origin-when-cross-origin",
-        "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
+export default defineConfig({
+  plugins: [react(), tailwindcss()],
+  server: {
+    host: configValue("devServerHost", undefined),
+    port: configValue("devServerPort", undefined),
+    proxy: {
+      "/api": {
+        target: configValue("apiProxyTarget", "http://localhost:8000"),
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ""),
       },
     },
-  };
+    headers: {
+      "X-Content-Type-Options": "nosniff",
+      "X-Frame-Options": "DENY",
+      "Referrer-Policy": "strict-origin-when-cross-origin",
+      "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
+    },
+  },
 });
