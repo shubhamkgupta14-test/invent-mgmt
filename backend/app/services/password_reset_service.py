@@ -87,7 +87,10 @@ async def _expire_pending_otps(user_id: str):
 
 
 def _public_response(dev_otp: str = None):
-    response = {"sent": True}
+    response = {
+        "sent": True,
+        "resend_cooldown_seconds": Settings.PASSWORD_RESET_RESEND_COOLDOWN_SECONDS,
+    }
     if Settings.EXPOSE_DEV_OTP and dev_otp:
         response["dev_otp"] = dev_otp
     return response

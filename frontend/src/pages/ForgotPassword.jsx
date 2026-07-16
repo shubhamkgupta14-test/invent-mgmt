@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { FaEye, FaEyeSlash } from "react-icons/fa";
 import {
   confirmPasswordReset,
   requestPasswordResetOtp,
@@ -10,6 +11,36 @@ import Input from "../components/common/Input";
 import DevOtpPanel from "../components/common/DevOtpPanel";
 import useCompanySettings from "../hooks/useCompanySettings";
 const sanitizeOtp = (value) => value.replace(/\D/g, "").slice(0, 6);
+const DEFAULT_RESEND_COOLDOWN_SECONDS = 60;
+
+const formatCountdown = (seconds) => {
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(remainingSeconds).padStart(2, "0")}`;
+};
+
+const getInlineError = (error, fallback) => {
+  const apiMessage = error?.response?.data?.message;
+  if (typeof apiMessage === "string") return apiMessage;
+  if (apiMessage && typeof apiMessage === "object") {
+    const descriptions = Array.isArray(apiMessage.description)
+      ? apiMessage.description
+      : apiMessage.description ? [apiMessage.description] : [];
+    return descriptions.length
+      ? `${apiMessage.title || "Validation failed"}: ${descriptions.join(" ")}`
+      : apiMessage.title || fallback;
+  }
+  return fallback;
+};
+
+const validatePassword = (password) => {
+  if (password.length < 8) return "Password must be at least 8 characters.";
+  if (password.length > 128) return "Password must be 128 characters or fewer.";
+  if (!/[A-Za-z]/.test(password)) return "Password must contain at least one letter.";
+  if (!/\d/.test(password)) return "Password must contain at least one number.";
+  if (!/[^A-Za-z0-9]/.test(password)) return "Password must contain at least one special character.";
+  return "";
+};
 
 function ForgotPassword() {
   const [step, setStep] = useState("request");
@@ -18,12 +49,32 @@ function ForgotPassword() {
   const [resetToken, setResetToken] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [otpError, setOtpError] = useState("");
   const [devOtp, setDevOtp] = useState("");
+  const [resendCooldown, setResendCooldown] = useState(0);
   const { brand } = useCompanySettings();
+
+  useEffect(() => {
+    if (step !== "otp" || resendCooldown <= 0) return undefined;
+    const timer = window.setInterval(() => {
+      setResendCooldown((current) => Math.max(0, current - 1));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [resendCooldown, step]);
+
+  const applyOtpResponse = (response) => {
+    setDevOtp(response.data?.data?.dev_otp || "");
+    setResendCooldown(
+      Number(response.data?.data?.resend_cooldown_seconds) ||
+        DEFAULT_RESEND_COOLDOWN_SECONDS,
+    );
+    setMessage(response.data?.message || "If the account exists, an OTP has been sent.");
+  };
 
   const submitIdentifier = async (event) => {
     event.preventDefault();
@@ -39,11 +90,27 @@ function ForgotPassword() {
     try {
       setLoading(true);
       const response = await requestPasswordResetOtp(identifier.trim());
-      setDevOtp(response.data?.data?.dev_otp || "");
-      setMessage(response.data?.message || "If the account exists, an OTP has been sent.");
+      applyOtpResponse(response);
       setStep("otp");
     } catch (error) {
-      setError(error.response?.data?.message || "Unable to request OTP.");
+      setError(getInlineError(error, "Unable to request OTP."));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resendOtp = async () => {
+    if (loading || resendCooldown > 0) return;
+    setError("");
+    setOtpError("");
+    setMessage("");
+    try {
+      setLoading(true);
+      const response = await requestPasswordResetOtp(identifier.trim());
+      applyOtpResponse(response);
+      setOtp("");
+    } catch (error) {
+      setError(getInlineError(error, "Unable to resend OTP."));
     } finally {
       setLoading(false);
     }
@@ -65,11 +132,11 @@ function ForgotPassword() {
       const response = await verifyPasswordResetOtp(identifier.trim(), otp.trim());
       setResetToken(response.data?.data?.reset_token || "");
       setDevOtp("");
+      setResendCooldown(0);
       setMessage("OTP verified. Set a new password.");
       setStep("password");
     } catch (error) {
-      const errorMessage = error.response?.data?.message || "Invalid or expired OTP.";
-      setError(errorMessage);
+      setError(getInlineError(error, "Invalid or expired OTP."));
     } finally {
       setLoading(false);
     }
@@ -85,13 +152,19 @@ function ForgotPassword() {
       return;
     }
 
+    const passwordError = validatePassword(newPassword);
+    if (passwordError) {
+      setError(passwordError);
+      return;
+    }
+
     try {
       setLoading(true);
       await confirmPasswordReset(resetToken, newPassword);
       setMessage("Password updated. You can sign in now.");
       setStep("done");
     } catch (error) {
-      setError(error.response?.data?.message || "Unable to update password.");
+      setError(getInlineError(error, "Unable to update password."));
     } finally {
       setLoading(false);
     }
@@ -148,6 +221,17 @@ function ForgotPassword() {
             <Button type="submit" className="w-full" loading={loading}>
               Verify code
             </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              className="w-full"
+              onClick={resendOtp}
+              disabled={loading || resendCooldown > 0}
+            >
+              {resendCooldown > 0
+                ? `Resend code in ${formatCountdown(resendCooldown)}`
+                : "Resend verification code"}
+            </Button>
           </form>
         )}
 
@@ -155,18 +239,40 @@ function ForgotPassword() {
           <form onSubmit={submitPassword} className="space-y-5">
             <Input
               label="New password"
-              type="password"
+              type={showNewPassword ? "text" : "password"}
               value={newPassword}
               onChange={setNewPassword}
               disabled={loading}
+              endAdornment={
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword((current) => !current)}
+                  className="rounded-md p-1 text-slate-500 transition hover:text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                  aria-label={showNewPassword ? "Hide new password" : "Show new password"}
+                  title={showNewPassword ? "Hide password" : "Show password"}
+                >
+                  {showNewPassword ? <FaEyeSlash size={17} /> : <FaEye size={17} />}
+                </button>
+              }
               required
             />
             <Input
               label="Confirm new password"
-              type="password"
+              type={showConfirmPassword ? "text" : "password"}
               value={confirmPassword}
               onChange={setConfirmPassword}
               disabled={loading}
+              endAdornment={
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword((current) => !current)}
+                  className="rounded-md p-1 text-slate-500 transition hover:text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                  aria-label={showConfirmPassword ? "Hide confirmed password" : "Show confirmed password"}
+                  title={showConfirmPassword ? "Hide password" : "Show password"}
+                >
+                  {showConfirmPassword ? <FaEyeSlash size={17} /> : <FaEye size={17} />}
+                </button>
+              }
               required
             />
             <p className="-mt-3 text-xs text-slate-500">At least 8 characters with one letter, one number, and one special character.</p>

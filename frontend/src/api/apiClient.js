@@ -1,5 +1,6 @@
 import axios from "axios";
 import { clearAuthState, getCsrfToken } from "../utils/authUtils";
+import { createValidationToast } from "../utils/validationErrors";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -32,6 +33,15 @@ API.interceptors.response.use(
   (error) => {
     const requestUrl = error.config?.url || "";
     const isLoginRequest = requestUrl.includes("/auth/login");
+
+    if (
+      error.response?.status === 422 &&
+      error.response?.data?.message === "Validation failed"
+    ) {
+      error.response.data.message = createValidationToast(
+        error.response.data.data,
+      );
+    }
 
     if (error.response?.status === 401 && !isLoginRequest) {
       clearAuthState();

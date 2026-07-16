@@ -83,7 +83,8 @@ class PasswordResetServiceTests(unittest.IsolatedAsyncioTestCase):
             password_reset_service.users_collection = original_users
             password_reset_service.password_otps_collection = original_otps
 
-        self.assertEqual(result, {"sent": True})
+        self.assertEqual(result["sent"], True)
+        self.assertEqual(result["resend_cooldown_seconds"], 60)
         self.assertEqual(fake_otps.inserted, [])
         send_mock.assert_not_awaited()
 
@@ -108,7 +109,8 @@ class PasswordResetServiceTests(unittest.IsolatedAsyncioTestCase):
             password_reset_service.users_collection = original_users
             password_reset_service.password_otps_collection = original_otps
 
-        self.assertEqual(result, {"sent": True})
+        self.assertEqual(result["sent"], True)
+        self.assertEqual(result["resend_cooldown_seconds"], 60)
         self.assertEqual(fake_otps.inserted, [])
         send_mock.assert_not_awaited()
 

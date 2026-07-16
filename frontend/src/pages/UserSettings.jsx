@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { FaBuilding, FaCamera, FaKey, FaPlus, FaTrash, FaUserCircle } from "react-icons/fa";
+import { FaBuilding, FaCamera, FaEye, FaEyeSlash, FaKey, FaPlus, FaTrash, FaUserCircle } from "react-icons/fa";
 import {
   changePassword,
   getMyDetails,
@@ -69,6 +69,21 @@ function DetailItem({ label, value }) {
   );
 }
 
+function PasswordEyeButton({ visible, onToggle, label, disabled }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      disabled={disabled}
+      className="rounded-md p-1 text-slate-500 transition hover:text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 disabled:cursor-not-allowed disabled:opacity-50"
+      aria-label={`${visible ? "Hide" : "Show"} ${label}`}
+      title={visible ? "Hide password" : "Show password"}
+    >
+      {visible ? <FaEyeSlash size={17} /> : <FaEye size={17} />}
+    </button>
+  );
+}
+
 function UserSettings() {
   const [user, setUser] = useState(null);
   const [profileForm, setProfileForm] = useState(emptyProfileForm);
@@ -84,6 +99,11 @@ function UserSettings() {
   const [loading, setLoading] = useState(true);
   const [savingPassword, setSavingPassword] = useState(false);
   const [passwordForm, setPasswordForm] = useState(emptyPasswordForm);
+  const [passwordVisibility, setPasswordVisibility] = useState({
+    current: false,
+    new: false,
+    confirm: false,
+  });
   const [passwordError, setPasswordError] = useState("");
   const [companySettings, setCompanySettings] = useState(DEFAULT_COMPANY_SETTINGS);
   const [savingCompany, setSavingCompany] = useState(false);
@@ -606,27 +626,51 @@ function UserSettings() {
           <form onSubmit={handlePasswordSubmit} className="grid gap-4 lg:grid-cols-3">
             <Input
               label="Current password"
-              type="password"
+              type={passwordVisibility.current ? "text" : "password"}
               value={passwordForm.current_password}
               onChange={(value) => updatePasswordField("current_password", value)}
               disabled={savingPassword}
+              endAdornment={
+                <PasswordEyeButton
+                  visible={passwordVisibility.current}
+                  onToggle={() => setPasswordVisibility((current) => ({ ...current, current: !current.current }))}
+                  label="current password"
+                  disabled={savingPassword}
+                />
+              }
               required
             />
             <p className="text-xs text-slate-500 lg:col-span-3">New passwords require at least 8 characters, one letter, one number, and one special character.</p>
             <Input
               label="New password"
-              type="password"
+              type={passwordVisibility.new ? "text" : "password"}
               value={passwordForm.new_password}
               onChange={(value) => updatePasswordField("new_password", value)}
               disabled={savingPassword}
+              endAdornment={
+                <PasswordEyeButton
+                  visible={passwordVisibility.new}
+                  onToggle={() => setPasswordVisibility((current) => ({ ...current, new: !current.new }))}
+                  label="new password"
+                  disabled={savingPassword}
+                />
+              }
               required
             />
             <Input
               label="Confirm new password"
-              type="password"
+              type={passwordVisibility.confirm ? "text" : "password"}
               value={passwordForm.confirm_password}
               onChange={(value) => updatePasswordField("confirm_password", value)}
               disabled={savingPassword}
+              endAdornment={
+                <PasswordEyeButton
+                  visible={passwordVisibility.confirm}
+                  onToggle={() => setPasswordVisibility((current) => ({ ...current, confirm: !current.confirm }))}
+                  label="confirmed password"
+                  disabled={savingPassword}
+                />
+              }
               required
             />
 
