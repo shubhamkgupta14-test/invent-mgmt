@@ -14,7 +14,7 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 LOCAL_MONGO_URL = "mongodb://localhost:27017"
-DEFAULT_DATABASE_NAME = "inventory_management"
+DEFAULT_DATABASE_NAME = "inventory"
 
 
 def prompt_value(
@@ -74,11 +74,16 @@ def load_seed_environment(environment: str | None) -> Path | None:
         )
 
     suffix = {
-        "dev": "local",
-        "development": "local",
+        "dev": "dev",
+        "development": "dev",
         "production": "prod",
+        "test": "test",
     }.get(normalized, normalized)
-    environment_file = BACKEND_DIR / f".env.{suffix}"
+    environment_file = (
+        BACKEND_DIR / ".env"
+        if suffix == "dev"
+        else BACKEND_DIR / f".env.{suffix}"
+    )
     if not environment_file.is_file():
         raise FileNotFoundError(
             f"Environment file was not found: {environment_file}"

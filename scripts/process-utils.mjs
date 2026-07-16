@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 export const ROOT_DIR = resolve(import.meta.dirname, "..");
@@ -12,4 +13,16 @@ export function pythonExecutable() {
 
 export function npmExecutable() {
   return process.platform === "win32" ? "npm.cmd" : "npm";
+}
+
+export function envFileValue(filePath, name, fallback) {
+  try {
+    const line = readFileSync(filePath, "utf8")
+      .split(/\r?\n/)
+      .find((entry) => entry.trim().startsWith(`${name}=`));
+    if (!line) return fallback;
+    return line.slice(line.indexOf("=") + 1).trim().replace(/^(['"])(.*)\1$/, "$2") || fallback;
+  } catch {
+    return fallback;
+  }
 }

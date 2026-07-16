@@ -8,7 +8,22 @@ from dotenv import load_dotenv
 
 from app.config.defaults import app_default
 
-load_dotenv(dotenv_path=Path(__file__).resolve().parents[2] / ".env")
+BACKEND_DIR = Path(__file__).resolve().parents[2]
+load_dotenv(dotenv_path=BACKEND_DIR / ".env")
+
+_requested_environment = (os.getenv("ENVIRONMENT") or "dev").strip().lower()
+_environment_suffix = {
+    "dev": "dev",
+    "development": "dev",
+    "production": "prod",
+}.get(_requested_environment, _requested_environment)
+_environment_file = (
+    BACKEND_DIR / ".env"
+    if _environment_suffix == "dev"
+    else BACKEND_DIR / f".env.{_environment_suffix}"
+)
+if _environment_file.is_file():
+    load_dotenv(dotenv_path=_environment_file, override=True)
 
 
 def env_int(name: str, default: int):
