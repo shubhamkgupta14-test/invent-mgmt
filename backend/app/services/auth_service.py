@@ -1,4 +1,5 @@
-from jose import jwt, JWTError
+import jwt
+from jwt import InvalidTokenError
 import hmac
 from bson import ObjectId
 from datetime import datetime, timedelta, timezone
@@ -55,7 +56,7 @@ async def get_current_user(request: Request):
         if not user_id:
             forbidden_or_expired()
 
-    except JWTError:
+    except InvalidTokenError:
         forbidden_or_expired()
 
     user = await user_collection.find_one({"_id": ObjectId(user_id)})
@@ -66,6 +67,9 @@ async def get_current_user(request: Request):
     if not user.get("active"):
         forbidden(Messages.USER_INACTIVE)
 
+    if int(payload.get("ver", -1)) != int(user.get("token_version", 0)):
+        forbidden_or_expired()
+
     return {
         "user_id": user_id,
         "username": user.get("username"),
@@ -73,7 +77,7 @@ async def get_current_user(request: Request):
     }
 
 
-def create_access_token(user_id: str, username: str, role: str):
+def create_access_token(user_id: str, username: str, role: str, token_version: int = 0):
     expire = datetime.now(timezone.utc) + \
         timedelta(minutes=Settings.ACCESS_TOKEN_EXPIRE_MINUTES)
 
@@ -81,6 +85,7 @@ def create_access_token(user_id: str, username: str, role: str):
         "sub": str(user_id),
         "username": username,
         "role": role,
+        "ver": int(token_version),
         "exp": expire
     }
 
@@ -107,7 +112,8 @@ async def get_token_service(username: str, password: str):
     token = create_access_token(
         user.get("_id"),
         user.get("username"),
-        user.get("role")
+        user.get("role"),
+        user.get("token_version", 0),
     )
 
     return {

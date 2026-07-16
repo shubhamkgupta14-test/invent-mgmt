@@ -212,9 +212,6 @@ async def _send_dev_mailer_otp(to_email: str, subject: str, body: str, html_body
 
 
 async def send_password_reset_otp(to_email: str, otp: str):
-    if Settings.ENVIRONMENT.lower() in ["dev", "development", "local", "test"]:
-        print(f"[DEV OTP] Password reset OTP for {to_email}: {otp}")
-
     brand_name = await get_company_brand_name()
     subject = f"Reset your {brand_name} password"
     body, html_body = build_otp_email_template(
@@ -230,9 +227,6 @@ async def send_password_reset_otp(to_email: str, otp: str):
 
 
 async def send_email_verification_otp(to_email: str, otp: str):
-    if _is_dev_like_environment():
-        print(f"[DEV OTP] Email verification OTP for {to_email}: {otp}")
-
     brand_name = await get_company_brand_name()
     subject = f"Verify your {brand_name} email"
     body, html_body = build_otp_email_template(

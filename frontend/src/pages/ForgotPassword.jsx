@@ -7,11 +7,8 @@ import {
 } from "../api/authApi";
 import Button from "../components/common/Button";
 import Input from "../components/common/Input";
+import DevOtpPanel from "../components/common/DevOtpPanel";
 import useCompanySettings from "../hooks/useCompanySettings";
-import { clearAuthState } from "../utils/authUtils";
-import { logoutUser } from "../api/authApi";
-
-const OTP_ATTEMPTS_EXCEEDED_MESSAGE = "Maximum OTP attempts exceeded";
 const sanitizeOtp = (value) => value.replace(/\D/g, "").slice(0, 6);
 
 function ForgotPassword() {
@@ -25,6 +22,7 @@ function ForgotPassword() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [otpError, setOtpError] = useState("");
+  const [devOtp, setDevOtp] = useState("");
   const { brand } = useCompanySettings();
 
   const submitIdentifier = async (event) => {
@@ -41,6 +39,7 @@ function ForgotPassword() {
     try {
       setLoading(true);
       const response = await requestPasswordResetOtp(identifier.trim());
+      setDevOtp(response.data?.data?.dev_otp || "");
       setMessage(response.data?.message || "If the account exists, an OTP has been sent.");
       setStep("otp");
     } catch (error) {
@@ -65,17 +64,12 @@ function ForgotPassword() {
       setLoading(true);
       const response = await verifyPasswordResetOtp(identifier.trim(), otp.trim());
       setResetToken(response.data?.data?.reset_token || "");
+      setDevOtp("");
       setMessage("OTP verified. Set a new password.");
       setStep("password");
     } catch (error) {
       const errorMessage = error.response?.data?.message || "Invalid or expired OTP.";
       setError(errorMessage);
-      if (errorMessage === OTP_ATTEMPTS_EXCEEDED_MESSAGE) {
-        logoutUser().catch(() => {}).finally(() => clearAuthState("/"));
-        window.setTimeout(() => {
-          window.location.href = "/";
-        }, 1200);
-      }
     } finally {
       setLoading(false);
     }
@@ -132,6 +126,7 @@ function ForgotPassword() {
 
         {step === "otp" && (
           <form onSubmit={submitOtp} className="space-y-5" noValidate>
+            <DevOtpPanel otp={devOtp} />
             <Input
               label="Verification code"
               value={otp}
@@ -174,6 +169,7 @@ function ForgotPassword() {
               disabled={loading}
               required
             />
+            <p className="-mt-3 text-xs text-slate-500">At least 8 characters with one letter, one number, and one special character.</p>
             <Button type="submit" className="w-full" loading={loading}>
               Update password
             </Button>

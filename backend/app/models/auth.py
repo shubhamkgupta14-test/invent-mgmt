@@ -1,7 +1,25 @@
-from pydantic import BaseModel, Field
-from typing import List, Optional
+from pydantic import AfterValidator, Field
+from app.models.base import SecureBaseModel
+from typing import Annotated, List, Optional
 from datetime import datetime
 import enum
+
+
+def validate_strong_password(value: str):
+    if not any(character.isalpha() for character in value):
+        raise ValueError("Password must include at least one letter")
+    if not any(character.isdigit() for character in value):
+        raise ValueError("Password must include at least one number")
+    if not any(not character.isalnum() for character in value):
+        raise ValueError("Password must include at least one special character")
+    return value
+
+
+StrongPassword = Annotated[
+    str,
+    Field(min_length=8, max_length=128),
+    AfterValidator(validate_strong_password),
+]
 
 class UserRole(str, enum.Enum):
     USER = "user"
@@ -9,9 +27,9 @@ class UserRole(str, enum.Enum):
     SUPERADMIN = "superadmin"
 
 
-class Users(BaseModel):
+class Users(SecureBaseModel):
     username: str = Field(..., min_length=3, max_length=50)
-    password: str = Field(..., min_length=5)
+    password: StrongPassword
     firstname: str = Field(..., min_length=1, max_length=50)
     lastname: Optional[str] = Field(default="", max_length=50)
     email: str = Field(..., pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -23,9 +41,9 @@ class Users(BaseModel):
         default_factory=datetime.utcnow, description="Last updated timestamp")
 
 
-class CreateUserRequest(BaseModel):
+class CreateUserRequest(SecureBaseModel):
     username: str = Field(..., min_length=3, max_length=50)
-    password: str = Field(..., min_length=5)
+    password: StrongPassword
     firstname: str = Field(..., min_length=1, max_length=50)
     lastname: Optional[str] = Field(default="", max_length=50)
     email: str = Field(..., pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -33,60 +51,60 @@ class CreateUserRequest(BaseModel):
     active: bool = Field(default=True)
 
 
-class GetUserRequest(BaseModel):
+class GetUserRequest(SecureBaseModel):
     username: str = Field(..., min_length=3, max_length=50)
 
 
-class ActivateUserRequest(BaseModel):
+class ActivateUserRequest(SecureBaseModel):
     username: str = Field(..., min_length=3, max_length=50)
 
 
-class DeleteUserRequest(BaseModel):
+class DeleteUserRequest(SecureBaseModel):
     username: str = Field(..., min_length=3, max_length=50)
     permanent: bool = Field(default=False)
 
 
-class UpdateUserRoleRequest(BaseModel):
+class UpdateUserRoleRequest(SecureBaseModel):
     username: str = Field(..., min_length=3, max_length=50)
     role: UserRole
 
 
-class CleanDatabaseRequest(BaseModel):
-    collections: List[str] = Field(..., min_length=1)
+class CleanDatabaseRequest(SecureBaseModel):
+    collections: List[str] = Field(..., min_length=1, max_length=25)
 
 
-class ChangePasswordRequest(BaseModel):
+class ChangePasswordRequest(SecureBaseModel):
     current_password: str = Field(..., min_length=5)
-    new_password: str = Field(..., min_length=5)
+    new_password: StrongPassword
 
 
-class UpdateProfileRequest(BaseModel):
+class UpdateProfileRequest(SecureBaseModel):
     firstname: str = Field(..., min_length=1, max_length=50)
     lastname: Optional[str] = Field(default="", max_length=50)
     email: str = Field(..., pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
-class VerifyEmailRequest(BaseModel):
+class VerifyEmailRequest(SecureBaseModel):
     otp: str = Field(..., min_length=4, max_length=10)
 
 
-class LoginRequest(BaseModel):
+class LoginRequest(SecureBaseModel):
     username: str = Field(..., min_length=3, max_length=50)
-    password: str = Field(..., min_length=5)
+    password: str = Field(..., min_length=1, max_length=128)
 
 
-class PasswordResetRequest(BaseModel):
+class PasswordResetRequest(SecureBaseModel):
     identifier: str = Field(..., min_length=3, max_length=100)
 
 
-class PasswordResetVerifyOtpRequest(BaseModel):
+class PasswordResetVerifyOtpRequest(SecureBaseModel):
     identifier: str = Field(..., min_length=3, max_length=100)
     otp: str = Field(..., min_length=4, max_length=10)
 
 
-class PasswordResetConfirmRequest(BaseModel):
-    reset_token: str = Field(..., min_length=20)
-    new_password: str = Field(..., min_length=5)
+class PasswordResetConfirmRequest(SecureBaseModel):
+    reset_token: str = Field(..., min_length=20, max_length=128)
+    new_password: StrongPassword
 
 
 class UserResponse(Users):
@@ -95,6 +113,6 @@ class UserResponse(Users):
     updated_at: datetime
 
 
-class Token(BaseModel):
+class Token(SecureBaseModel):
     access_token: str
     token_type: str

@@ -3,6 +3,7 @@ import os
 from datetime import datetime
 from app.models.auth import UserRole
 from app.utils.helpers import hash_password
+from app.models.auth import validate_strong_password
 from app.utils.settings import Settings
 from app.services.company_service import company_settings_collection, SETTINGS_KEY
 from app.services.supplier_service import ensure_own_company_supplier
@@ -26,6 +27,7 @@ async def create_default_superadmin():
             raise RuntimeError(
                 "SUPERADMIN_USERNAME and SUPERADMIN_PASSWORD must be set before creating the first superadmin"
             )
+        validate_strong_password(password)
 
         superadmin_data = {
             "username": username,
@@ -35,6 +37,7 @@ async def create_default_superadmin():
             "email": email,
             "role": UserRole.SUPERADMIN,
             "active": True,
+            "token_version": 0,
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow()
         }

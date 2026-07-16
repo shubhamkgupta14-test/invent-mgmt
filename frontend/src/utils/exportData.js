@@ -1,4 +1,4 @@
-import * as XLSX from "xlsx";
+import { downloadExcel } from "./excelExport";
 
 const safeText = (value) => {
   if (value === null || value === undefined || value === "") return "-";
@@ -27,15 +27,13 @@ const normalizeRows = (rows, columns) =>
 
 const timestamp = () => new Date().toISOString().slice(0, 10);
 
-export const exportToExcel = ({ rows, columns, filename, sheetName = "Data" }) => {
-  const worksheet = XLSX.utils.json_to_sheet(normalizeRows(rows, columns));
-  worksheet["!cols"] = columns.map((column) => ({
-    wch: Math.max(column.header.length + 2, 14),
-  }));
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, sheetName.slice(0, 31));
-  XLSX.writeFile(workbook, `${filename}-${timestamp()}.xlsx`);
-};
+export const exportToExcel = ({ rows, columns, filename, sheetName = "Data" }) =>
+  downloadExcel({
+    headers: columns.map((column) => column.header),
+    rows: normalizeRows(rows, columns),
+    filename: `${filename}-${timestamp()}.xlsx`,
+    sheetName,
+  });
 
 export const exportToPdf = ({ rows, columns, title, company = {} }) => {
   const tableRows = normalizeRows(rows, columns);

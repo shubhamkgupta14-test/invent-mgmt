@@ -14,6 +14,7 @@ import { getCompanySettings, resetCompanyLogo, updateCompanySettings, uploadComp
 import Button from "../components/common/Button";
 import Card from "../components/common/Card";
 import Input from "../components/common/Input";
+import DevOtpPanel from "../components/common/DevOtpPanel";
 import Loader from "../components/common/Loader";
 import RoleBadge from "../components/common/RoleBadge";
 import { useToast } from "../context/useToast";
@@ -38,7 +39,6 @@ const emptyProfileForm = {
   email: "",
 };
 
-const OTP_BLOCKED_MESSAGE = "Too many wrong OTP attempts. Contact Super Admin to activate your account.";
 const sanitizeOtp = (value) => value.replace(/\D/g, "").slice(0, 6);
 const isFutureDate = (value) => {
   if (!value) return false;
@@ -77,6 +77,7 @@ function UserSettings() {
   const [resettingProfileImage, setResettingProfileImage] = useState(false);
   const [emailOtp, setEmailOtp] = useState("");
   const [emailOtpError, setEmailOtpError] = useState("");
+  const [emailDevOtp, setEmailDevOtp] = useState("");
   const [emailOtpRequested, setEmailOtpRequested] = useState(false);
   const [sendingEmailOtp, setSendingEmailOtp] = useState(false);
   const [verifyingEmail, setVerifyingEmail] = useState(false);
@@ -210,7 +211,10 @@ function UserSettings() {
         new_password: passwordForm.new_password,
       });
       setPasswordForm(emptyPasswordForm);
-      addToast("Password updated successfully", "success");
+      addToast("Password updated. Please sign in again.", "success");
+      await logoutUser().catch(() => {});
+      clearAuthState("/settings");
+      window.location.href = "/";
     } catch (error) {
       setPasswordError(error.response?.data?.message || "Failed to update password.");
     } finally {
@@ -258,6 +262,7 @@ function UserSettings() {
       setSendingEmailOtp(true);
       setEmailOtpError("");
       const response = await requestEmailVerification();
+      setEmailDevOtp(response.data.data?.dev_otp || "");
       const expiresAt = response.data.data?.expires_at;
       setEmailOtpRequested(true);
       if (expiresAt) {
@@ -293,16 +298,11 @@ function UserSettings() {
       setEmailOtp("");
       setEmailOtpError("");
       setEmailOtpRequested(false);
+      setEmailDevOtp("");
       addToast("Email verified successfully", "success");
     } catch (error) {
       const message = error.response?.data?.message || "Invalid or expired verification code";
       addToast(message, "error");
-      if (message === OTP_BLOCKED_MESSAGE) {
-        logoutUser().catch(() => {}).finally(() => clearAuthState("/settings"));
-        window.setTimeout(() => {
-          window.location.href = "/";
-        }, 1200);
-      }
     } finally {
       setVerifyingEmail(false);
     }
@@ -554,6 +554,7 @@ function UserSettings() {
                   </Button>
                   {emailOtpRequested && (
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                      <DevOtpPanel otp={emailDevOtp} />
                       <div className="sm:w-36">
                         <Input
                           label="OTP"
@@ -611,6 +612,7 @@ function UserSettings() {
               disabled={savingPassword}
               required
             />
+            <p className="text-xs text-slate-500 lg:col-span-3">New passwords require at least 8 characters, one letter, one number, and one special character.</p>
             <Input
               label="New password"
               type="password"

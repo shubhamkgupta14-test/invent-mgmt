@@ -1,4 +1,5 @@
 from io import BytesIO
+from zipfile import BadZipFile, ZipFile
 
 from fastapi import UploadFile
 
@@ -47,6 +48,24 @@ async def read_bulk_excel(file: UploadFile, headers: list[str], header_map: dict
         bad_request(f"File size must be {Settings.BULK_UPLOAD_MAX_FILE_SIZE_MB}MB or less")
 
     try:
+        with ZipFile(BytesIO(contents)) as archive:
+            entries = archive.infolist()
+            total_uncompressed = sum(entry.file_size for entry in entries)
+            if len(entries) > 200:
+                bad_request("Excel file contains too many internal entries")
+            if total_uncompressed > Settings.BULK_UPLOAD_MAX_UNCOMPRESSED_MB * 1024 * 1024:
+                bad_request("Excel file expands beyond the allowed size")
+            for entry in entries:
+                if entry.flag_bits & 0x1:
+                    bad_request("Encrypted Excel files are not allowed")
+                if entry.file_size > 10 * 1024 * 1024:
+                    bad_request("An Excel file entry is too large")
+                if entry.compress_size and entry.file_size / entry.compress_size > 200:
+                    bad_request("Excel file compression ratio is unsafe")
+    except BadZipFile:
+        bad_request("Invalid .xlsx Excel file")
+
+    try:
         from openpyxl import load_workbook
     except ImportError:
         bad_request("Excel upload support is not installed on the server")
@@ -56,6 +75,11 @@ async def read_bulk_excel(file: UploadFile, headers: list[str], header_map: dict
         sheet = workbook.active
     except Exception as exc:
         bad_request(f"Unable to read Excel file: {exc}")
+
+    if sheet.max_row > Settings.BULK_UPLOAD_MAX_ROWS + 1:
+        bad_request(f"Maximum {Settings.BULK_UPLOAD_MAX_ROWS} rows allowed")
+    if sheet.max_column > 100:
+        bad_request("Excel file contains too many columns")
 
     header_row = next(sheet.iter_rows(min_row=1, max_row=1, values_only=True), None)
     if not header_row:

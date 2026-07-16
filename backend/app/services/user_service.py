@@ -18,6 +18,7 @@ from app.utils.helpers import (
 from app.utils.pagination import paginate_collection, regex_filter, validate_sort_field
 from app.utils.responseBuilder import build_user_response
 from app.utils.settings import Settings
+from app.utils.image_upload import validate_and_reencode_image
 from app.services.supplier_service import OWN_COMPANY_SUPPLIER_KEY
 
 from app.models.auth import UserRole
@@ -32,12 +33,6 @@ from app.core.exceptions import (
 user_collection = db.users
 password_otps_collection = db.password_otps
 EMAIL_VERIFICATION_PURPOSE = "EMAIL_VERIFICATION"
-ALLOWED_IMAGE_TYPES = {
-    "image/jpeg": ".jpg",
-    "image/png": ".png",
-    "image/webp": ".webp",
-    "image/gif": ".gif",
-}
 UPLOAD_DIR = Path(Settings.UPLOAD_DIR)
 
 
@@ -110,6 +105,7 @@ async def create_user(auth_user: dict, user_data: dict):
     user_data["updated_at"] = datetime.now(UTC)
     user_data["active"] = user_data.get("active", True)
     user_data["email_verified"] = False
+    user_data["token_version"] = 0
     user_data["password"] = hash_password(user_data.get("password"))
 
     result = await user_collection.insert_one(user_data)
@@ -450,6 +446,7 @@ async def change_password(auth_user: dict, current_password: str, new_password: 
         {
             "$set": {
                 "password": hash_password(new_password),
+                "token_version": int(user.get("token_version", 0)) + 1,
                 "updated_at": datetime.now(UTC),
             }
         },
@@ -497,13 +494,7 @@ async def update_my_profile_image(auth_user: dict, file: UploadFile):
     if not user:
         not_found(Messages.USER_NOT_FOUND)
 
-    extension = ALLOWED_IMAGE_TYPES.get(file.content_type)
-    if not extension:
-        bad_request("Only JPG, PNG, WEBP, or GIF images are allowed")
-
-    contents = await file.read()
-    if len(contents) > 2 * 1024 * 1024:
-        bad_request("Image size must be 2MB or less")
+    contents, extension = await validate_and_reencode_image(file)
 
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     filename = f"user-profile-{username}-{uuid4().hex}{extension}"
@@ -604,6 +595,7 @@ async def request_email_verification(auth_user: dict):
         "sent": True,
         "verified": False,
         "expires_at": expires_at.isoformat(),
+        **({"dev_otp": otp} if Settings.EXPOSE_DEV_OTP else {}),
     }
 
 
@@ -628,10 +620,6 @@ async def verify_email(auth_user: dict, otp: str):
             {"$set": {"attempts": attempts, "status": status, "updated_at": now}},
         )
         if is_blocked:
-            await user_collection.update_one(
-                {"username": username},
-                {"$set": {"active": False, "updated_at": datetime.now(UTC)}},
-            )
             bad_request(Messages.OTP_USER_BLOCKED)
         remaining = max(max_attempts - attempts, 0)
         bad_request(Messages.OTP_INVALID_WITH_ATTEMPTS.format(remaining=remaining))

@@ -177,7 +177,7 @@ function UserManagement({ currentUsername }) {
             Create User
           </Button>
         </form>
-        <p className="mt-2 text-xs text-slate-500">New accounts are active and assigned the User role by default.</p>
+        <p className="mt-2 text-xs text-slate-500">New accounts are active with the User role. Passwords require 8+ characters, one letter, one number, and one special character.</p>
       </Card>
 
       <Card>

@@ -86,8 +86,11 @@ async def _expire_pending_otps(user_id: str):
     )
 
 
-def _public_response():
-    return {"sent": True}
+def _public_response(dev_otp: str = None):
+    response = {"sent": True}
+    if Settings.EXPOSE_DEV_OTP and dev_otp:
+        response["dev_otp"] = dev_otp
+    return response
 
 
 async def request_password_reset_otp(identifier: str, request_ip: str = None, user_agent: str = None):
@@ -131,7 +134,7 @@ async def request_password_reset_otp(identifier: str, request_ip: str = None, us
     })
 
     await send_password_reset_otp(user.get("email"), otp)
-    return _public_response()
+    return _public_response(otp)
 
 
 async def verify_password_reset_otp(identifier: str, otp: str):
@@ -157,10 +160,6 @@ async def verify_password_reset_otp(identifier: str, otp: str):
             {"_id": record.get("_id")},
             {"$set": {"status": OTP_STATUS_BLOCKED, "updated_at": now}},
         )
-        await users_collection.update_one(
-            {"_id": user.get("_id")},
-            {"$set": {"active": False, "updated_at": now}},
-        )
         bad_request(Messages.OTP_ATTEMPTS_EXCEEDED)
 
     if not hmac.compare_digest(record.get("otp_hash", ""), _secret_hash((otp or "").strip())):
@@ -173,10 +172,6 @@ async def verify_password_reset_otp(identifier: str, otp: str):
             {"$set": {"attempts": attempts, "status": status, "updated_at": now}},
         )
         if is_blocked:
-            await users_collection.update_one(
-                {"_id": user.get("_id")},
-                {"$set": {"active": False, "updated_at": now}},
-            )
             bad_request(Messages.OTP_ATTEMPTS_EXCEEDED)
         remaining = max(max_attempts - attempts, 0)
         bad_request(Messages.OTP_INVALID_WITH_ATTEMPTS.format(remaining=remaining))
@@ -225,6 +220,7 @@ async def confirm_password_reset(reset_token: str, new_password: str):
         {
             "$set": {
                 "password": hash_password(new_password),
+                "token_version": int(user.get("token_version", 0)) + 1,
                 "updated_at": now,
             }
         },

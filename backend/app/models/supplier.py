@@ -1,9 +1,10 @@
-from pydantic import BaseModel, Field
+from pydantic import Field
+from app.models.base import SecureBaseModel
 from typing import Optional
 from datetime import datetime
 
 
-class SupplierBase(BaseModel):
+class SupplierBase(SecureBaseModel):
     name: str = Field(..., min_length=2, max_length=200,
                       description="Supplier name")
     email: Optional[str] = Field(default=None, max_length=200,
@@ -27,7 +28,7 @@ class SupplierCreate(SupplierBase):
     pass
 
 
-class SupplierUpdate(BaseModel):
+class SupplierUpdate(SecureBaseModel):
     name: Optional[str] = Field(default=None, min_length=2, max_length=200)
     email: Optional[str] = Field(default=None, max_length=200)
     phone: Optional[str] = Field(default=None, max_length=10)

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FaChevronDown, FaDownload, FaUpload } from "react-icons/fa";
-import * as XLSX from "xlsx";
 import MainLayout from "../layouts/MainLayout";
 import SearchBar from "../components/common/SearchBar";
 import ProductTable from "../components/pages/product/ProductTable";
@@ -24,6 +23,7 @@ import { getMyDetails } from "../api/userApi";
 import { useToast } from "../context/useToast";
 import { toggleSort } from "../utils/sortUtils";
 import { defaultPagination, listParams, parseListResponse } from "../utils/tableQuery";
+import { downloadExcel } from "../utils/excelExport";
 
 const BULK_UPLOAD_HEADERS = [
   "SKU",
@@ -177,16 +177,13 @@ function Inventory() {
     bulkUploadInputRef.current?.click();
   };
 
-  const handleDownloadBulkSample = () => {
-    const worksheet = XLSX.utils.json_to_sheet(BULK_UPLOAD_SAMPLE_ROWS, {
-      header: BULK_UPLOAD_HEADERS,
+  const handleDownloadBulkSample = async () => {
+    await downloadExcel({
+      headers: BULK_UPLOAD_HEADERS,
+      rows: BULK_UPLOAD_SAMPLE_ROWS,
+      filename: "inventory-bulk-upload-sample.xlsx",
+      sheetName: "Inventory",
     });
-    worksheet["!cols"] = BULK_UPLOAD_HEADERS.map((header) => ({
-      wch: Math.max(header.length + 2, 14),
-    }));
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Inventory");
-    XLSX.writeFile(workbook, "inventory-bulk-upload-sample.xlsx");
     setBulkMenuOpen(false);
   };
 

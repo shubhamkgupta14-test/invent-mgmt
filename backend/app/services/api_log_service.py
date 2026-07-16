@@ -11,13 +11,26 @@ API_TRACING_CONFIG_KEY = "api_tracing"
 API_TRACING_ENABLED = None
 
 
+async def redact_sensitive_api_log_headers():
+    await api_logs_collection.update_many(
+        {},
+        {
+            "$unset": {
+                "request_headers.cookie": "",
+                "request_headers.authorization": "",
+                "request_headers.x-csrf-token": "",
+            }
+        },
+    )
+
+
 async def is_api_tracing_enabled():
     global API_TRACING_ENABLED
     if API_TRACING_ENABLED is not None:
         return API_TRACING_ENABLED
 
     config = await app_config_collection.find_one({"config_key": API_TRACING_CONFIG_KEY})
-    API_TRACING_ENABLED = bool(config.get("enabled", True)) if config else True
+    API_TRACING_ENABLED = bool(config.get("enabled", False)) if config else False
     return API_TRACING_ENABLED
 
 

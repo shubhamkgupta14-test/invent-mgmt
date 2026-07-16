@@ -44,13 +44,18 @@ from app.routes.api_logs import router as api_logs_router
 from app.routes.company_routes import router as company_router
 from app.routes.loyalty_routes import router as loyalty_router
 from app.middleware.api_logger import ApiLoggingMiddleware
+from app.middleware.security_headers import SecurityHeadersMiddleware
+from app.middleware.request_size import RequestSizeLimitMiddleware
 from app.services.company_service import get_company_brand_name
+from app.services.api_log_service import redact_sensitive_api_log_headers
 from app.utils.settings import Settings
 from app.utils.response import failure_response
 from fastapi.responses import JSONResponse
 from pathlib import Path
 
 STARTED_AT = datetime.now(UTC)
+
+Settings.validate_security_configuration()
 
 # STARTUP EVENT
 
@@ -62,6 +67,7 @@ async def lifespan(app: FastAPI):
     app.title = f"{brand_name} Inventory API"
     print(f"\n🚀 Starting up the {brand_name} Inventory API...\n")
     await create_indexes()
+    await redact_sensitive_api_log_headers()
     await create_default_superadmin()
     yield
     brand_name = await get_company_brand_name()
@@ -70,18 +76,23 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=f"{Settings.DEFAULT_BRAND_NAME} Inventory API",
-    lifespan=lifespan
+    lifespan=lifespan,
+    docs_url="/docs" if Settings.API_DOCS_ENABLED else None,
+    redoc_url="/redoc" if Settings.API_DOCS_ENABLED else None,
+    openapi_url="/openapi.json" if Settings.API_DOCS_ENABLED else None,
 )
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=Settings.ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
+    allow_headers=["Accept", "Content-Type", "X-CSRF-Token"],
 )
 
 app.add_middleware(ApiLoggingMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RequestSizeLimitMiddleware)
 
 upload_dir = Path(Settings.UPLOAD_DIR)
 upload_dir.mkdir(parents=True, exist_ok=True)

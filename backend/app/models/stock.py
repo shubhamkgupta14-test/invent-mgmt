@@ -1,6 +1,7 @@
 from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+from app.models.base import SecureBaseModel
 from typing import Literal, Optional
 
 
@@ -10,7 +11,7 @@ class StockStatus(str, Enum):
     OUT_OF_STOCK = "OUT_OF_STOCK"
 
 
-class StockResponse(BaseModel):
+class StockResponse(SecureBaseModel):
     sku: str
     name: str
     quantity: int = Field(
@@ -30,7 +31,7 @@ class StockResponse(BaseModel):
     updated_at: Optional[str] = None
 
 
-class SellingPriceChargeOverrides(BaseModel):
+class SellingPriceChargeOverrides(SecureBaseModel):
     marketplace_commission: Optional[float] = Field(default=None, ge=0)
     shipping_charges: Optional[float] = Field(default=None, ge=0)
     platform_fees: Optional[float] = Field(default=None, ge=0)
@@ -42,7 +43,7 @@ class SellingPriceChargeOverrides(BaseModel):
     promotion: Optional[float] = Field(default=None, ge=0)
 
 
-class SellingPriceChargeSettings(BaseModel):
+class SellingPriceChargeSettings(SecureBaseModel):
     marketplace_commission: float = Field(default=0, ge=0)
     shipping_charges: Optional[float] = Field(default=None, ge=0)
     platform_fees_percent: float = Field(default=5, ge=0)
@@ -56,11 +57,11 @@ class SellingPriceChargeSettings(BaseModel):
     promotion_percent: float = Field(default=5, ge=0)
 
 
-class SellingPriceCalculationRequest(BaseModel):
-    sku: str = Field(..., min_length=2)
+class SellingPriceCalculationRequest(SecureBaseModel):
+    sku: str = Field(..., min_length=2, max_length=50)
     dead_weight: float = Field(default=0, ge=0)
     volumetric_weight: float = Field(default=0, ge=0)
-    packing_types: list[Literal["Cardbox", "Pollybag"]] = Field(default_factory=list)
+    packing_types: list[Literal["Cardbox", "Pollybag"]] = Field(default_factory=list, max_length=2)
     packing_size: Literal["S", "M", "L"] = "S"
     overrides: SellingPriceChargeOverrides = Field(
         default_factory=SellingPriceChargeOverrides
@@ -72,9 +73,9 @@ class SellingPriceCalculationRequest(BaseModel):
     save_default: bool = False
 
 
-class StockActualPriceUpdate(BaseModel):
+class StockActualPriceUpdate(SecureBaseModel):
     actual_price: float = Field(default=0, ge=0)
 
 
-class StockBarcodeUpdate(BaseModel):
+class StockBarcodeUpdate(SecureBaseModel):
     barcode: Optional[str] = Field(default=None, max_length=128)

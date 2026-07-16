@@ -281,6 +281,7 @@ function MessagePreview({
           <iframe
             title={message.subject || "Mail preview"}
             srcDoc={message.html_body}
+            sandbox=""
             className="h-full min-h-[560px] w-full rounded-xl border border-border bg-white"
           />
         ) : (
