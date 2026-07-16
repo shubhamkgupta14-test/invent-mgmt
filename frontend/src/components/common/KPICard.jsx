@@ -42,38 +42,42 @@ export function KPICard({
   const DeltaIcon = deltaStyle.icon;
 
   return (
-    <div className="flex min-h-[148px] flex-col rounded-2xl border border-[var(--border)] bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</p>
-        <div
-          className={`${bgColor} flex h-9 w-9 items-center justify-center rounded-xl`}
-        >
-          <Icon className={`${iconColor} text-base`} />
+    <div className="group relative flex overflow-hidden rounded-xl border border-[var(--border)] bg-white p-3 shadow-sm transition-shadow hover:shadow-md">
+      <div
+        className={`${bgColor} absolute -right-3 -top-3 flex h-20 w-20 rotate-6 items-center justify-center rounded-[1.75rem] opacity-70 transition-transform duration-300 group-hover:rotate-0 group-hover:scale-105`}
+        aria-hidden="true"
+      >
+        <Icon className={`${iconColor} text-4xl opacity-80`} />
+      </div>
+
+      <div className="relative z-10 flex min-w-0 flex-1 flex-col">
+        <p className="pr-16 text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</p>
+
+        <div className="mt-1 pr-16">
+          <p className="font-mono text-xl font-bold leading-6 text-slate-900">{value}</p>
         </div>
-      </div>
 
-      <div className="mt-4">
-        <p className="font-mono text-2xl font-bold text-slate-900">{value}</p>
-        {subtitle && <p className="mt-1 text-sm text-slate-600">{subtitle}</p>}
-      </div>
-
-      <div className="mt-auto pt-4">
-        {delta && (
-          <div className="flex min-h-5 items-center gap-2 text-[10px]">
-            <span
-              className={`inline-flex items-center gap-1 rounded-full px-1.5 py-px font-semibold ${deltaStyle.bg} ${deltaStyle.color}`}
-            >
-              <DeltaIcon size={9} />
-              {delta}
-            </span>
-            <span className="font-medium text-slate-500">{deltaLabel}</span>
-          </div>
-        )}
-        {!delta && footerText && (
-          <p className="min-h-5 text-xs font-medium text-slate-500">
-            {footerText}
+        <div className="mt-4 flex min-h-4 items-center justify-between gap-2 text-[10px]">
+          <p className="min-w-0 truncate font-medium text-slate-500">
+            {subtitle}
           </p>
-        )}
+          {delta && (
+            <div className="flex shrink-0 items-center gap-1.5">
+              <span
+                className={`inline-flex items-center gap-1 rounded-full px-1.5 py-px font-semibold ${deltaStyle.bg} ${deltaStyle.color}`}
+              >
+                <DeltaIcon size={9} />
+                {delta}
+              </span>
+              <span className="font-medium text-slate-500">{deltaLabel}</span>
+            </div>
+          )}
+          {!delta && footerText && (
+            <p className="shrink-0 text-right font-medium text-slate-500">
+              {footerText}
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -65,7 +65,7 @@ function formatLabel(status) {
   return String(status || "UNKNOWN").replaceAll("_", " ");
 }
 
-function StatusBadge({ status, type = "sale" }) {
+function StatusBadge({ status, type = "sale", compact = false }) {
   const normalized = String(status || "UNKNOWN").toUpperCase();
   const config = STATUS_CONFIG[type]?.[normalized] || {
     label: formatLabel(normalized),
@@ -76,9 +76,9 @@ function StatusBadge({ status, type = "sale" }) {
 
   return (
     <span
-      className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold ${config.className}`}
+      className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 ${compact ? "text-[9px] font-medium" : "text-[10px] font-semibold"} ${config.className}`}
     >
-      {Icon && <Icon size={10} className="shrink-0" />}
+      {Icon && <Icon size={compact ? 9 : 10} className="shrink-0" />}
       {config.label}
     </span>
   );
