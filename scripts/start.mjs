@@ -7,20 +7,22 @@ import {
   npmExecutable,
   pythonExecutable,
 } from "./process-utils.mjs";
+import { parseEnvironmentArgs } from "./env-mode.mjs";
 
-const requestedMode = (process.argv[2] || "development").toLowerCase();
-const modeAliases = { dev: "development", prod: "production" };
-const mode = modeAliases[requestedMode] || requestedMode;
-if (!["development", "test", "production"].includes(mode)) {
-  console.error("Mode must be development, test, or production.");
+let selectedMode;
+try {
+  selectedMode = parseEnvironmentArgs();
+} catch (error) {
+  console.error(error.message);
   process.exit(1);
 }
+const mode = selectedMode.backend;
 
 const environment = { ...process.env, ENVIRONMENT: mode };
-const environmentSuffix = mode === "production" ? "prod" : mode;
+const environmentSuffix = selectedMode.name;
 const backendEnvFile = resolve(
   BACKEND_DIR,
-  environmentSuffix === "development" ? ".env" : `.env.${environmentSuffix}`,
+  environmentSuffix === "dev" ? ".env" : `.env.${environmentSuffix}`,
 );
 const backendPort = Number(envFileValue(backendEnvFile, "BACKEND_PORT", "8000"));
 if (!Number.isInteger(backendPort) || backendPort < 1 || backendPort > 65535) {
@@ -33,10 +35,9 @@ const backendArgs = [
 if (mode !== "production") backendArgs.push("--reload");
 
 const deploymentMode = mode === "production";
-const viteMode = mode === "production" ? "prod" : mode;
 
 if (deploymentMode) {
-  const build = spawnSync(npmExecutable(), ["run", `build:${viteMode}`], {
+  const build = spawnSync(npmExecutable(), ["run", `build:${selectedMode.name}`], {
     cwd: FRONTEND_DIR,
     env: environment,
     shell: process.platform === "win32",
@@ -46,7 +47,7 @@ if (deploymentMode) {
 }
 
 const frontendArgs = deploymentMode
-  ? ["run", `preview:${viteMode}`]
+  ? ["run", `preview:${selectedMode.name}`]
   : ["run", mode === "test" ? "dev:test" : "dev"];
 
 const children = [
