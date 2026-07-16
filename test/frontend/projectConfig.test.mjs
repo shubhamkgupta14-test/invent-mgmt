@@ -36,7 +36,7 @@ test("default cleanup selection is conservative", () => {
 
 test("root package exposes replacement workflows and legacy launchers are removed", () => {
   const packageJson = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8"));
-  for (const script of ["dev", "start:dev", "start:test", "start:prod", "seed", "test"]) {
+  for (const script of ["dev", "start", "seed", "test", "build", "preview", "clean:cache", "clean:deps"]) {
     assert.equal(typeof packageJson.scripts[script], "string");
   }
 

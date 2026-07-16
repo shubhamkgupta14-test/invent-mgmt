@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   FaBox,
   FaChartBar,
@@ -25,24 +25,46 @@ import { getMail } from "../../api/mailerApi";
 import { logoutUser } from "../../api/authApi";
 import { getMyDetails } from "../../api/userApi";
 import { clearAuthState } from "../../utils/authUtils";
+import { getStoredUser } from "../../utils/authUtils";
 import useCompanySettings from "../../hooks/useCompanySettings";
 import { resolveMediaUrl } from "../../utils/media";
 import RoleBadge from "./RoleBadge";
 
+let savedNavScrollTop = 0;
+let savedMailUnreadCount = null;
+let sidebarUserLoadedFromServer = false;
+
+function getCachedSidebarUser() {
+  const user = getStoredUser() || {};
+  const fullName = [user.firstname, user.lastname].filter(Boolean).join(" ");
+  const userInitials = [user.firstname, user.lastname]
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("") || (user.username || "U").charAt(0).toUpperCase();
+  return {
+    displayName: fullName || user.username || "",
+    initials: userInitials,
+    profileImageUrl: resolveMediaUrl(user.profile_image_url),
+    role: String(user.role || "").toLowerCase(),
+  };
+}
+
 function Sidebar({ onNavigate, onClose }) {
-  const [displayName, setDisplayName] = useState("");
-  const [initials, setInitials] = useState("");
-  const [profileImageUrl, setProfileImageUrl] = useState("");
-  const [role, setRole] = useState("");
+  const cachedUser = getCachedSidebarUser();
+  const [displayName, setDisplayName] = useState(cachedUser.displayName);
+  const [initials, setInitials] = useState(cachedUser.initials);
+  const [profileImageUrl, setProfileImageUrl] = useState(cachedUser.profileImageUrl);
+  const [role, setRole] = useState(cachedUser.role);
   const [failedLogoUrl, setFailedLogoUrl] = useState("");
-  const [mailUnreadCount, setMailUnreadCount] = useState(0);
+  const [mailUnreadCount, setMailUnreadCount] = useState(savedMailUnreadCount || 0);
   const navRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
   const { brand } = useCompanySettings();
 
-  const loadUser = useCallback((isActive = true) => {
-    getMyDetails()
+  const loadUser = useCallback((isActive = true, force = false) => {
+    getMyDetails({ force })
       .then((response) => {
         if (!isActive) return;
 
@@ -70,7 +92,9 @@ function Sidebar({ onNavigate, onClose }) {
     getMail({ folder: "inbox" })
       .then((response) => {
         if (!isActive) return;
-        setMailUnreadCount(response.data.data?.unread_count || 0);
+        const unreadCount = response.data.data?.unread_count || 0;
+        savedMailUnreadCount = unreadCount;
+        setMailUnreadCount(unreadCount);
       })
       .catch(() => {
         if (isActive) setMailUnreadCount(0);
@@ -82,8 +106,11 @@ function Sidebar({ onNavigate, onClose }) {
     const handleUserChange = () => loadUser(isActive);
     const handleMailerChange = () => loadMailerUnread(isActive);
 
-    loadUser(isActive);
-    loadMailerUnread(isActive);
+    if (!sidebarUserLoadedFromServer) {
+      sidebarUserLoadedFromServer = true;
+      loadUser(isActive, true);
+    }
+    if (savedMailUnreadCount === null) loadMailerUnread(isActive);
     window.addEventListener("user:changed", handleUserChange);
     window.addEventListener("mailer:changed", handleMailerChange);
 
@@ -94,9 +121,13 @@ function Sidebar({ onNavigate, onClose }) {
     };
   }, [loadUser, loadMailerUnread]);
 
-  useEffect(() => {
-    navRef.current?.scrollTo({ top: 0 });
-  }, [role]);
+  useLayoutEffect(() => {
+    const nav = navRef.current;
+    if (nav) nav.scrollTop = savedNavScrollTop;
+    return () => {
+      if (nav) savedNavScrollTop = nav.scrollTop;
+    };
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -220,7 +251,11 @@ function Sidebar({ onNavigate, onClose }) {
         </div>
       </div>
 
-      <nav ref={navRef} className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
+      <nav
+        ref={navRef}
+        onScroll={(event) => { savedNavScrollTop = event.currentTarget.scrollTop; }}
+        className="min-h-0 flex-1 overflow-y-auto px-3 py-4"
+      >
         <ul className="space-y-1">
           {menuItems.map((item) => (
             <li key={item.path}>

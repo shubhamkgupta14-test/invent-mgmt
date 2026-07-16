@@ -10,6 +10,10 @@ import Select from "../components/common/Select";
 import Textarea from "../components/common/Textarea";
 import UserManagement from "../components/pages/superadmin/UserManagement";
 import {
+  CleanupSkeleton,
+  NotificationHistorySkeleton,
+} from "../components/pages/superadmin/AdminSkeletons";
+import {
   createNotification,
   deleteNotification,
   getAllNotifications,
@@ -87,6 +91,7 @@ function SuperAdmin() {
   const [sentNotifications, setSentNotifications] = useState([]);
   const [expandedNotificationId, setExpandedNotificationId] = useState(null);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const [loadingCleanup, setLoadingCleanup] = useState(true);
   const [resendingNotificationId, setResendingNotificationId] = useState(null);
   const { addToast } = useToast();
 
@@ -127,6 +132,16 @@ function SuperAdmin() {
     const loadId = window.setTimeout(loadSentNotifications, 0);
     return () => window.clearTimeout(loadId);
   }, [activeTab, loadSentNotifications]);
+
+  useEffect(() => {
+    if (loading || activeTab !== "cleanup") return undefined;
+    const showTimer = window.setTimeout(() => setLoadingCleanup(true), 0);
+    const hideTimer = window.setTimeout(() => setLoadingCleanup(false), 350);
+    return () => {
+      window.clearTimeout(showTimer);
+      window.clearTimeout(hideTimer);
+    };
+  }, [activeTab, loading]);
 
   const selectedCollectionLabels = useMemo(
     () =>
@@ -364,7 +379,7 @@ function SuperAdmin() {
             <Card title="Notification History">
               <div className="space-y-4">
                 {loadingNotifications ? (
-                  <Loader fullScreen={false} message="Loading notifications..." />
+                  <NotificationHistorySkeleton />
                 ) : (
                   sentNotifications.slice(0, 4).map((notification) => {
                     const isExpanded =
@@ -444,6 +459,8 @@ function SuperAdmin() {
               </div>
             </Card>
           </div>
+        ) : loadingCleanup ? (
+          <CleanupSkeleton />
         ) : (
           <div className="w-full">
             <Card title="Data Maintenance">

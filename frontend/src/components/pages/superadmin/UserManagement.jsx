@@ -25,6 +25,7 @@ import SearchBar from "../../common/SearchBar";
 import Select from "../../common/Select";
 import SortableHeader from "../../common/SortableHeader";
 import TablePagination from "../../common/TablePagination";
+import { UserRowsSkeleton } from "./AdminSkeletons";
 
 const emptyForm = {
   firstname: "",
@@ -224,7 +225,7 @@ function UserManagement({ currentUsername }) {
                     </tr>
                   );
                 })}
-                {loading && <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500">Loading users...</td></tr>}
+                {loading && <UserRowsSkeleton />}
                 {!loading && !users.length && <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500">No users found.</td></tr>}
               </tbody>
             </table>
