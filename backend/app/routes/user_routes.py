@@ -79,6 +79,8 @@ async def get_user_details_api(auth_user: user_dependency, user: GetUserRequest)
 async def get_users_api(
     auth_user: user_dependency,
     search: Optional[str] = None,
+    role: Optional[str] = None,
+    active: Optional[bool] = None,
     sort_by: str = "created_at",
     order: str = "desc",
     page: int = 1,
@@ -88,6 +90,8 @@ async def get_users_api(
     users = await get_all_users(
         auth_user,
         search=search,
+        role=role,
+        active=active,
         sort_by=sort_by,
         order=order,
         page=page,

@@ -189,6 +189,8 @@ async def get_me(auth_user: dict):
 async def get_all_users(
     auth_user: dict,
     search: str = None,
+    role: str = None,
+    active: bool = None,
     sort_by: str = "created_at",
     order: str = "desc",
     page: int = 1,
@@ -227,6 +229,16 @@ async def get_all_users(
         }
     else:
         forbidden()
+
+    if role:
+        try:
+            selected_role = UserRole(role)
+        except ValueError:
+            bad_request(Messages.ACCESS_DENIED)
+        filters = {"$and": [filters, {"role": selected_role}]} if filters else {"role": selected_role}
+
+    if active is not None:
+        filters = {"$and": [filters, {"active": active}]} if filters else {"active": active}
 
     search_filter = regex_filter(search, [
         "username",
