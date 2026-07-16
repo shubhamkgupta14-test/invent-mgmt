@@ -22,8 +22,9 @@ import {
 } from "react-icons/fa";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { getMail } from "../../api/mailerApi";
+import { logoutUser } from "../../api/authApi";
 import { getMyDetails } from "../../api/userApi";
-import { clearToken } from "../../utils/authUtils";
+import { clearAuthState } from "../../utils/authUtils";
 import useCompanySettings from "../../hooks/useCompanySettings";
 import { resolveMediaUrl } from "../../utils/media";
 import RoleBadge from "./RoleBadge";
@@ -97,9 +98,13 @@ function Sidebar({ onNavigate, onClose }) {
     navRef.current?.scrollTo({ top: 0 });
   }, [role]);
 
-  const handleLogout = () => {
-    clearToken(`${location.pathname}${location.search}${location.hash}`);
-    navigate("/");
+  const handleLogout = async () => {
+    try {
+      await logoutUser();
+    } finally {
+      clearAuthState(`${location.pathname}${location.search}${location.hash}`);
+      navigate("/");
+    }
   };
 
   const menuItems = [

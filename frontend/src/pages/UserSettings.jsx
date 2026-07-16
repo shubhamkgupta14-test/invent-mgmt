@@ -18,7 +18,8 @@ import Loader from "../components/common/Loader";
 import RoleBadge from "../components/common/RoleBadge";
 import { useToast } from "../context/useToast";
 import MainLayout from "../layouts/MainLayout";
-import { clearToken, setStoredUser } from "../utils/authUtils";
+import { clearAuthState, setStoredUser } from "../utils/authUtils";
+import { logoutUser } from "../api/authApi";
 import {
   DEFAULT_COMPANY_SETTINGS,
   currencyOptions,
@@ -297,7 +298,7 @@ function UserSettings() {
       const message = error.response?.data?.message || "Invalid or expired verification code";
       addToast(message, "error");
       if (message === OTP_BLOCKED_MESSAGE) {
-        clearToken("/settings");
+        logoutUser().catch(() => {}).finally(() => clearAuthState("/settings"));
         window.setTimeout(() => {
           window.location.href = "/";
         }, 1200);

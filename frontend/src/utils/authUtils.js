@@ -1,32 +1,24 @@
-const TOKEN_KEY = "token";
-const EXPIRY_KEY = "token_expiry";
 const USER_KEY = "current_user";
+const CSRF_KEY = "csrf_token";
 const LAST_PATH_KEY = "last_path";
 
-export function setToken(token, expiresIn = 3600) {
-  if (!token) return;
-  localStorage.setItem(TOKEN_KEY, token);
-  const expiryTime = Date.now() + expiresIn * 1000; // Convert to milliseconds
-  localStorage.setItem(EXPIRY_KEY, expiryTime);
-}
-
-export function getToken() {
-  return localStorage.getItem(TOKEN_KEY);
-}
-
-export function isTokenExpired() {
-  const expiry = localStorage.getItem(EXPIRY_KEY);
-  if (!expiry) return true;
-  return Date.now() > parseInt(expiry);
-}
-
-export function clearToken(lastPath = null) {
+export function clearAuthState(lastPath = null) {
   if (lastPath && lastPath !== "/") {
     localStorage.setItem(LAST_PATH_KEY, lastPath);
   }
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(EXPIRY_KEY);
+  // Remove tokens left by versions that used JavaScript-readable storage.
+  localStorage.removeItem("token");
+  localStorage.removeItem("token_expiry");
   sessionStorage.removeItem(USER_KEY);
+  sessionStorage.removeItem(CSRF_KEY);
+}
+
+export function setCsrfToken(token) {
+  if (token) sessionStorage.setItem(CSRF_KEY, token);
+}
+
+export function getCsrfToken() {
+  return sessionStorage.getItem(CSRF_KEY);
 }
 
 export function getLastPath() {
@@ -35,13 +27,6 @@ export function getLastPath() {
 
 export function clearLastPath() {
   localStorage.removeItem(LAST_PATH_KEY);
-}
-
-export function getTokenWithExpiry() {
-  const token = getToken();
-  const isExpired = isTokenExpired();
-
-  return { token, isExpired };
 }
 
 export function setStoredUser(user, { notify = false } = {}) {
@@ -64,17 +49,3 @@ export function getStoredUser() {
   }
 }
 
-export function getUserFromToken(token = getToken()) {
-  if (!token) return null;
-
-  try {
-    const payload = JSON.parse(atob(token.split(".")[1]));
-    return {
-      user_id: payload.sub,
-      username: payload.username,
-      role: payload.role,
-    };
-  } catch {
-    return null;
-  }
-}

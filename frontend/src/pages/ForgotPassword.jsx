@@ -8,7 +8,8 @@ import {
 import Button from "../components/common/Button";
 import Input from "../components/common/Input";
 import useCompanySettings from "../hooks/useCompanySettings";
-import { clearToken } from "../utils/authUtils";
+import { clearAuthState } from "../utils/authUtils";
+import { logoutUser } from "../api/authApi";
 
 const OTP_ATTEMPTS_EXCEEDED_MESSAGE = "Maximum OTP attempts exceeded";
 const sanitizeOtp = (value) => value.replace(/\D/g, "").slice(0, 6);
@@ -70,7 +71,7 @@ function ForgotPassword() {
       const errorMessage = error.response?.data?.message || "Invalid or expired OTP.";
       setError(errorMessage);
       if (errorMessage === OTP_ATTEMPTS_EXCEEDED_MESSAGE) {
-        clearToken("/");
+        logoutUser().catch(() => {}).finally(() => clearAuthState("/"));
         window.setTimeout(() => {
           window.location.href = "/";
         }, 1200);

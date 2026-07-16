@@ -1,10 +1,9 @@
 from jose import jwt, JWTError
+import hmac
 from bson import ObjectId
-from typing import Annotated
 from datetime import datetime, timedelta, timezone
 from passlib.context import CryptContext
-from fastapi import Depends
-from fastapi.security import OAuth2PasswordBearer
+from fastapi import Request
 from app.database.mongodb import db
 from app.utils.settings import Settings
 from app.utils.messages import Messages
@@ -19,10 +18,7 @@ from app.core.exceptions import (
 SECRET_KEY = Settings.SECRET_KEY
 ALGORITHM = Settings.ALGORITHM
 
-TOKEN_URL = '/auth/login'
-
 bcrypt_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
-oauth2_bearer = OAuth2PasswordBearer(tokenUrl=TOKEN_URL)
 
 user_collection = db.users
 
@@ -41,7 +37,17 @@ async def authenticate_user(username: str, password: str, user_collection):
     return user
 
 
-async def get_current_user(token: Annotated[str, Depends(oauth2_bearer)]):
+async def get_current_user(request: Request):
+    token = request.cookies.get(Settings.AUTH_COOKIE_NAME)
+    if not token:
+        forbidden_or_expired()
+
+    if request.method.upper() not in {"GET", "HEAD", "OPTIONS"}:
+        csrf_cookie = request.cookies.get(Settings.CSRF_COOKIE_NAME, "")
+        csrf_header = request.headers.get("X-CSRF-Token", "")
+        if not csrf_cookie or not csrf_header or not hmac.compare_digest(csrf_cookie, csrf_header):
+            forbidden(Messages.ACCESS_DENIED)
+
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id: str = payload.get("sub")

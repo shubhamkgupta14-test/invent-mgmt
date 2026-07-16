@@ -1,21 +1,23 @@
 import axios from "axios";
-import { clearToken } from "../utils/authUtils";
+import { clearAuthState, getCsrfToken } from "../utils/authUtils";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const API = axios.create({
   baseURL: API_BASE_URL,
+  withCredentials: true,
   headers: {
     "Content-Type": "application/json",
   },
 });
 
-// Request interceptor - Add token to headers
+// Echo the session-scoped CSRF value in a header for state-changing requests.
 API.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    const method = String(config.method || "get").toLowerCase();
+    if (!["get", "head", "options"].includes(method)) {
+      const csrfToken = getCsrfToken();
+      if (csrfToken) config.headers["X-CSRF-Token"] = csrfToken;
     }
     return config;
   },
@@ -32,8 +34,7 @@ API.interceptors.response.use(
     const isLoginRequest = requestUrl.includes("/auth/login");
 
     if (error.response?.status === 401 && !isLoginRequest) {
-      // Clear token and redirect to login
-      clearToken();
+      clearAuthState();
       window.location.href = "/";
     }
     return Promise.reject(error);

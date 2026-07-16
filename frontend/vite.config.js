@@ -14,6 +14,13 @@ export default defineConfig(({ mode }) => {
       port: env.VITE_DEV_SERVER_PORT
         ? Number(env.VITE_DEV_SERVER_PORT)
         : undefined,
+      proxy: {
+        "/api": {
+          target: env.VITE_API_PROXY_TARGET || "http://localhost:8000",
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api/, ""),
+        },
+      },
     },
   };
 });

@@ -21,11 +21,22 @@ def env_list(name: str, default: list[str] | None = None):
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
+def env_bool(name: str, default: bool = False):
+    value = os.getenv(name)
+    if value is None or value.strip() == "":
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 class Settings:
     DEFAULT_BRAND_NAME = "E-Store"
     ENVIRONMENT = os.getenv("ENVIRONMENT") or "dev"
     ACCESS_TOKEN_EXPIRE_MINUTES = 30
     TOKEN_TYPE = "bearer"
+    AUTH_COOKIE_NAME = os.getenv("AUTH_COOKIE_NAME") or "access_token"
+    CSRF_COOKIE_NAME = os.getenv("CSRF_COOKIE_NAME") or "csrf_token"
+    COOKIE_SECURE = env_bool("COOKIE_SECURE", ENVIRONMENT.lower() not in {"dev", "development", "test"})
+    COOKIE_SAMESITE = (os.getenv("COOKIE_SAMESITE") or "lax").lower()
     DEFAULT_PAGE_SIZE = 10
     MAX_PAGE_SIZE = 100
     SECRET_KEY = os.getenv("SECRET_KEY")

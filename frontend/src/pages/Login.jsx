@@ -6,11 +6,12 @@ import Button from "../components/common/Button";
 import Input from "../components/common/Input";
 import {
   clearLastPath,
+  clearAuthState,
   getLastPath,
-  getUserFromToken,
+  setCsrfToken,
   setStoredUser,
-  setToken,
 } from "../utils/authUtils";
+import { getMyDetails } from "../api/userApi";
 import useCompanySettings from "../hooks/useCompanySettings";
 
 function Login() {
@@ -34,17 +35,12 @@ function Login() {
 
     try {
       setLoading(true);
-      const response = await loginUser({ username, password });
-      const authData = response.data?.data || response.data;
-      const token = authData?.access_token;
-      const expiresIn = authData?.expires_in || 3600;
-
-      if (!token) {
-        throw new Error("Login succeeded but no token was returned.");
-      }
-
-      setToken(token, expiresIn);
-      setStoredUser(getUserFromToken(token));
+      const loginResponse = await loginUser({ username, password });
+      const csrfToken = loginResponse.data?.data?.csrf_token;
+      clearAuthState();
+      setCsrfToken(csrfToken);
+      const userResponse = await getMyDetails({ force: true });
+      setStoredUser(userResponse.data.data);
       const nextPath = getLastPath();
       clearLastPath();
       navigate(nextPath);
