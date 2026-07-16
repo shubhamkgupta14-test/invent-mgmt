@@ -20,6 +20,10 @@ export const getCsrfToken = async () => {
   return API.get("/auth/csrf");
 };
 
+export const keepSessionAlive = async () => {
+  return API.post("/auth/session/keep-alive");
+};
+
 export const requestPasswordResetOtp = async (identifier) => {
   return API.post("/auth/password-reset/request", { identifier });
 };

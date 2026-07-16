@@ -126,3 +126,6 @@ async def create_indexes():
 
     await db.company_settings.create_index("settings_key", unique=True)
     await db.app_config.create_index("config_key", unique=True)
+    await db.auth_sessions.create_index("session_id", unique=True)
+    await db.auth_sessions.create_index("user_id")
+    await db.auth_sessions.create_index("expires_at", expireAfterSeconds=0)

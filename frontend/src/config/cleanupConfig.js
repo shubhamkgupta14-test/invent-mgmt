@@ -1,6 +1,7 @@
 export const CLEAN_OPTIONS = [
   { label: "API Request Logs", value: "api-logs" },
   { label: "App Config", value: "app-config" },
+  { label: "Authentication Sessions", value: "auth-sessions" },
   { label: "Activity Audit Trail", value: "audits" },
   { label: "Company Settings", value: "company-settings" },
   { label: "Exchanges", value: "exchanges" },

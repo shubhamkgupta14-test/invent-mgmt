@@ -26,6 +26,7 @@ class ProjectConfigurationTests(unittest.TestCase):
         expected_physical_collections = {
             "api_logs",
             "app_config",
+            "auth_sessions",
             "audits",
             "company_settings",
             "exchanges",

@@ -3,6 +3,7 @@
 CLEANABLE_COLLECTIONS = {
     "api-logs": "api_logs",
     "app-config": "app_config",
+    "auth-sessions": "auth_sessions",
     "audits": "audits",
     "company-settings": "company_settings",
     "exchanges": "exchanges",

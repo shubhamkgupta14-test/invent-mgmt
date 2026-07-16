@@ -21,12 +21,14 @@ import UserSettings from "./pages/UserSettings";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import useCompanySettings from "./hooks/useCompanySettings";
+import SessionTimeoutManager from "./components/common/SessionTimeoutManager";
 
 function App() {
   useCompanySettings();
 
   return (
     <ToastProvider>
+      <SessionTimeoutManager />
       <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />

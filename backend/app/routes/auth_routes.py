@@ -1,5 +1,6 @@
 import secrets
 import hmac
+import jwt
 from fastapi import APIRouter, Depends, Request, status
 from typing import Annotated
 from fastapi.security import OAuth2PasswordRequestForm
@@ -12,6 +13,7 @@ from app.models.auth import (
 from app.services.auth_service import (
     get_current_user,
     get_token_service,
+    revoke_session,
 )
 from app.utils.settings import Settings
 from app.utils.rate_limiter import client_ip, rate_limiter
@@ -45,10 +47,15 @@ async def login_api(
     )
     auth_data = await get_token_service(form_data.username, form_data.password)
     csrf_token = secrets.token_urlsafe(32)
-    max_age = Settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+    max_age = Settings.SESSION_ABSOLUTE_TIMEOUT_HOURS * 60 * 60
     response = success_response(
         message=Messages.LOGIN_SUCCESS,
-        data={"authenticated": True, "csrf_token": csrf_token},
+        data={
+            "authenticated": True,
+            "csrf_token": csrf_token,
+            "idle_timeout_seconds": Settings.SESSION_IDLE_TIMEOUT_MINUTES * 60,
+            "absolute_timeout_seconds": Settings.SESSION_ABSOLUTE_TIMEOUT_HOURS * 60 * 60,
+        },
     )
     response.set_cookie(
         key=Settings.AUTH_COOKIE_NAME,
@@ -89,12 +96,34 @@ async def logout(request: Request):
     csrf_header = request.headers.get("X-CSRF-Token", "")
     if not csrf_cookie or not csrf_header or not hmac.compare_digest(csrf_cookie, csrf_header):
         forbidden(Messages.ACCESS_DENIED)
+    token = request.cookies.get(Settings.AUTH_COOKIE_NAME)
+    if token:
+        try:
+            payload = jwt.decode(
+                token,
+                Settings.SECRET_KEY,
+                algorithms=[Settings.ALGORITHM],
+                options={"verify_exp": False},
+            )
+            await revoke_session(payload.get("sid"))
+        except jwt.InvalidTokenError:
+            pass
     response = success_response(
         message=Messages.LOGOUT_SUCCESS
     )
     response.delete_cookie(Settings.AUTH_COOKIE_NAME, path="/")
     response.delete_cookie(Settings.CSRF_COOKIE_NAME, path="/")
     return response
+
+
+@router.post("/session/keep-alive")
+async def keep_session_alive(
+    _: Annotated[dict, Depends(get_current_user)],
+):
+    return success_response(
+        message="Session extended",
+        data={"idle_timeout_seconds": Settings.SESSION_IDLE_TIMEOUT_MINUTES * 60},
+    )
 
 
 @router.post("/password-reset/request")

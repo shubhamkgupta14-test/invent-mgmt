@@ -29,7 +29,12 @@ API.interceptors.request.use(
 
 // Response interceptor - Handle 401 (token expiration/unauthorized)
 API.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("session:activity"));
+    }
+    return response;
+  },
   (error) => {
     const requestUrl = error.config?.url || "";
     const isLoginRequest = requestUrl.includes("/auth/login");

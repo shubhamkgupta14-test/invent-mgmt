@@ -22,7 +22,7 @@ test("cleanup UI lists every backend cleanup key", () => {
   for (const key of frontendKeys) {
     assert.match(backendConfig, new RegExp(`["]${key}["]\\s*:`));
   }
-  assert.equal(frontendKeys.length, 20);
+  assert.equal(frontendKeys.length, 21);
 });
 
 test("default cleanup selection is conservative", () => {

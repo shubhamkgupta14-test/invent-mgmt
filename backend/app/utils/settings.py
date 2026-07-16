@@ -54,7 +54,9 @@ class Settings:
         "dev", "development", "local", "test"
     }
     API_DOCS_ENABLED = env_bool("API_DOCS_ENABLED", IS_DEVELOPMENT)
-    ACCESS_TOKEN_EXPIRE_MINUTES = app_default("ACCESS_TOKEN_EXPIRE_MINUTES", 30)
+    SESSION_IDLE_TIMEOUT_MINUTES = app_default("SESSION_IDLE_TIMEOUT_MINUTES", 15)
+    SESSION_ABSOLUTE_TIMEOUT_HOURS = app_default("SESSION_ABSOLUTE_TIMEOUT_HOURS", 8)
+    ACCESS_TOKEN_EXPIRE_MINUTES = SESSION_ABSOLUTE_TIMEOUT_HOURS * 60
     TOKEN_TYPE = app_default("TOKEN_TYPE", "bearer")
     AUTH_COOKIE_NAME = app_default("AUTH_COOKIE_NAME", "access_token")
     CSRF_COOKIE_NAME = app_default("CSRF_COOKIE_NAME", "csrf_token")

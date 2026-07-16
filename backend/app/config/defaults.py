@@ -8,7 +8,8 @@ for secrets and values that genuinely differ between deployments.
 class AppDefaults:
     DEFAULT_BRAND_NAME = "E-Store"
     JWT_ALGORITHM = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES = 30
+    SESSION_IDLE_TIMEOUT_MINUTES = 15
+    SESSION_ABSOLUTE_TIMEOUT_HOURS = 8
     TOKEN_TYPE = "bearer"
     AUTH_COOKIE_NAME = "access_token"
     CSRF_COOKIE_NAME = "csrf_token"
