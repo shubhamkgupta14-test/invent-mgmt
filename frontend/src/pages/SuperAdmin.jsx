@@ -23,12 +23,17 @@ import ApiLogs from "./ApiLogs";
 import AuditLogs from "./AuditLogs";
 import { cleanDatabase, getMyDetails } from "../api/userApi";
 import { useToast } from "../context/useToast";
-import MainLayout from "../layouts/MainLayout";
+import AdminLayout from "../layouts/AdminLayout";
+import Mailer from "./Mailer";
 import { formatDateTimeIST } from "../utils/formatters";
 import {
   CLEAN_OPTIONS,
   DEFAULT_CLEAN_COLLECTIONS,
 } from "../config/cleanupConfig";
+import {
+  getMaintenanceConfig,
+  updateMaintenanceConfig,
+} from "../api/maintenanceApi";
 
 const roleOptions = [
   { label: "User", value: "user" },
@@ -60,7 +65,7 @@ const audienceOptions = [
   { label: "Specific Users", value: "USERS" },
 ];
 
-const adminTabs = ["users", "notifications", "audits", "api-logs", "cleanup"];
+const adminTabs = ["overview", "users", "notifications", "mailer", "audits", "api-logs", "maintenance", "cleanup"];
 const cleanDbCollectionValues = DEFAULT_CLEAN_COLLECTIONS;
 
 const typeBorderClasses = {
@@ -76,6 +81,20 @@ function toSentenceCase(value) {
   return text ? text[0].toUpperCase() + text.slice(1) : "";
 }
 
+function toLocalDateTimeInput(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  const offset = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+}
+
+const emptyMaintenanceForm = {
+  enabled: false,
+  message: "We are performing scheduled maintenance. Please try again shortly.",
+  starts_at: "",
+  ends_at: "",
+};
+
 function SuperAdmin() {
   const [searchParams] = useSearchParams();
   const [currentUser, setCurrentUser] = useState(null);
@@ -85,7 +104,7 @@ function SuperAdmin() {
   const [confirmCleanOpen, setConfirmCleanOpen] = useState(false);
   const activeTab = adminTabs.includes(searchParams.get("tab"))
     ? searchParams.get("tab")
-    : "users";
+    : "overview";
   const [notificationForm, setNotificationForm] = useState(emptyNotificationForm);
   const [sendingNotification, setSendingNotification] = useState(false);
   const [sentNotifications, setSentNotifications] = useState([]);
@@ -93,6 +112,9 @@ function SuperAdmin() {
   const [loadingNotifications, setLoadingNotifications] = useState(false);
   const [loadingCleanup, setLoadingCleanup] = useState(true);
   const [resendingNotificationId, setResendingNotificationId] = useState(null);
+  const [maintenanceForm, setMaintenanceForm] = useState(emptyMaintenanceForm);
+  const [loadingMaintenance, setLoadingMaintenance] = useState(false);
+  const [savingMaintenance, setSavingMaintenance] = useState(false);
   const { addToast } = useToast();
 
   const loadSentNotifications = useCallback(async () => {
@@ -132,6 +154,30 @@ function SuperAdmin() {
     const loadId = window.setTimeout(loadSentNotifications, 0);
     return () => window.clearTimeout(loadId);
   }, [activeTab, loadSentNotifications]);
+
+  useEffect(() => {
+    if (activeTab !== "maintenance") return undefined;
+    let active = true;
+    setLoadingMaintenance(true);
+    getMaintenanceConfig()
+      .then((response) => {
+        if (!active) return;
+        const config = response.data.data;
+        setMaintenanceForm({
+          enabled: Boolean(config.enabled),
+          message: config.message,
+          starts_at: toLocalDateTimeInput(config.starts_at),
+          ends_at: toLocalDateTimeInput(config.ends_at),
+        });
+      })
+      .catch((error) => {
+        addToast(error.response?.data?.message || "Failed to load maintenance configuration", "error");
+      })
+      .finally(() => {
+        if (active) setLoadingMaintenance(false);
+      });
+    return () => { active = false; };
+  }, [activeTab, addToast]);
 
   useEffect(() => {
     if (loading || activeTab !== "cleanup") return undefined;
@@ -258,25 +304,59 @@ function SuperAdmin() {
     );
   };
 
+  const handleSaveMaintenance = async (event) => {
+    event.preventDefault();
+    try {
+      setSavingMaintenance(true);
+      const response = await updateMaintenanceConfig({
+        ...maintenanceForm,
+        starts_at: maintenanceForm.starts_at
+          ? new Date(maintenanceForm.starts_at).toISOString()
+          : null,
+        ends_at: maintenanceForm.ends_at
+          ? new Date(maintenanceForm.ends_at).toISOString()
+          : null,
+      });
+      const config = response.data.data;
+      setMaintenanceForm({
+        enabled: Boolean(config.enabled),
+        message: config.message,
+        starts_at: toLocalDateTimeInput(config.starts_at),
+        ends_at: toLocalDateTimeInput(config.ends_at),
+      });
+      window.dispatchEvent(
+        new CustomEvent("maintenance:changed", { detail: config }),
+      );
+      addToast(
+        config.active ? "Maintenance mode is now active" : "Maintenance configuration saved",
+        "success",
+      );
+    } catch (error) {
+      addToast(error.response?.data?.message || "Failed to save maintenance configuration", "error");
+    } finally {
+      setSavingMaintenance(false);
+    }
+  };
+
   if (loading) {
     return (
-      <MainLayout>
+      <AdminLayout>
         <div className="flex min-h-[calc(100vh-88px)] items-center justify-center">
           <Loader message="Loading admin tools..." />
         </div>
-      </MainLayout>
+      </AdminLayout>
     );
   }
 
   if (currentUser?.role !== "superadmin") {
     return (
-      <MainLayout>
+      <AdminLayout>
         <Card>
           <p className="text-sm font-medium text-slate-700">
             Only Super Admin users can access this page.
           </p>
         </Card>
-      </MainLayout>
+      </AdminLayout>
     );
   }
 
@@ -288,8 +368,12 @@ function SuperAdmin() {
     return <ApiLogs />;
   }
 
+  if (activeTab === "mailer") {
+    return <Mailer adminPortal />;
+  }
+
   return (
-    <MainLayout>
+    <AdminLayout>
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">
@@ -300,7 +384,22 @@ function SuperAdmin() {
           </p>
         </div>
 
-        {activeTab === "users" ? (
+        {activeTab === "overview" ? (
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {[
+              ["User Management", "Create accounts, manage roles, and control access."],
+              ["Notifications", "Send operational messages and review notification history."],
+              ["Audit Trail", "Review important activity across the application."],
+              ["API Logs", "Inspect request outcomes, timing, and failures."],
+              ["Maintenance Mode", "Schedule downtime and control user access."],
+              ["Data Maintenance", "Run controlled cleanup operations with confirmation."],
+            ].map(([title, description]) => (
+              <Card key={title} title={title}>
+                <p className="text-sm leading-6 text-slate-600">{description}</p>
+              </Card>
+            ))}
+          </div>
+        ) : activeTab === "users" ? (
           <UserManagement currentUsername={currentUser.username} />
         ) : activeTab === "notifications" ? (
           <div className="grid gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
@@ -459,6 +558,80 @@ function SuperAdmin() {
               </div>
             </Card>
           </div>
+        ) : activeTab === "maintenance" ? (
+          <Card title="Maintenance Mode">
+            {loadingMaintenance ? (
+              <Loader message="Loading maintenance configuration..." />
+            ) : (
+              <form onSubmit={handleSaveMaintenance} className="space-y-6">
+                <div className={`rounded-2xl border p-5 ${
+                  maintenanceForm.enabled
+                    ? "border-amber-300 bg-amber-50"
+                    : "border-emerald-200 bg-emerald-50"
+                }`}>
+                  <label className="flex cursor-pointer items-center justify-between gap-5">
+                    <div>
+                      <p className="font-bold text-slate-900">
+                        {maintenanceForm.enabled ? "Maintenance is enabled" : "Application is available"}
+                      </p>
+                      <p className="mt-1 text-sm text-slate-600">
+                        Super Admin accounts keep full access while other users receive a maintenance screen.
+                      </p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={maintenanceForm.enabled}
+                      onChange={(event) =>
+                        setMaintenanceForm((current) => ({
+                          ...current,
+                          enabled: event.target.checked,
+                        }))
+                      }
+                      className="h-5 w-5 shrink-0 rounded border-slate-300 text-[var(--primary)] focus:ring-[var(--primary)]"
+                    />
+                  </label>
+                </div>
+
+                <Textarea
+                  label="User-facing message"
+                  value={maintenanceForm.message}
+                  onChange={(value) =>
+                    setMaintenanceForm((current) => ({ ...current, message: value }))
+                  }
+                  rows={4}
+                  required
+                />
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Input
+                    type="datetime-local"
+                    label="Starts at (optional)"
+                    value={maintenanceForm.starts_at}
+                    onChange={(value) =>
+                      setMaintenanceForm((current) => ({ ...current, starts_at: value }))
+                    }
+                  />
+                  <Input
+                    type="datetime-local"
+                    label="Ends at (optional)"
+                    value={maintenanceForm.ends_at}
+                    onChange={(value) =>
+                      setMaintenanceForm((current) => ({ ...current, ends_at: value }))
+                    }
+                  />
+                </div>
+
+                <div className="flex flex-col gap-3 border-t border-border pt-5 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-xs font-medium text-slate-500">
+                    Leave both times empty to apply the switch immediately and indefinitely.
+                  </p>
+                  <Button type="submit" variant="primary" loading={savingMaintenance}>
+                    Save Maintenance Settings
+                  </Button>
+                </div>
+              </form>
+            )}
+          </Card>
         ) : loadingCleanup ? (
           <CleanupSkeleton />
         ) : (
@@ -583,7 +756,7 @@ function SuperAdmin() {
           </div>
         </div>
       </Modal>
-    </MainLayout>
+    </AdminLayout>
   );
 }
 

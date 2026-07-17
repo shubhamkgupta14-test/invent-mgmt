@@ -6,6 +6,7 @@ from app.services.audit_service import (
     get_audit_logs
 )
 from app.services.auth_service import get_current_user
+from app.services.admin_access_service import get_verified_superadmin
 
 from app.utils.response import (
     success_response
@@ -18,7 +19,7 @@ router = APIRouter(
     tags=["Audits"]
 )
 
-user_dependency = Annotated[dict, Depends(get_current_user)]
+user_dependency = Annotated[dict, Depends(get_verified_superadmin)]
 
 
 @router.get("/")

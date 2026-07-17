@@ -88,6 +88,10 @@ class VerifyEmailRequest(SecureBaseModel):
     otp: str = Field(..., min_length=4, max_length=10)
 
 
+class AdminOtpVerifyRequest(SecureBaseModel):
+    otp: str = Field(..., min_length=6, max_length=6, pattern=r"^\d{6}$")
+
+
 class LoginRequest(SecureBaseModel):
     username: str = Field(..., min_length=3, max_length=50)
     password: str = Field(..., min_length=1, max_length=128)

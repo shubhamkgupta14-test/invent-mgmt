@@ -47,14 +47,20 @@ export function KPICard({
         className={`${bgColor} absolute -right-3 -top-3 flex h-20 w-20 rotate-6 items-center justify-center rounded-[1.75rem] opacity-70 transition-transform duration-300 group-hover:rotate-0 group-hover:scale-105`}
         aria-hidden="true"
       >
-        <Icon className={`${iconColor} text-4xl opacity-80`} />
+        <Icon
+          className={`${iconColor} text-4xl opacity-45 transition-opacity duration-300 group-hover:opacity-75`}
+        />
       </div>
 
       <div className="relative z-10 flex min-w-0 flex-1 flex-col">
-        <p className="pr-16 text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</p>
+        <p className="pr-16 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          {title}
+        </p>
 
         <div className="mt-1 pr-16">
-          <p className="font-mono text-xl font-bold leading-6 text-slate-900">{value}</p>
+          <p className="font-mono text-xl font-bold leading-6 text-slate-900">
+            {value}
+          </p>
         </div>
 
         <div className="mt-4 flex min-h-4 items-center justify-between gap-2 text-[10px]">

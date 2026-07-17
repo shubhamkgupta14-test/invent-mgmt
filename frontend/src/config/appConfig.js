@@ -6,3 +6,4 @@ export const APP_CONFIG = {
 };
 
 export const configValue = (name, fallback) => APP_CONFIG[name] ?? fallback;
+export const ADMIN_PORTAL_BASE = "/admin";

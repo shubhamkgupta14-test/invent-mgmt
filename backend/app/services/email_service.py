@@ -242,3 +242,20 @@ async def send_email_verification_otp(to_email: str, otp: str):
         await _send_dev_mailer_otp(to_email, subject, body, html_body)
 
     return await send_email(to_email, subject, body, brand_name, html_body)
+
+
+async def send_admin_portal_otp(to_email: str, otp: str):
+    brand_name = await get_company_brand_name()
+    subject = f"{brand_name} administration portal verification"
+    body, html_body = build_otp_email_template(
+        brand_name=brand_name,
+        title="Administration portal verification",
+        intro="Use this security code to access the administration portal.",
+        otp=otp,
+        expiry_minutes=Settings.ADMIN_OTP_EXPIRE_MINUTES,
+        reason="administration portal access",
+        theme="blue",
+    )
+    if _is_dev_like_environment():
+        await _send_dev_mailer_otp(to_email, subject, body, html_body)
+    return await send_email(to_email, subject, body, brand_name, html_body)

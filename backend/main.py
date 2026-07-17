@@ -42,9 +42,12 @@ from app.routes.mailer_routes import router as mailer_router
 from app.routes.api_logs import router as api_logs_router
 from app.routes.company_routes import router as company_router
 from app.routes.loyalty_routes import router as loyalty_router
+from app.routes.maintenance_routes import router as maintenance_router
+from app.routes.admin_access_routes import router as admin_access_router
 from app.middleware.api_logger import ApiLoggingMiddleware
 from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.middleware.request_size import RequestSizeLimitMiddleware
+from app.middleware.maintenance import MaintenanceModeMiddleware
 from app.services.company_service import get_company_brand_name
 from app.services.api_log_service import redact_sensitive_api_log_headers
 from app.utils.settings import Settings
@@ -79,6 +82,7 @@ app = FastAPI(
     openapi_url="/openapi.json" if Settings.API_DOCS_ENABLED else None,
 )
 
+app.add_middleware(MaintenanceModeMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=Settings.ALLOWED_ORIGINS,
@@ -135,6 +139,8 @@ app.include_router(user_router)
 app.include_router(notification_router)
 app.include_router(mailer_router)
 app.include_router(auth_router)
+app.include_router(maintenance_router)
+app.include_router(admin_access_router)
 
 # ROOT
 

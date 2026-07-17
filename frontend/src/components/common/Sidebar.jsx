@@ -12,13 +12,10 @@ import {
   FaIndustry,
   FaSignOutAlt,
   FaTimes,
-  FaClipboardList,
-  FaServer,
   FaCalculator,
-  FaBell,
-  FaDatabase,
   FaGift,
   FaEnvelope,
+  FaShieldAlt,
 } from "react-icons/fa";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { getMail } from "../../api/mailerApi";
@@ -29,6 +26,8 @@ import { getStoredUser } from "../../utils/authUtils";
 import useCompanySettings from "../../hooks/useCompanySettings";
 import { resolveMediaUrl } from "../../utils/media";
 import RoleBadge from "./RoleBadge";
+import { ADMIN_PORTAL_BASE } from "../../config/appConfig";
+import { getAdminAccessStatus } from "../../api/adminAccessApi";
 
 let savedNavScrollTop = 0;
 let savedMailUnreadCount = null;
@@ -138,12 +137,49 @@ function Sidebar({ onNavigate, onClose }) {
     }
   };
 
-  const menuItems = [
-    { icon: FaChartBar, label: "Dashboard", path: "/dashboard" },
-    { icon: FaBoxes, label: "Inventory", path: "/inventory" },
-    { icon: FaBox, label: "Stock", path: "/stocks" },
-    ...(role === "superadmin" || role === "admin"
-      ? [
+  const openAdministrationPortal = async () => {
+    try {
+      const response = await getAdminAccessStatus();
+      const portalKey = response.data.data.portal_key;
+      window.open(
+        `${ADMIN_PORTAL_BASE}/${portalKey}?entry=1`,
+        "_blank",
+        "noopener,noreferrer",
+      );
+      onNavigate?.();
+    } catch {
+      navigate("/dashboard");
+    }
+  };
+
+  const menuGroups = [
+    {
+      label: "Overview",
+      items: [{ icon: FaChartBar, label: "Dashboard", path: "/dashboard" }],
+    },
+    {
+      label: "Inventory",
+      items: [
+        { icon: FaBoxes, label: "Products", path: "/inventory" },
+        { icon: FaBox, label: "Stock", path: "/stocks" },
+        { icon: FaIndustry, label: "Manufacturing", path: "/manufacturing" },
+        { icon: FaUsers, label: "Suppliers", path: "/suppliers" },
+      ],
+    },
+    {
+      label: "Transactions",
+      items: [
+        { icon: FaTruck, label: "Purchases", path: "/purchases" },
+        { icon: FaShoppingCart, label: "Sales", path: "/sales" },
+        { icon: FaFileInvoice, label: "Invoices", path: "/invoices" },
+        { icon: FaUndo, label: "Returns", path: "/returns" },
+        { icon: FaExchangeAlt, label: "Exchanges", path: "/exchanges" },
+      ],
+    },
+    {
+      label: "Tools",
+      items: [
+        ...(role === "superadmin" || role === "admin" ? [
           {
             icon: FaCalculator,
             label: "Price Calculator",
@@ -154,59 +190,9 @@ function Sidebar({ onNavigate, onClose }) {
             label: "Loyalty",
             path: "/loyalty",
           },
-        ]
-      : []),
-    { icon: FaTruck, label: "Purchases", path: "/purchases" },
-    { icon: FaShoppingCart, label: "Sales", path: "/sales" },
-    { icon: FaFileInvoice, label: "Invoices", path: "/invoices" },
-    { icon: FaIndustry, label: "Manufacturing", path: "/manufacturing" },
-    { icon: FaUndo, label: "Return", path: "/returns" },
-    { icon: FaExchangeAlt, label: "Exchange", path: "/exchanges" },
-    { icon: FaUsers, label: "Suppliers", path: "/suppliers" },
-    { icon: FaEnvelope, label: "Mailer", path: "/mailer", badge: mailUnreadCount },
-  ];
-
-  const superAdminItems = [
-    {
-      icon: FaUsers,
-      label: "User Management",
-      path: "/superadmin?tab=users",
-      isActive:
-        location.pathname === "/superadmin" &&
-        (new URLSearchParams(location.search).get("tab") === "users" ||
-          !new URLSearchParams(location.search).get("tab")),
-    },
-    {
-      icon: FaBell,
-      label: "Notification Center",
-      path: "/superadmin?tab=notifications",
-      isActive:
-        location.pathname === "/superadmin" &&
-        new URLSearchParams(location.search).get("tab") === "notifications",
-    },
-    {
-      icon: FaClipboardList,
-      label: "Activity Audit Trail",
-      path: "/superadmin?tab=audits",
-      isActive:
-        location.pathname === "/superadmin" &&
-        new URLSearchParams(location.search).get("tab") === "audits",
-    },
-    {
-      icon: FaServer,
-      label: "API Request Logs",
-      path: "/superadmin?tab=api-logs",
-      isActive:
-        location.pathname === "/superadmin" &&
-        new URLSearchParams(location.search).get("tab") === "api-logs",
-    },
-    {
-      icon: FaDatabase,
-      label: "Data Maintenance",
-      path: "/superadmin?tab=cleanup",
-      isActive:
-        location.pathname === "/superadmin" &&
-        new URLSearchParams(location.search).get("tab") === "cleanup",
+        ] : []),
+        { icon: FaEnvelope, label: "Mailer", path: "/mailer", badge: mailUnreadCount },
+      ],
     },
   ];
 
@@ -256,46 +242,45 @@ function Sidebar({ onNavigate, onClose }) {
         onScroll={(event) => { savedNavScrollTop = event.currentTarget.scrollTop; }}
         className="min-h-0 flex-1 overflow-y-auto px-3 py-4"
       >
-        <ul className="space-y-1">
-          {menuItems.map((item) => (
-            <li key={item.path}>
-              <NavLink
-                to={item.path}
-                onClick={onNavigate}
-                className={({ isActive }) => navLinkClass(isActive)}
-              >
-                <item.icon size={18} className="flex-shrink-0" />
-                <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                {item.badge > 0 && (
-                  <span className="rounded-full bg-indigo-500 px-2 py-0.5 text-[11px] font-bold text-white">
-                    {item.badge > 99 ? "99+" : item.badge}
-                  </span>
-                )}
-              </NavLink>
-            </li>
-          ))}
-          {role === "superadmin" && (
-            <li className="pt-3">
-              <div className="px-3 pb-2 text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                Administration
-              </div>
+        <div className="space-y-4">
+          {menuGroups.map((group) => (
+            <section key={group.label}>
+              <p className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                {group.label}
+              </p>
               <ul className="space-y-1">
-                {superAdminItems.map((item) => (
+                {group.items.map((item) => (
                   <li key={item.path}>
-                    <NavLink
-                      to={item.path}
-                      onClick={onNavigate}
-                      className={() => navLinkClass(item.isActive)}
-                    >
+                    <NavLink to={item.path} onClick={onNavigate} className={({ isActive }) => navLinkClass(isActive)}>
                       <item.icon size={18} className="flex-shrink-0" />
-                      <span>{item.label}</span>
+                      <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                      {item.badge > 0 && (
+                        <span className="rounded-full bg-indigo-500 px-2 py-0.5 text-[11px] font-bold text-white">
+                          {item.badge > 99 ? "99+" : item.badge}
+                        </span>
+                      )}
                     </NavLink>
                   </li>
                 ))}
               </ul>
-            </li>
+            </section>
+          ))}
+          {role === "superadmin" && (
+            <section className="border-t border-white/10 pt-4">
+              <p className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                Administration
+              </p>
+              <button
+                type="button"
+                onClick={openAdministrationPortal}
+                className={navLinkClass(false)}
+              >
+                <FaShieldAlt size={18} />
+                <span>Administration Portal</span>
+              </button>
+            </section>
           )}
-        </ul>
+        </div>
       </nav>
 
       <div className="border-t border-white/10 px-3 py-4">

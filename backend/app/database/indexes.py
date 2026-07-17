@@ -123,6 +123,8 @@ async def create_indexes():
     await db.password_otps.create_index("status")
     await db.password_otps.create_index("expires_at")
     await db.password_otps.create_index("reset_token_hash", sparse=True)
+    await db.admin_otps.create_index("session_id")
+    await db.admin_otps.create_index("expires_at", expireAfterSeconds=0)
 
     await db.company_settings.create_index("settings_key", unique=True)
     await db.app_config.create_index("config_key", unique=True)

@@ -1,4 +1,5 @@
-import { Navigate, Routes, Route } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Navigate, Routes, Route, useLocation } from "react-router-dom";
 import { ToastProvider } from "./context/ToastContext";
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -22,9 +23,78 @@ import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import useCompanySettings from "./hooks/useCompanySettings";
 import SessionTimeoutManager from "./components/common/SessionTimeoutManager";
+import Maintenance from "./pages/Maintenance";
+import Loader from "./components/common/Loader";
+import { getMaintenanceStatus } from "./api/maintenanceApi";
+import { getStoredUser } from "./utils/authUtils";
+import AdminPortalGuard from "./routes/AdminPortalGuard";
+import { ADMIN_PORTAL_BASE } from "./config/appConfig";
+import { getAdminAccessStatus } from "./api/adminAccessApi";
 
 function App() {
   useCompanySettings();
+  const location = useLocation();
+  const [maintenance, setMaintenance] = useState(null);
+  const [checkingMaintenance, setCheckingMaintenance] = useState(true);
+  const [adminPortalPath, setAdminPortalPath] = useState("");
+  const isSuperadmin = String(getStoredUser()?.role || "").toLowerCase() === "superadmin";
+
+  useEffect(() => {
+    let active = true;
+    getMaintenanceStatus()
+      .then((response) => {
+        if (active) setMaintenance(response.data?.data || null);
+      })
+      .catch(() => {
+        if (active) setMaintenance(null);
+      })
+      .finally(() => {
+        if (active) setCheckingMaintenance(false);
+      });
+
+    const handleMaintenance = (event) => setMaintenance(event.detail);
+    window.addEventListener("maintenance:enabled", handleMaintenance);
+    window.addEventListener("maintenance:changed", handleMaintenance);
+    return () => {
+      active = false;
+      window.removeEventListener("maintenance:enabled", handleMaintenance);
+      window.removeEventListener("maintenance:changed", handleMaintenance);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!maintenance?.active || !isSuperadmin) {
+      setAdminPortalPath("");
+      return;
+    }
+    let active = true;
+    getAdminAccessStatus()
+      .then((response) => {
+        if (active) {
+          setAdminPortalPath(
+            `${ADMIN_PORTAL_BASE}/${response.data.data.portal_key}`,
+          );
+        }
+      })
+      .catch(() => {
+        if (active) setAdminPortalPath("");
+      });
+    return () => { active = false; };
+  }, [maintenance?.active, isSuperadmin]);
+
+  if (checkingMaintenance) return <Loader message="Checking service status..." />;
+
+  const isAdminPortal = location.pathname.startsWith(`${ADMIN_PORTAL_BASE}/`);
+  const adminLoginRequested =
+    location.pathname === "/" &&
+    new URLSearchParams(location.search).get("maintenanceAdmin") === "1";
+  if (maintenance?.active && isSuperadmin && !isAdminPortal) {
+    if (!adminPortalPath) return <Loader message="Opening administration portal..." />;
+    return <Navigate to={`${adminPortalPath}?entry=1`} replace />;
+  }
+  if (maintenance?.active && !isSuperadmin && !adminLoginRequested) {
+    return <Maintenance config={maintenance} />;
+  }
 
   return (
     <ToastProvider>
@@ -137,10 +207,12 @@ function App() {
           }
         />
         <Route
-          path="/superadmin"
+          path={`${ADMIN_PORTAL_BASE}/:portalKey/*`}
           element={
             <ProtectedRoute>
-              <SuperAdmin />
+              <AdminPortalGuard>
+                <SuperAdmin />
+              </AdminPortalGuard>
             </ProtectedRoute>
           }
         />
@@ -148,7 +220,7 @@ function App() {
           path="/audits"
           element={
             <ProtectedRoute>
-              <Navigate to="/superadmin?tab=audits" replace />
+              <Navigate to="/dashboard" replace />
             </ProtectedRoute>
           }
         />
@@ -156,7 +228,7 @@ function App() {
           path="/api-logs"
           element={
             <ProtectedRoute>
-              <Navigate to="/superadmin?tab=api-logs" replace />
+              <Navigate to="/dashboard" replace />
             </ProtectedRoute>
           }
         />

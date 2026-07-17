@@ -16,6 +16,7 @@ import Input from "../components/common/Input";
 import Loader from "../components/common/Loader";
 import Modal from "../components/common/Modal";
 import MainLayout from "../layouts/MainLayout";
+import AdminLayout from "../layouts/AdminLayout";
 import {
   bulkDeleteMail,
   deleteMail,
@@ -302,7 +303,8 @@ function MessagePreview({
   );
 }
 
-function Mailer() {
+function Mailer({ adminPortal = false }) {
+  const Layout = adminPortal ? AdminLayout : MainLayout;
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -486,14 +488,14 @@ function Mailer() {
 
   if (loading) {
     return (
-      <MainLayout>
+      <Layout>
         <Loader message="Loading mailer..." />
-      </MainLayout>
+      </Layout>
     );
   }
 
   return (
-    <MainLayout hideFooter>
+    <Layout hideFooter>
       <div className="flex h-[calc(100vh-96px)] min-h-0 flex-col overflow-hidden">
       <div className="mb-5 flex shrink-0 flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
@@ -716,7 +718,7 @@ function Mailer() {
           />
         </div>
       )}
-    </MainLayout>
+    </Layout>
   );
 }
 

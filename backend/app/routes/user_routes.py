@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, File, UploadFile
 from typing import Annotated, Optional
 
 from app.services.auth_service import get_current_user
+from app.services.admin_access_service import get_verified_superadmin
 
 from app.models.auth import (
     ChangePasswordRequest,
@@ -44,12 +45,13 @@ router = APIRouter(
 )
 
 user_dependency = Annotated[dict, Depends(get_current_user)]
+verified_admin_dependency = Annotated[dict, Depends(get_verified_superadmin)]
 
 # CREATE USER
 
 
 @router.post("/create")
-async def create_user_api(auth_user: user_dependency, user: CreateUserRequest):
+async def create_user_api(auth_user: verified_admin_dependency, user: CreateUserRequest):
 
     result = await create_user(auth_user, user.model_dump())
 
@@ -63,7 +65,7 @@ async def create_user_api(auth_user: user_dependency, user: CreateUserRequest):
 
 
 @router.post("/details")
-async def get_user_details_api(auth_user: user_dependency, user: GetUserRequest):
+async def get_user_details_api(auth_user: verified_admin_dependency, user: GetUserRequest):
 
     result = await get_user_by_username(auth_user, user.username)
 
@@ -77,7 +79,7 @@ async def get_user_details_api(auth_user: user_dependency, user: GetUserRequest)
 
 @router.get("/")
 async def get_users_api(
-    auth_user: user_dependency,
+    auth_user: verified_admin_dependency,
     search: Optional[str] = None,
     role: Optional[str] = None,
     active: Optional[bool] = None,
@@ -198,7 +200,7 @@ async def change_password_api(
 
 @router.patch("/activate")
 async def activate_user_api(
-    auth_user: user_dependency,
+    auth_user: verified_admin_dependency,
     user: ActivateUserRequest
 ):
 
@@ -214,7 +216,7 @@ async def activate_user_api(
 
 
 @router.delete("/delete")
-async def delete_user_api(auth_user: user_dependency, user: DeleteUserRequest):
+async def delete_user_api(auth_user: verified_admin_dependency, user: DeleteUserRequest):
 
     result = await delete_user(auth_user, user.username, user.permanent)
 
@@ -230,7 +232,7 @@ async def delete_user_api(auth_user: user_dependency, user: DeleteUserRequest):
 
 @router.patch("/role")
 async def update_user_role_api(
-    auth_user: user_dependency,
+    auth_user: verified_admin_dependency,
     user: UpdateUserRoleRequest
 ):
 
@@ -244,7 +246,7 @@ async def update_user_role_api(
 
 @router.delete("/clean-db")
 async def clean_database_api(
-    auth_user: user_dependency,
+    auth_user: verified_admin_dependency,
     request: CleanDatabaseRequest
 ):
     result = await clean_database_collections(auth_user, request.collections)

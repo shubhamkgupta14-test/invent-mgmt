@@ -52,6 +52,16 @@ API.interceptors.response.use(
       clearAuthState();
       window.location.href = "/";
     }
+    if (
+      error.response?.status === 503 &&
+      error.response?.data?.data?.code === "MAINTENANCE_MODE"
+    ) {
+      window.dispatchEvent(
+        new CustomEvent("maintenance:enabled", {
+          detail: error.response.data.data.maintenance,
+        }),
+      );
+    }
     return Promise.reject(error);
   },
 );

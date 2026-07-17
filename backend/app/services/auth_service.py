@@ -1,6 +1,7 @@
 import jwt
 from jwt import InvalidTokenError
 import hmac
+import secrets
 from bson import ObjectId
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
@@ -35,6 +36,7 @@ async def create_session(user: dict):
     session_id = uuid4().hex
     await session_collection.insert_one({
         "session_id": session_id,
+        "admin_portal_key": secrets.token_urlsafe(7) if user.get("role") == UserRole.SUPERADMIN else None,
         "user_id": str(user.get("_id")),
         "created_at": now,
         "last_activity_at": now,
