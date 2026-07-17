@@ -1,21 +1,24 @@
 import axios from "axios";
-import { clearToken } from "../utils/authUtils";
+import { clearAuthState, getCsrfToken } from "../utils/authUtils";
+import { createValidationToast } from "../utils/validationErrors";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const API = axios.create({
   baseURL: API_BASE_URL,
+  withCredentials: true,
   headers: {
     "Content-Type": "application/json",
   },
 });
 
-// Request interceptor - Add token to headers
+// Echo the session-scoped CSRF value in a header for state-changing requests.
 API.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    const method = String(config.method || "get").toLowerCase();
+    if (!["get", "head", "options"].includes(method)) {
+      const csrfToken = getCsrfToken();
+      if (csrfToken) config.headers["X-CSRF-Token"] = csrfToken;
     }
     return config;
   },
@@ -26,15 +29,38 @@ API.interceptors.request.use(
 
 // Response interceptor - Handle 401 (token expiration/unauthorized)
 API.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("session:activity"));
+    }
+    return response;
+  },
   (error) => {
     const requestUrl = error.config?.url || "";
     const isLoginRequest = requestUrl.includes("/auth/login");
 
+    if (
+      error.response?.status === 422 &&
+      error.response?.data?.message === "Validation failed"
+    ) {
+      error.response.data.message = createValidationToast(
+        error.response.data.data,
+      );
+    }
+
     if (error.response?.status === 401 && !isLoginRequest) {
-      // Clear token and redirect to login
-      clearToken();
+      clearAuthState();
       window.location.href = "/";
+    }
+    if (
+      error.response?.status === 503 &&
+      error.response?.data?.data?.code === "MAINTENANCE_MODE"
+    ) {
+      window.dispatchEvent(
+        new CustomEvent("maintenance:enabled", {
+          detail: error.response.data.data.maintenance,
+        }),
+      );
     }
     return Promise.reject(error);
   },

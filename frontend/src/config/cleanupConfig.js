@@ -1,0 +1,32 @@
+export const CLEAN_OPTIONS = [
+  { label: "API Request Logs", value: "api-logs" },
+  { label: "App Config", value: "app-config" },
+  { label: "Authentication Sessions", value: "auth-sessions" },
+  { label: "Activity Audit Trail", value: "audits" },
+  { label: "Company Settings", value: "company-settings" },
+  { label: "Exchanges", value: "exchanges" },
+  { label: "Emails / Mailer", value: "mailer" },
+  { label: "Invoice Counters", value: "invoice-counters" },
+  { label: "Invoices", value: "invoices" },
+  { label: "Loyalty Records", value: "loyalty" },
+  { label: "Manufacturing", value: "manufacturing" },
+  { label: "Notification Read Status", value: "notification-reads" },
+  { label: "Notifications", value: "notifications" },
+  { label: "OTP / Verification Records", value: "otp-records" },
+  { label: "Products", value: "products" },
+  { label: "Purchases", value: "purchases" },
+  { label: "Returns", value: "returns" },
+  { label: "Sales", value: "sales" },
+  { label: "Stocks", value: "stocks" },
+  { label: "Suppliers", value: "suppliers" },
+  { label: "Users", value: "users" },
+];
+
+export const DEFAULT_CLEAN_COLLECTIONS = [
+  "api-logs",
+  "audits",
+  "mailer",
+  "notification-reads",
+  "notifications",
+  "otp-records",
+];

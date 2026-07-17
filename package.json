@@ -1,0 +1,24 @@
+{
+  "name": "inventory-management",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "node scripts/start.mjs --env dev",
+    "start": "node scripts/start.mjs",
+    "start:test": "node scripts/start.mjs --env test",
+    "seed": "node scripts/python.mjs backend/scripts/seed.py",
+    "seed:test": "node scripts/python.mjs backend/scripts/seed.py --env test",
+    "test": "node scripts/check.mjs",
+    "test:test": "node scripts/check.mjs --env test",
+    "test:backend": "node scripts/python.mjs -m unittest discover -s test/backend -p test_*.py",
+    "test:frontend": "npm --prefix frontend test",
+    "lint": "npm --prefix frontend run lint",
+    "build": "node scripts/frontend-command.mjs build",
+    "build:test": "node scripts/frontend-command.mjs build --env test",
+    "preview": "node scripts/frontend-command.mjs preview",
+    "preview:test": "node scripts/frontend-command.mjs preview --env test",
+    "clean:deps": "node scripts/clean.mjs deps",
+    "clean:cache": "node scripts/clean.mjs cache",
+    "clean:all": "node scripts/clean.mjs all"
+  }
+}

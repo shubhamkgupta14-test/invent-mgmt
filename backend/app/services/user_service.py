@@ -18,7 +18,9 @@ from app.utils.helpers import (
 from app.utils.pagination import paginate_collection, regex_filter, validate_sort_field
 from app.utils.responseBuilder import build_user_response
 from app.utils.settings import Settings
+from app.utils.image_upload import validate_and_reencode_image
 from app.services.supplier_service import OWN_COMPANY_SUPPLIER_KEY
+from app.config.collections import CLEANABLE_COLLECTIONS
 
 from app.models.auth import UserRole
 from app.utils.messages import Messages
@@ -32,12 +34,6 @@ from app.core.exceptions import (
 user_collection = db.users
 password_otps_collection = db.password_otps
 EMAIL_VERIFICATION_PURPOSE = "EMAIL_VERIFICATION"
-ALLOWED_IMAGE_TYPES = {
-    "image/jpeg": ".jpg",
-    "image/png": ".png",
-    "image/webp": ".webp",
-    "image/gif": ".gif",
-}
 UPLOAD_DIR = Path(Settings.UPLOAD_DIR)
 
 
@@ -56,25 +52,8 @@ def _delete_uploaded_file(url: str):
         target.unlink()
 
 SUPERADMIN_CLEANABLE_COLLECTIONS = {
-    "api-logs": db.api_logs,
-    "app-config": db.app_config,
-    "audits": db.audits,
-    "company-settings": db.company_settings,
-    "exchanges": db.exchanges,
-    "invoices": db.invoices,
-    "loyalty": db.loyalty,
-    "manufacturing": db.manufacturing,
-    "mailer": db.mail_messages,
-    "notification-reads": db.notification_reads,
-    "notifications": db.notifications,
-    "otp-records": db.password_otps,
-    "products": db.products,
-    "purchases": db.purchases,
-    "returns": db.returns,
-    "sales": db.sales,
-    "stocks": db.stocks,
-    "suppliers": db.suppliers,
-    "users": db.users,
+    key: db[collection_name]
+    for key, collection_name in CLEANABLE_COLLECTIONS.items()
 }
 
 # CREATE USER
@@ -110,6 +89,7 @@ async def create_user(auth_user: dict, user_data: dict):
     user_data["updated_at"] = datetime.now(UTC)
     user_data["active"] = user_data.get("active", True)
     user_data["email_verified"] = False
+    user_data["token_version"] = 0
     user_data["password"] = hash_password(user_data.get("password"))
 
     result = await user_collection.insert_one(user_data)
@@ -189,6 +169,8 @@ async def get_me(auth_user: dict):
 async def get_all_users(
     auth_user: dict,
     search: str = None,
+    role: str = None,
+    active: bool = None,
     sort_by: str = "created_at",
     order: str = "desc",
     page: int = 1,
@@ -227,6 +209,16 @@ async def get_all_users(
         }
     else:
         forbidden()
+
+    if role:
+        try:
+            selected_role = UserRole(role)
+        except ValueError:
+            bad_request(Messages.ACCESS_DENIED)
+        filters = {"$and": [filters, {"role": selected_role}]} if filters else {"role": selected_role}
+
+    if active is not None:
+        filters = {"$and": [filters, {"active": active}]} if filters else {"active": active}
 
     search_filter = regex_filter(search, [
         "username",
@@ -406,11 +398,11 @@ async def clean_database_collections(auth_user: dict, collections: list[str]):
 
         result[collection_name] = delete_result.deleted_count
 
-        if collection_name == "notifications":
+        if collection_name == "notifications" and "notification-reads" not in selected_collections:
             read_delete_result = await db.notification_reads.delete_many({})
             result["notification_reads"] = read_delete_result.deleted_count
 
-        if collection_name == "invoices":
+        if collection_name == "invoices" and "invoice-counters" not in selected_collections:
             counter_delete_result = await db.invoice_counters.delete_many({})
             result["invoice_counters"] = counter_delete_result.deleted_count
 
@@ -438,6 +430,7 @@ async def change_password(auth_user: dict, current_password: str, new_password: 
         {
             "$set": {
                 "password": hash_password(new_password),
+                "token_version": int(user.get("token_version", 0)) + 1,
                 "updated_at": datetime.now(UTC),
             }
         },
@@ -485,13 +478,7 @@ async def update_my_profile_image(auth_user: dict, file: UploadFile):
     if not user:
         not_found(Messages.USER_NOT_FOUND)
 
-    extension = ALLOWED_IMAGE_TYPES.get(file.content_type)
-    if not extension:
-        bad_request("Only JPG, PNG, WEBP, or GIF images are allowed")
-
-    contents = await file.read()
-    if len(contents) > 2 * 1024 * 1024:
-        bad_request("Image size must be 2MB or less")
+    contents, extension = await validate_and_reencode_image(file)
 
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     filename = f"user-profile-{username}-{uuid4().hex}{extension}"
@@ -592,6 +579,7 @@ async def request_email_verification(auth_user: dict):
         "sent": True,
         "verified": False,
         "expires_at": expires_at.isoformat(),
+        **({"dev_otp": otp} if Settings.EXPOSE_DEV_OTP else {}),
     }
 
 
@@ -616,10 +604,6 @@ async def verify_email(auth_user: dict, otp: str):
             {"$set": {"attempts": attempts, "status": status, "updated_at": now}},
         )
         if is_blocked:
-            await user_collection.update_one(
-                {"username": username},
-                {"$set": {"active": False, "updated_at": datetime.now(UTC)}},
-            )
             bad_request(Messages.OTP_USER_BLOCKED)
         remaining = max(max_attempts - attempts, 0)
         bad_request(Messages.OTP_INVALID_WITH_ATTEMPTS.format(remaining=remaining))

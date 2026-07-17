@@ -1,10 +1,10 @@
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel
+from app.models.base import SecureBaseModel
 
 
-class ApiLogResponse(BaseModel):
+class ApiLogResponse(SecureBaseModel):
     trace_id: str
     method: str
     path: str

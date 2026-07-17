@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { FaChevronDown, FaDownload, FaUpload } from "react-icons/fa";
-import * as XLSX from "xlsx";
 import Button from "./Button";
+import { downloadExcel } from "../../utils/excelExport";
 
 const BULK_UPLOAD_MAX_FILE_SIZE_MB = 5;
 const BULK_UPLOAD_MAX_FILE_SIZE = BULK_UPLOAD_MAX_FILE_SIZE_MB * 1024 * 1024;
@@ -23,12 +23,8 @@ function BulkUpdateMenu({
   const buttonRef = useRef(null);
   const inFlightRef = useRef("");
 
-  const downloadSample = () => {
-    const worksheet = XLSX.utils.json_to_sheet(sampleRows, { header: headers });
-    worksheet["!cols"] = headers.map((header) => ({ wch: Math.max(header.length + 2, 14) }));
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Bulk Upload");
-    XLSX.writeFile(workbook, sampleFileName);
+  const downloadSample = async () => {
+    await downloadExcel({ headers, rows: sampleRows, filename: sampleFileName, sheetName: "Bulk Upload" });
     setOpen(false);
   };
 

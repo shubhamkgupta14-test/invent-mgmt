@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { FaBuilding, FaCamera, FaKey, FaPlus, FaTrash, FaUserCircle } from "react-icons/fa";
+import { FaBuilding, FaCamera, FaEye, FaEyeSlash, FaKey, FaPlus, FaTrash, FaUserCircle } from "react-icons/fa";
 import {
   changePassword,
   getMyDetails,
@@ -14,11 +14,13 @@ import { getCompanySettings, resetCompanyLogo, updateCompanySettings, uploadComp
 import Button from "../components/common/Button";
 import Card from "../components/common/Card";
 import Input from "../components/common/Input";
+import DevOtpPanel from "../components/common/DevOtpPanel";
 import Loader from "../components/common/Loader";
 import RoleBadge from "../components/common/RoleBadge";
 import { useToast } from "../context/useToast";
 import MainLayout from "../layouts/MainLayout";
-import { clearToken, setStoredUser } from "../utils/authUtils";
+import { clearAuthState, setStoredUser } from "../utils/authUtils";
+import { logoutUser } from "../api/authApi";
 import {
   DEFAULT_COMPANY_SETTINGS,
   currencyOptions,
@@ -37,7 +39,6 @@ const emptyProfileForm = {
   email: "",
 };
 
-const OTP_BLOCKED_MESSAGE = "Too many wrong OTP attempts. Contact Super Admin to activate your account.";
 const sanitizeOtp = (value) => value.replace(/\D/g, "").slice(0, 6);
 const isFutureDate = (value) => {
   if (!value) return false;
@@ -68,6 +69,21 @@ function DetailItem({ label, value }) {
   );
 }
 
+function PasswordEyeButton({ visible, onToggle, label, disabled }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      disabled={disabled}
+      className="rounded-md p-1 text-slate-500 transition hover:text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 disabled:cursor-not-allowed disabled:opacity-50"
+      aria-label={`${visible ? "Hide" : "Show"} ${label}`}
+      title={visible ? "Hide password" : "Show password"}
+    >
+      {visible ? <FaEyeSlash size={17} /> : <FaEye size={17} />}
+    </button>
+  );
+}
+
 function UserSettings() {
   const [user, setUser] = useState(null);
   const [profileForm, setProfileForm] = useState(emptyProfileForm);
@@ -76,12 +92,18 @@ function UserSettings() {
   const [resettingProfileImage, setResettingProfileImage] = useState(false);
   const [emailOtp, setEmailOtp] = useState("");
   const [emailOtpError, setEmailOtpError] = useState("");
+  const [emailDevOtp, setEmailDevOtp] = useState("");
   const [emailOtpRequested, setEmailOtpRequested] = useState(false);
   const [sendingEmailOtp, setSendingEmailOtp] = useState(false);
   const [verifyingEmail, setVerifyingEmail] = useState(false);
   const [loading, setLoading] = useState(true);
   const [savingPassword, setSavingPassword] = useState(false);
   const [passwordForm, setPasswordForm] = useState(emptyPasswordForm);
+  const [passwordVisibility, setPasswordVisibility] = useState({
+    current: false,
+    new: false,
+    confirm: false,
+  });
   const [passwordError, setPasswordError] = useState("");
   const [companySettings, setCompanySettings] = useState(DEFAULT_COMPANY_SETTINGS);
   const [savingCompany, setSavingCompany] = useState(false);
@@ -209,7 +231,10 @@ function UserSettings() {
         new_password: passwordForm.new_password,
       });
       setPasswordForm(emptyPasswordForm);
-      addToast("Password updated successfully", "success");
+      addToast("Password updated. Please sign in again.", "success");
+      await logoutUser().catch(() => {});
+      clearAuthState("/settings");
+      window.location.href = "/";
     } catch (error) {
       setPasswordError(error.response?.data?.message || "Failed to update password.");
     } finally {
@@ -257,6 +282,7 @@ function UserSettings() {
       setSendingEmailOtp(true);
       setEmailOtpError("");
       const response = await requestEmailVerification();
+      setEmailDevOtp(response.data.data?.dev_otp || "");
       const expiresAt = response.data.data?.expires_at;
       setEmailOtpRequested(true);
       if (expiresAt) {
@@ -292,16 +318,11 @@ function UserSettings() {
       setEmailOtp("");
       setEmailOtpError("");
       setEmailOtpRequested(false);
+      setEmailDevOtp("");
       addToast("Email verified successfully", "success");
     } catch (error) {
       const message = error.response?.data?.message || "Invalid or expired verification code";
       addToast(message, "error");
-      if (message === OTP_BLOCKED_MESSAGE) {
-        clearToken("/settings");
-        window.setTimeout(() => {
-          window.location.href = "/";
-        }, 1200);
-      }
     } finally {
       setVerifyingEmail(false);
     }
@@ -553,6 +574,7 @@ function UserSettings() {
                   </Button>
                   {emailOtpRequested && (
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                      <DevOtpPanel otp={emailDevOtp} />
                       <div className="sm:w-36">
                         <Input
                           label="OTP"
@@ -604,26 +626,51 @@ function UserSettings() {
           <form onSubmit={handlePasswordSubmit} className="grid gap-4 lg:grid-cols-3">
             <Input
               label="Current password"
-              type="password"
+              type={passwordVisibility.current ? "text" : "password"}
               value={passwordForm.current_password}
               onChange={(value) => updatePasswordField("current_password", value)}
               disabled={savingPassword}
+              endAdornment={
+                <PasswordEyeButton
+                  visible={passwordVisibility.current}
+                  onToggle={() => setPasswordVisibility((current) => ({ ...current, current: !current.current }))}
+                  label="current password"
+                  disabled={savingPassword}
+                />
+              }
               required
             />
+            <p className="text-xs text-slate-500 lg:col-span-3">New passwords require at least 8 characters, one letter, one number, and one special character.</p>
             <Input
               label="New password"
-              type="password"
+              type={passwordVisibility.new ? "text" : "password"}
               value={passwordForm.new_password}
               onChange={(value) => updatePasswordField("new_password", value)}
               disabled={savingPassword}
+              endAdornment={
+                <PasswordEyeButton
+                  visible={passwordVisibility.new}
+                  onToggle={() => setPasswordVisibility((current) => ({ ...current, new: !current.new }))}
+                  label="new password"
+                  disabled={savingPassword}
+                />
+              }
               required
             />
             <Input
               label="Confirm new password"
-              type="password"
+              type={passwordVisibility.confirm ? "text" : "password"}
               value={passwordForm.confirm_password}
               onChange={(value) => updatePasswordField("confirm_password", value)}
               disabled={savingPassword}
+              endAdornment={
+                <PasswordEyeButton
+                  visible={passwordVisibility.confirm}
+                  onToggle={() => setPasswordVisibility((current) => ({ ...current, confirm: !current.confirm }))}
+                  label="confirmed password"
+                  disabled={savingPassword}
+                />
+              }
               required
             />
 

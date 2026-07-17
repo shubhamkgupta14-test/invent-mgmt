@@ -6,9 +6,13 @@ import Card from "../components/common/Card";
 import Input from "../components/common/Input";
 import Loader from "../components/common/Loader";
 import Modal from "../components/common/Modal";
-import RoleBadge from "../components/common/RoleBadge";
 import Select from "../components/common/Select";
 import Textarea from "../components/common/Textarea";
+import UserManagement from "../components/pages/superadmin/UserManagement";
+import {
+  CleanupSkeleton,
+  NotificationHistorySkeleton,
+} from "../components/pages/superadmin/AdminSkeletons";
 import {
   createNotification,
   deleteNotification,
@@ -17,19 +21,19 @@ import {
 } from "../api/notificationApi";
 import ApiLogs from "./ApiLogs";
 import AuditLogs from "./AuditLogs";
-import {
-  activateUser,
-  cleanDatabase,
-  createUser,
-  deleteUser,
-  getUserDetails,
-  getMyDetails,
-  getUsers,
-  updateUserRole,
-} from "../api/userApi";
+import { cleanDatabase, getMyDetails } from "../api/userApi";
 import { useToast } from "../context/useToast";
-import MainLayout from "../layouts/MainLayout";
+import AdminLayout from "../layouts/AdminLayout";
+import Mailer from "./Mailer";
 import { formatDateTimeIST } from "../utils/formatters";
+import {
+  CLEAN_OPTIONS,
+  DEFAULT_CLEAN_COLLECTIONS,
+} from "../config/cleanupConfig";
+import {
+  getMaintenanceConfig,
+  updateMaintenanceConfig,
+} from "../api/maintenanceApi";
 
 const roleOptions = [
   { label: "User", value: "user" },
@@ -37,37 +41,7 @@ const roleOptions = [
   { label: "Super Admin", value: "superadmin" },
 ];
 
-const cleanOptions = [
-  { label: "API Request Logs", value: "api-logs" },
-  { label: "App Config", value: "app-config" },
-  { label: "Activity Audit Trail", value: "audits" },
-  { label: "Company Settings", value: "company-settings" },
-  { label: "Exchanges", value: "exchanges" },
-  { label: "Emails / Mailer", value: "mailer" },
-  { label: "Invoices", value: "invoices" },
-  { label: "Loyalty Records", value: "loyalty" },
-  { label: "Manufacturing", value: "manufacturing" },
-  { label: "Notification Read Status", value: "notification-reads" },
-  { label: "Notifications", value: "notifications" },
-  { label: "OTP / Verification Records", value: "otp-records" },
-  { label: "Products", value: "products" },
-  { label: "Purchases", value: "purchases" },
-  { label: "Returns", value: "returns" },
-  { label: "Sales", value: "sales" },
-  { label: "Stocks", value: "stocks" },
-  { label: "Suppliers", value: "suppliers" },
-  { label: "Users", value: "users" },
-];
-
-const emptyUserForm = {
-  username: "",
-  password: "",
-  firstname: "",
-  lastname: "",
-  email: "",
-  role: "user",
-  active: true,
-};
+const cleanOptions = CLEAN_OPTIONS;
 
 const emptyNotificationForm = {
   title: "",
@@ -91,10 +65,8 @@ const audienceOptions = [
   { label: "Specific Users", value: "USERS" },
 ];
 
-const adminTabs = ["users", "notifications", "audits", "api-logs", "cleanup"];
-const cleanDbCollectionValues = cleanOptions
-  .filter((option) => !["users", "company-settings"].includes(option.value))
-  .map((option) => option.value);
+const adminTabs = ["overview", "users", "notifications", "mailer", "audits", "api-logs", "maintenance", "cleanup"];
+const cleanDbCollectionValues = DEFAULT_CLEAN_COLLECTIONS;
 
 const typeBorderClasses = {
   INFO: "border-l-sky-500",
@@ -109,40 +81,40 @@ function toSentenceCase(value) {
   return text ? text[0].toUpperCase() + text.slice(1) : "";
 }
 
+function toLocalDateTimeInput(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  const offset = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+}
+
+const emptyMaintenanceForm = {
+  enabled: false,
+  message: "We are performing scheduled maintenance. Please try again shortly.",
+  starts_at: "",
+  ends_at: "",
+};
+
 function SuperAdmin() {
   const [searchParams] = useSearchParams();
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [savingUser, setSavingUser] = useState(false);
-  const [findingUser, setFindingUser] = useState(false);
-  const [loadingUsers, setLoadingUsers] = useState(false);
-  const [activatingUser, setActivatingUser] = useState(false);
-  const [updatingRole, setUpdatingRole] = useState(false);
-  const [deletingUser, setDeletingUser] = useState(false);
   const [cleaning, setCleaning] = useState(false);
-  const [userForm, setUserForm] = useState(emptyUserForm);
-  const [lookupUsername, setLookupUsername] = useState("");
-  const [foundUser, setFoundUser] = useState(null);
-  const [users, setUsers] = useState([]);
-  const [activateUsername, setActivateUsername] = useState("");
-  const [roleForm, setRoleForm] = useState({ username: "", role: "user" });
-  const [deleteForm, setDeleteForm] = useState({
-    username: "",
-    permanent: false,
-  });
   const [selectedCollections, setSelectedCollections] = useState([]);
-  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [confirmCleanOpen, setConfirmCleanOpen] = useState(false);
-  const [usersModalOpen, setUsersModalOpen] = useState(false);
   const activeTab = adminTabs.includes(searchParams.get("tab"))
     ? searchParams.get("tab")
-    : "users";
+    : "overview";
   const [notificationForm, setNotificationForm] = useState(emptyNotificationForm);
   const [sendingNotification, setSendingNotification] = useState(false);
   const [sentNotifications, setSentNotifications] = useState([]);
   const [expandedNotificationId, setExpandedNotificationId] = useState(null);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const [loadingCleanup, setLoadingCleanup] = useState(true);
   const [resendingNotificationId, setResendingNotificationId] = useState(null);
+  const [maintenanceForm, setMaintenanceForm] = useState(emptyMaintenanceForm);
+  const [loadingMaintenance, setLoadingMaintenance] = useState(false);
+  const [savingMaintenance, setSavingMaintenance] = useState(false);
   const { addToast } = useToast();
 
   const loadSentNotifications = useCallback(async () => {
@@ -183,6 +155,40 @@ function SuperAdmin() {
     return () => window.clearTimeout(loadId);
   }, [activeTab, loadSentNotifications]);
 
+  useEffect(() => {
+    if (activeTab !== "maintenance") return undefined;
+    let active = true;
+    setLoadingMaintenance(true);
+    getMaintenanceConfig()
+      .then((response) => {
+        if (!active) return;
+        const config = response.data.data;
+        setMaintenanceForm({
+          enabled: Boolean(config.enabled),
+          message: config.message,
+          starts_at: toLocalDateTimeInput(config.starts_at),
+          ends_at: toLocalDateTimeInput(config.ends_at),
+        });
+      })
+      .catch((error) => {
+        addToast(error.response?.data?.message || "Failed to load maintenance configuration", "error");
+      })
+      .finally(() => {
+        if (active) setLoadingMaintenance(false);
+      });
+    return () => { active = false; };
+  }, [activeTab, addToast]);
+
+  useEffect(() => {
+    if (loading || activeTab !== "cleanup") return undefined;
+    const showTimer = window.setTimeout(() => setLoadingCleanup(true), 0);
+    const hideTimer = window.setTimeout(() => setLoadingCleanup(false), 350);
+    return () => {
+      window.clearTimeout(showTimer);
+      window.clearTimeout(hideTimer);
+    };
+  }, [activeTab, loading]);
+
   const selectedCollectionLabels = useMemo(
     () =>
       cleanOptions
@@ -193,102 +199,6 @@ function SuperAdmin() {
   );
 
   const allCollectionsSelected = selectedCollections.length === cleanOptions.length;
-
-  const updateUserForm = (key, value) => {
-    setUserForm((current) => ({ ...current, [key]: value }));
-  };
-
-  const handleCreateUser = async (event) => {
-    event.preventDefault();
-
-    try {
-      setSavingUser(true);
-      await createUser(userForm);
-      addToast("User created successfully", "success");
-      setUserForm(emptyUserForm);
-    } catch (error) {
-      addToast(error.response?.data?.message || "Failed to create user", "error");
-    } finally {
-      setSavingUser(false);
-    }
-  };
-
-  const handleFindUser = async (event) => {
-    event.preventDefault();
-
-    try {
-      setFindingUser(true);
-      const response = await getUserDetails(lookupUsername.trim());
-      setFoundUser(response.data.data);
-    } catch (error) {
-      setFoundUser(null);
-      addToast(error.response?.data?.message || "Failed to fetch user", "error");
-    } finally {
-      setFindingUser(false);
-    }
-  };
-
-  const handleGetAllUsers = async () => {
-    try {
-      setLoadingUsers(true);
-      const response = await getUsers();
-      setUsers(response.data.data || []);
-      setUsersModalOpen(true);
-    } catch (error) {
-      addToast(error.response?.data?.message || "Failed to fetch users", "error");
-    } finally {
-      setLoadingUsers(false);
-    }
-  };
-
-  const handleUpdateRole = async (event) => {
-    event.preventDefault();
-
-    try {
-      setUpdatingRole(true);
-      await updateUserRole(roleForm.username.trim(), roleForm.role);
-      addToast("User role updated successfully", "success");
-      setRoleForm({ username: "", role: "user" });
-    } catch (error) {
-      addToast(error.response?.data?.message || "Failed to update role", "error");
-    } finally {
-      setUpdatingRole(false);
-    }
-  };
-
-  const handleActivateUser = async (event) => {
-    event.preventDefault();
-
-    try {
-      setActivatingUser(true);
-      await activateUser(activateUsername.trim());
-      addToast("User activated successfully", "success");
-      setActivateUsername("");
-    } catch (error) {
-      addToast(error.response?.data?.message || "Failed to activate user", "error");
-    } finally {
-      setActivatingUser(false);
-    }
-  };
-
-  const handleDeleteUser = async () => {
-    try {
-      setDeletingUser(true);
-      await deleteUser(deleteForm.username.trim(), deleteForm.permanent);
-      addToast(
-        deleteForm.permanent
-          ? "User permanently deleted successfully"
-          : "User deactivated successfully",
-        "success",
-      );
-      setDeleteForm({ username: "", permanent: false });
-      setConfirmDeleteOpen(false);
-    } catch (error) {
-      addToast(error.response?.data?.message || "Failed to delete user", "error");
-    } finally {
-      setDeletingUser(false);
-    }
-  };
 
   const toggleCollection = (collection) => {
     setSelectedCollections((current) =>
@@ -394,25 +304,59 @@ function SuperAdmin() {
     );
   };
 
+  const handleSaveMaintenance = async (event) => {
+    event.preventDefault();
+    try {
+      setSavingMaintenance(true);
+      const response = await updateMaintenanceConfig({
+        ...maintenanceForm,
+        starts_at: maintenanceForm.starts_at
+          ? new Date(maintenanceForm.starts_at).toISOString()
+          : null,
+        ends_at: maintenanceForm.ends_at
+          ? new Date(maintenanceForm.ends_at).toISOString()
+          : null,
+      });
+      const config = response.data.data;
+      setMaintenanceForm({
+        enabled: Boolean(config.enabled),
+        message: config.message,
+        starts_at: toLocalDateTimeInput(config.starts_at),
+        ends_at: toLocalDateTimeInput(config.ends_at),
+      });
+      window.dispatchEvent(
+        new CustomEvent("maintenance:changed", { detail: config }),
+      );
+      addToast(
+        config.active ? "Maintenance mode is now active" : "Maintenance configuration saved",
+        "success",
+      );
+    } catch (error) {
+      addToast(error.response?.data?.message || "Failed to save maintenance configuration", "error");
+    } finally {
+      setSavingMaintenance(false);
+    }
+  };
+
   if (loading) {
     return (
-      <MainLayout>
+      <AdminLayout>
         <div className="flex min-h-[calc(100vh-88px)] items-center justify-center">
           <Loader message="Loading admin tools..." />
         </div>
-      </MainLayout>
+      </AdminLayout>
     );
   }
 
   if (currentUser?.role !== "superadmin") {
     return (
-      <MainLayout>
+      <AdminLayout>
         <Card>
           <p className="text-sm font-medium text-slate-700">
             Only Super Admin users can access this page.
           </p>
         </Card>
-      </MainLayout>
+      </AdminLayout>
     );
   }
 
@@ -424,8 +368,12 @@ function SuperAdmin() {
     return <ApiLogs />;
   }
 
+  if (activeTab === "mailer") {
+    return <Mailer adminPortal />;
+  }
+
   return (
-    <MainLayout>
+    <AdminLayout>
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">
@@ -436,246 +384,23 @@ function SuperAdmin() {
           </p>
         </div>
 
-        {activeTab === "users" ? (
-        <div className="grid gap-6 xl:grid-cols-2">
-          <div className="space-y-6">
-            <Card title="Create User">
-              <form onSubmit={handleCreateUser} className="space-y-5">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <Input
-                    label="First Name"
-                    value={userForm.firstname}
-                    onChange={(value) => updateUserForm("firstname", value)}
-                    required
-                  />
-                  <Input
-                    label="Last Name"
-                    value={userForm.lastname}
-                    onChange={(value) => updateUserForm("lastname", value)}
-                  />
-                  <Input
-                    label="Username"
-                    value={userForm.username}
-                    onChange={(value) => updateUserForm("username", value)}
-                    required
-                  />
-                  <Input
-                    label="Email"
-                    type="email"
-                    value={userForm.email}
-                    onChange={(value) => updateUserForm("email", value)}
-                    required
-                  />
-                  <Input
-                    label="Password"
-                    type="password"
-                    value={userForm.password}
-                    onChange={(value) => updateUserForm("password", value)}
-                    required
-                  />
-                  <Select
-                    label="Role"
-                    value={userForm.role}
-                    onChange={(value) => updateUserForm("role", value)}
-                    options={roleOptions}
-                    required
-                  />
-                </div>
-
-                <label className="flex items-center gap-3 text-sm font-semibold text-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={userForm.active}
-                    onChange={(event) => updateUserForm("active", event.target.checked)}
-                    className="h-4 w-4 rounded border-slate-300 text-[var(--primary)] focus:ring-[var(--primary)]"
-                  />
-                  Active
-                </label>
-
-                <div className="flex justify-end">
-                  <Button type="submit" variant="primary" loading={savingUser}>
-                    Create User
-                  </Button>
-                </div>
-              </form>
-            </Card>
-
-            <Card title="Activate User">
-              <form onSubmit={handleActivateUser} className="space-y-5">
-                <Input
-                  label="Username"
-                  value={activateUsername}
-                  onChange={setActivateUsername}
-                  required
-                />
-                <div className="flex justify-end">
-                  <Button
-                    type="submit"
-                    variant="success"
-                    className="bg-emerald-600 text-white hover:bg-emerald-700"
-                    loading={activatingUser}
-                    disabled={!activateUsername.trim()}
-                  >
-                    Activate User
-                  </Button>
-                </div>
-              </form>
-            </Card>
-
-            <Card title="Delete User">
-              <div className="space-y-5">
-                <Input
-                  label="Username"
-                  value={deleteForm.username}
-                  onChange={(value) =>
-                    setDeleteForm((current) => ({ ...current, username: value }))
-                  }
-                  required
-                />
-                <label className="flex items-center gap-3 text-sm font-semibold text-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={deleteForm.permanent}
-                    onChange={(event) =>
-                      setDeleteForm((current) => ({
-                        ...current,
-                        permanent: event.target.checked,
-                      }))
-                    }
-                    className="h-4 w-4 rounded border-slate-300 text-rose-600 focus:ring-rose-600"
-                  />
-                  Permanent delete
-                </label>
-                <div className="flex justify-end">
-                  <Button
-                    type="button"
-                    variant="danger"
-                    className="bg-rose-600 text-white hover:bg-rose-700"
-                    disabled={!deleteForm.username.trim()}
-                    onClick={() => setConfirmDeleteOpen(true)}
-                  >
-                    Delete User
-                  </Button>
-                </div>
-              </div>
-            </Card>
+        {activeTab === "overview" ? (
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {[
+              ["User Management", "Create accounts, manage roles, and control access."],
+              ["Notifications", "Send operational messages and review notification history."],
+              ["Audit Trail", "Review important activity across the application."],
+              ["API Logs", "Inspect request outcomes, timing, and failures."],
+              ["Maintenance Mode", "Schedule downtime and control user access."],
+              ["Data Maintenance", "Run controlled cleanup operations with confirmation."],
+            ].map(([title, description]) => (
+              <Card key={title} title={title}>
+                <p className="text-sm leading-6 text-slate-600">{description}</p>
+              </Card>
+            ))}
           </div>
-
-          <div className="space-y-6">
-            <Card title="Find User">
-              <form onSubmit={handleFindUser} className="space-y-5">
-                <Input
-                  label="Username"
-                  value={lookupUsername}
-                  onChange={setLookupUsername}
-                  required
-                />
-                <div className="flex flex-wrap justify-end gap-3">
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    className="bg-indigo-600 text-white hover:bg-indigo-700"
-                    loading={findingUser}
-                    disabled={!lookupUsername.trim()}
-                  >
-                    View User Details
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="primary"
-                    className="bg-sky-600 text-white hover:bg-sky-700"
-                    loading={loadingUsers}
-                    onClick={handleGetAllUsers}
-                  >
-                    View All Users
-                  </Button>
-                </div>
-              </form>
-
-              {foundUser && (
-                <div className="mt-5 rounded-xl border border-border bg-slate-50 p-4">
-                  <div className="grid gap-3 text-sm sm:grid-cols-2">
-                    <div>
-                      <p className="text-xs font-semibold uppercase text-slate-500">
-                        Name
-                      </p>
-                      <p className="font-semibold text-slate-900">
-                        {[foundUser.firstname, foundUser.lastname]
-                          .filter(Boolean)
-                          .join(" ") || "-"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold uppercase text-slate-500">
-                        Username
-                      </p>
-                      <p className="font-semibold text-slate-900">
-                        {foundUser.username}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold uppercase text-slate-500">
-                        Email
-                      </p>
-                      <p className="font-semibold text-slate-900">
-                        {foundUser.email || "-"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold uppercase text-slate-500">
-                        Role
-                      </p>
-                      <div className="mt-1">
-                        <RoleBadge role={foundUser.role} />
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold uppercase text-slate-500">
-                        Status
-                      </p>
-                      <p className="font-semibold text-slate-900">
-                        {foundUser.active ? "Active" : "Inactive"}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </Card>
-
-            <Card title="Update Role">
-              <form onSubmit={handleUpdateRole} className="space-y-5">
-                <Input
-                  label="Username"
-                  value={roleForm.username}
-                  onChange={(value) =>
-                    setRoleForm((current) => ({ ...current, username: value }))
-                  }
-                  required
-                />
-                <Select
-                  label="Role"
-                  value={roleForm.role}
-                  onChange={(value) =>
-                    setRoleForm((current) => ({ ...current, role: value }))
-                  }
-                  options={roleOptions}
-                  required
-                />
-                <div className="flex justify-end">
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    loading={updatingRole}
-                    disabled={!roleForm.username.trim()}
-                  >
-                    Update Role
-                  </Button>
-                </div>
-              </form>
-            </Card>
-
-          </div>
-        </div>
+        ) : activeTab === "users" ? (
+          <UserManagement currentUsername={currentUser.username} />
         ) : activeTab === "notifications" ? (
           <div className="grid gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
             <Card title="Send Notification">
@@ -753,7 +478,7 @@ function SuperAdmin() {
             <Card title="Notification History">
               <div className="space-y-4">
                 {loadingNotifications ? (
-                  <Loader fullScreen={false} message="Loading notifications..." />
+                  <NotificationHistorySkeleton />
                 ) : (
                   sentNotifications.slice(0, 4).map((notification) => {
                     const isExpanded =
@@ -833,6 +558,82 @@ function SuperAdmin() {
               </div>
             </Card>
           </div>
+        ) : activeTab === "maintenance" ? (
+          <Card title="Maintenance Mode">
+            {loadingMaintenance ? (
+              <Loader message="Loading maintenance configuration..." />
+            ) : (
+              <form onSubmit={handleSaveMaintenance} className="space-y-6">
+                <div className={`rounded-2xl border p-5 ${
+                  maintenanceForm.enabled
+                    ? "border-amber-300 bg-amber-50"
+                    : "border-emerald-200 bg-emerald-50"
+                }`}>
+                  <label className="flex cursor-pointer items-center justify-between gap-5">
+                    <div>
+                      <p className="font-bold text-slate-900">
+                        {maintenanceForm.enabled ? "Maintenance is enabled" : "Application is available"}
+                      </p>
+                      <p className="mt-1 text-sm text-slate-600">
+                        Super Admin accounts keep full access while other users receive a maintenance screen.
+                      </p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={maintenanceForm.enabled}
+                      onChange={(event) =>
+                        setMaintenanceForm((current) => ({
+                          ...current,
+                          enabled: event.target.checked,
+                        }))
+                      }
+                      className="h-5 w-5 shrink-0 rounded border-slate-300 text-[var(--primary)] focus:ring-[var(--primary)]"
+                    />
+                  </label>
+                </div>
+
+                <Textarea
+                  label="User-facing message"
+                  value={maintenanceForm.message}
+                  onChange={(value) =>
+                    setMaintenanceForm((current) => ({ ...current, message: value }))
+                  }
+                  rows={4}
+                  required
+                />
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Input
+                    type="datetime-local"
+                    label="Starts at (optional)"
+                    value={maintenanceForm.starts_at}
+                    onChange={(value) =>
+                      setMaintenanceForm((current) => ({ ...current, starts_at: value }))
+                    }
+                  />
+                  <Input
+                    type="datetime-local"
+                    label="Ends at (optional)"
+                    value={maintenanceForm.ends_at}
+                    onChange={(value) =>
+                      setMaintenanceForm((current) => ({ ...current, ends_at: value }))
+                    }
+                  />
+                </div>
+
+                <div className="flex flex-col gap-3 border-t border-border pt-5 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-xs font-medium text-slate-500">
+                    Leave both times empty to apply the switch immediately and indefinitely.
+                  </p>
+                  <Button type="submit" variant="primary" loading={savingMaintenance}>
+                    Save Maintenance Settings
+                  </Button>
+                </div>
+              </form>
+            )}
+          </Card>
+        ) : loadingCleanup ? (
+          <CleanupSkeleton />
         ) : (
           <div className="w-full">
             <Card title="Data Maintenance">
@@ -912,121 +713,6 @@ function SuperAdmin() {
       </div>
 
       <Modal
-        isOpen={usersModalOpen}
-        onClose={() => setUsersModalOpen(false)}
-        title="All Users"
-        size="4xl"
-      >
-        <div className="overflow-hidden rounded-2xl border border-border bg-white">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-slate-50/70">
-                  <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                    Name
-                  </th>
-                  <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                    Username
-                  </th>
-                  <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                    Email
-                  </th>
-                  <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                    Role
-                  </th>
-                  <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                    Status
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((user) => (
-                  <tr
-                    key={user.id || user.username}
-                    className="border-b border-border last:border-0"
-                  >
-                    <td className="px-5 py-4 font-semibold text-slate-900">
-                      {[user.firstname, user.lastname].filter(Boolean).join(" ") || "-"}
-                    </td>
-                    <td className="px-5 py-4 text-slate-700">{user.username}</td>
-                    <td className="px-5 py-4 text-slate-700">{user.email || "-"}</td>
-                    <td className="px-5 py-4">
-                      <RoleBadge role={user.role} />
-                    </td>
-                    <td className="px-5 py-4">
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                          user.active
-                            ? "bg-emerald-100 text-emerald-700"
-                            : "bg-rose-100 text-rose-700"
-                        }`}
-                      >
-                        {user.active ? "Active" : "Inactive"}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-                {!users.length && (
-                  <tr>
-                    <td
-                      colSpan={5}
-                      className="px-5 py-8 text-center text-sm text-slate-500"
-                    >
-                      No users found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </Modal>
-
-      <Modal
-        isOpen={confirmDeleteOpen}
-        onClose={() => setConfirmDeleteOpen(false)}
-        title="Confirm Delete User"
-      >
-        <div className="space-y-5">
-          <p className="text-sm text-slate-700">
-            This will{" "}
-            <span className="font-semibold text-slate-900">
-              {deleteForm.permanent ? "permanently delete" : "deactivate"}
-            </span>{" "}
-            user{" "}
-            <span className="font-semibold text-slate-900">
-              {deleteForm.username}
-            </span>
-            .
-          </p>
-          {deleteForm.permanent && (
-            <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-800">
-              Permanent delete is only allowed after the user is already inactive.
-            </p>
-          )}
-          <div className="flex justify-end gap-3 border-t border-border pt-5">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setConfirmDeleteOpen(false)}
-              disabled={deletingUser}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="danger"
-              className="bg-rose-600 text-white hover:bg-rose-700"
-              loading={deletingUser}
-              onClick={handleDeleteUser}
-            >
-              Delete User
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      <Modal
         isOpen={confirmCleanOpen}
         onClose={() => setConfirmCleanOpen(false)}
         title="Confirm Data Cleanup"
@@ -1070,7 +756,7 @@ function SuperAdmin() {
           </div>
         </div>
       </Modal>
-    </MainLayout>
+    </AdminLayout>
   );
 }
 

@@ -4,7 +4,8 @@ from datetime import datetime, UTC
 from urllib.parse import parse_qs
 from uuid import uuid4
 
-from jose import JWTError, jwt
+import jwt
+from jwt import InvalidTokenError
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
@@ -18,6 +19,9 @@ SENSITIVE_KEYS = {
     "token",
     "access_token",
     "refresh_token",
+    "cookie",
+    "set-cookie",
+    "csrf",
     "otp",
 }
 REQUEST_BODY_LIMIT = 10 * 1024
@@ -93,11 +97,9 @@ def _body_to_log_value(body: bytes, limit: int, content_type: str = ""):
 
 
 def _extract_user_context(request: Request):
-    auth_header = request.headers.get("authorization", "")
-    if not auth_header.lower().startswith("bearer "):
+    token = request.cookies.get(Settings.AUTH_COOKIE_NAME)
+    if not token:
         return None, None
-
-    token = auth_header.split(" ", 1)[1]
     try:
         payload = jwt.decode(
             token,
@@ -106,7 +108,7 @@ def _extract_user_context(request: Request):
             options={"verify_exp": False},
         )
         return payload.get("username"), payload.get("role")
-    except JWTError:
+    except InvalidTokenError:
         return None, None
 
 
@@ -162,12 +164,7 @@ class ApiLoggingMiddleware(BaseHTTPMiddleware):
             try:
                 duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
                 username, role = _extract_user_context(request)
-                forwarded_for = request.headers.get("x-forwarded-for")
-                ip_address = (
-                    forwarded_for.split(",")[0].strip()
-                    if forwarded_for
-                    else request.client.host if request.client else None
-                )
+                ip_address = request.client.host if request.client else None
 
                 await create_api_log({
                     "trace_id": trace_id,

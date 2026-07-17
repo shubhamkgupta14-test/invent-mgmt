@@ -3,6 +3,7 @@ from typing import Annotated
 
 from app.models.notification import CreateNotificationRequest
 from app.services.auth_service import get_current_user
+from app.services.admin_access_service import get_verified_superadmin
 from app.services.notification_service import (
     create_notification,
     delete_notification,
@@ -17,11 +18,12 @@ from app.utils.response import success_response
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
 
 user_dependency = Annotated[dict, Depends(get_current_user)]
+verified_admin_dependency = Annotated[dict, Depends(get_verified_superadmin)]
 
 
 @router.post("/create")
 async def create_notification_api(
-    auth_user: user_dependency,
+    auth_user: verified_admin_dependency,
     payload: CreateNotificationRequest
 ):
     result = await create_notification(auth_user, payload.model_dump())
@@ -50,7 +52,7 @@ async def get_notifications_api(
 
 
 @router.get("/all")
-async def get_all_notifications_api(auth_user: user_dependency):
+async def get_all_notifications_api(auth_user: verified_admin_dependency):
     result = await get_all_notifications(auth_user)
     return success_response(
         message="Notifications fetched successfully",
@@ -61,7 +63,7 @@ async def get_all_notifications_api(auth_user: user_dependency):
 
 @router.post("/{notification_id}/resend")
 async def resend_notification_api(
-    auth_user: user_dependency,
+    auth_user: verified_admin_dependency,
     notification_id: str
 ):
     result = await resend_notification(auth_user, notification_id)
@@ -95,7 +97,7 @@ async def mark_all_notifications_read_api(auth_user: user_dependency):
 
 @router.delete("/{notification_id}")
 async def delete_notification_api(
-    auth_user: user_dependency,
+    auth_user: verified_admin_dependency,
     notification_id: str
 ):
     result = await delete_notification(auth_user, notification_id)

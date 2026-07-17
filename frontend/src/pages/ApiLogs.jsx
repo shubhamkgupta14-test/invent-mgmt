@@ -15,7 +15,7 @@ import Modal from "../components/common/Modal";
 import Select from "../components/common/Select";
 import TablePagination from "../components/common/TablePagination";
 import { useToast } from "../context/useToast";
-import MainLayout from "../layouts/MainLayout";
+import AdminLayout from "../layouts/AdminLayout";
 import { formatDateTimeIST } from "../utils/formatters";
 
 const emptyFilters = {
@@ -212,28 +212,28 @@ function ApiLogs() {
 
   if (loading) {
     return (
-      <MainLayout>
+      <AdminLayout>
         <div className="flex min-h-[calc(100vh-88px)] items-center justify-center">
           <Loader message="Loading API logs..." />
         </div>
-      </MainLayout>
+      </AdminLayout>
     );
   }
 
   if (currentUser?.role !== "superadmin") {
     return (
-      <MainLayout>
+      <AdminLayout>
         <Card>
           <p className="text-sm font-medium text-slate-700">
             Only Super Admin users can access API logs.
           </p>
         </Card>
-      </MainLayout>
+      </AdminLayout>
     );
   }
 
   return (
-    <MainLayout>
+    <AdminLayout>
       <div className="space-y-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
@@ -490,7 +490,7 @@ function ApiLogs() {
           </div>
         )}
       </Modal>
-    </MainLayout>
+    </AdminLayout>
   );
 }
 

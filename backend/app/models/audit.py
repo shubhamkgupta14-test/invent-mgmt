@@ -1,7 +1,8 @@
 from enum import Enum
 from typing import Optional, Any
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+from app.models.base import SecureBaseModel
 
 from datetime import datetime, UTC
 
@@ -27,7 +28,7 @@ class AuditEvent(str, Enum):
     STOCK_ADJUSTED = "STOCK_ADJUSTED"
 
 
-class AuditCreate(BaseModel):
+class AuditCreate(SecureBaseModel):
     module_name: AuditModule
     event_type: AuditEvent
     reference_id: Optional[str] = None

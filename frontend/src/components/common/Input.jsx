@@ -7,6 +7,7 @@ function Input({
   error,
   className = "",
   icon: Icon,
+  endAdornment,
   required = false,
   disabled = false,
   ...props
@@ -31,7 +32,7 @@ function Input({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
-          className={`app-control w-full px-4 py-2.5 ${Icon ? "pl-10" : ""} rounded-xl
+          className={`app-control w-full px-4 py-2.5 ${Icon ? "pl-10" : ""} ${endAdornment ? "pr-11" : ""} rounded-xl
             text-sm placeholder-slate-400 font-sans
             disabled:cursor-not-allowed
             transition-all duration-200
@@ -39,6 +40,11 @@ function Input({
             ${className}`}
           {...props}
         />
+        {endAdornment && (
+          <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+            {endAdornment}
+          </div>
+        )}
       </div>
       {error && (
         <p className="mt-1 text-sm text-rose-600 font-medium">{error}</p>

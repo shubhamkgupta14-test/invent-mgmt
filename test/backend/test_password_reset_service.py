@@ -50,12 +50,17 @@ class PasswordResetServiceTests(unittest.IsolatedAsyncioTestCase):
             password_reset_service.users_collection = original_users
             password_reset_service.password_otps_collection = original_otps
 
-        self.assertEqual(result, {"sent": True})
+        self.assertTrue(result["sent"])
         self.assertEqual(len(fake_otps.inserted), 1)
         record = fake_otps.inserted[0]
         self.assertEqual(record["status"], "PENDING")
         self.assertNotIn("otp", record)
         self.assertEqual(len(record["otp_hash"]), 64)
+        if "dev_otp" in result:
+            self.assertEqual(
+                password_reset_service._secret_hash(result["dev_otp"]),
+                record["otp_hash"],
+            )
         send_mock.assert_awaited_once()
 
     async def test_request_password_reset_is_generic_for_unknown_user(self):
@@ -78,7 +83,8 @@ class PasswordResetServiceTests(unittest.IsolatedAsyncioTestCase):
             password_reset_service.users_collection = original_users
             password_reset_service.password_otps_collection = original_otps
 
-        self.assertEqual(result, {"sent": True})
+        self.assertEqual(result["sent"], True)
+        self.assertEqual(result["resend_cooldown_seconds"], 60)
         self.assertEqual(fake_otps.inserted, [])
         send_mock.assert_not_awaited()
 
@@ -103,7 +109,8 @@ class PasswordResetServiceTests(unittest.IsolatedAsyncioTestCase):
             password_reset_service.users_collection = original_users
             password_reset_service.password_otps_collection = original_otps
 
-        self.assertEqual(result, {"sent": True})
+        self.assertEqual(result["sent"], True)
+        self.assertEqual(result["resend_cooldown_seconds"], 60)
         self.assertEqual(fake_otps.inserted, [])
         send_mock.assert_not_awaited()
 
@@ -250,7 +257,7 @@ class PasswordResetServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(fake_users.docs[0]["active"])
         self.assertEqual(fake_otps.docs[0]["attempts"], 1)
 
-    async def test_invalid_otp_blocks_after_max_attempts(self):
+    async def test_invalid_otp_blocks_record_without_deactivating_user(self):
         from app.services import password_reset_service
         from app.utils.messages import Messages
 
@@ -279,7 +286,7 @@ class PasswordResetServiceTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(ctx.exception.status_code, 400)
         self.assertEqual(ctx.exception.detail, Messages.OTP_ATTEMPTS_EXCEEDED)
-        self.assertFalse(fake_users.docs[0]["active"])
+        self.assertTrue(fake_users.docs[0]["active"])
         self.assertEqual(fake_otps.docs[0]["attempts"], 5)
         self.assertEqual(fake_otps.docs[0]["status"], password_reset_service.OTP_STATUS_BLOCKED)
 

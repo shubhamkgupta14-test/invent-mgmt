@@ -9,6 +9,7 @@ from app.services.api_log_service import (
     set_api_tracing_status,
 )
 from app.services.auth_service import get_current_user
+from app.services.admin_access_service import get_verified_superadmin
 from app.utils.messages import Messages
 from app.utils.response import success_response
 
@@ -17,7 +18,7 @@ router = APIRouter(
     tags=["API Logs"]
 )
 
-user_dependency = Annotated[dict, Depends(get_current_user)]
+user_dependency = Annotated[dict, Depends(get_verified_superadmin)]
 
 
 @router.get("/")

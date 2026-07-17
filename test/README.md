@@ -1,5 +1,15 @@
 # Test Suite
 
+Run the complete project check from the repository root:
+
+```powershell
+npm test
+```
+
+This runs backend tests, Python dependency checks, frontend tests, lint, and a
+production frontend build. Set `PYTHON_BIN` when a specific Python interpreter
+must be used; otherwise the active/system Python is used.
+
 This folder keeps project tests outside the app source.
 
 ## Backend unit tests

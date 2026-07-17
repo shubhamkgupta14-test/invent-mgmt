@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  FaBan,
+  FaBoxOpen,
   FaBoxes,
   FaChartLine,
-  FaExclamationCircle,
+  FaExclamationTriangle,
   FaMoneyBillWave,
   FaTruck,
 } from "react-icons/fa";
@@ -42,7 +42,7 @@ const CountBadge = ({ children, tone = "slate" }) => {
 
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ${tones[tone]}`}
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-medium ring-1 ${tones[tone]}`}
     >
       {children}
     </span>
@@ -50,19 +50,19 @@ const CountBadge = ({ children, tone = "slate" }) => {
 };
 
 const SaleStatusBadge = ({ status = "SOLD" }) => {
-  return <StatusBadge status={status} type="sale" />;
+  return <StatusBadge status={status} type="sale" compact />;
 };
 
 const PaymentStatusBadge = ({ status = "UNPAID" }) => {
-  return <StatusBadge status={status} type="payment" />;
+  return <StatusBadge status={status} type="payment" compact />;
 };
 
 const InvoiceCell = ({ row }) => (
   <div className="w-[108px]">
-    <p className="truncate font-semibold text-slate-900">
+    <p className="truncate font-medium text-slate-900">
       {row.invoice_id || "-"}
     </p>
-    <p className="truncate text-xs text-slate-500">
+    <p className="truncate text-[11px] text-slate-500">
       {formatDateIST(row.created_at)}
     </p>
   </div>
@@ -71,16 +71,16 @@ const InvoiceCell = ({ row }) => (
 const ProductCell = ({ row }) => (
   <div className="w-[150px]">
     <div className="flex items-center gap-2">
-      <p className="truncate font-semibold text-slate-900">
+      <p className="truncate font-medium text-slate-900">
         {row.product || row.name || "-"}
       </p>
       {Number(row.extra_count || 0) > 0 && (
-        <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700 ring-1 ring-slate-200">
+        <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-medium text-slate-700 ring-1 ring-slate-200">
           +{row.extra_count}
         </span>
       )}
     </div>
-    <p className="truncate text-xs text-slate-500">{row.sku || "-"}</p>
+    <p className="truncate text-[11px] text-slate-500">{row.sku || "-"}</p>
   </div>
 );
 
@@ -185,7 +185,7 @@ function Dashboard() {
           bgColor="bg-amber-100"
         />
         <KPICard
-          icon={FaExclamationCircle}
+          icon={FaExclamationTriangle}
           title="Stock Alerts"
           value={
             summary.inventory.low_stock_products +
@@ -200,7 +200,7 @@ function Dashboard() {
           bgColor="bg-rose-100"
         />
         <KPICard
-          icon={FaBan}
+          icon={FaBoxOpen}
           title="Damage / Lost"
           value={
             (summary.inventory.damaged_items || 0) +

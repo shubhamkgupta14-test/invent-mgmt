@@ -28,7 +28,7 @@ class Messages:
     PASSWORD_RESET_SUCCESS = "Password updated successfully"
     INVALID_OTP = "Invalid or expired OTP"
     OTP_ATTEMPTS_EXCEEDED = "Maximum OTP attempts exceeded"
-    OTP_USER_BLOCKED = "Too many wrong OTP attempts. Contact Super Admin to activate your account."
+    OTP_USER_BLOCKED = "Too many wrong OTP attempts. Request a new verification code."
     OTP_INVALID_WITH_ATTEMPTS = "Invalid OTP. {remaining} attempt(s) remaining."
     OTP_RESEND_TOO_SOON = "Please wait before requesting another OTP"
     INVALID_RESET_TOKEN = "Invalid or expired reset token"

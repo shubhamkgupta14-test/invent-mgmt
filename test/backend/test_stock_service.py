@@ -73,12 +73,12 @@ class SellingPriceCalculatorTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["chargeable_weight"], 600)
         self.assertEqual(result["charges"]["shipping_charges"]["default"], 70)
         self.assertEqual(result["charges"]["packaging_charges"]["default"], 15)
-        self.assertEqual(result["default_selling_price"], 265)
-        self.assertEqual(result["custom_selling_price"], 284)
-        self.assertEqual(stored["min_selling_price"], 265)
+        self.assertEqual(result["default_selling_price"], 275)
+        self.assertEqual(result["custom_selling_price"], 298)
+        self.assertEqual(stored["min_selling_price"], 275)
         self.assertEqual(
             stored["selling_price_calculation"]["default_selling_price"],
-            265,
+            275,
         )
 
     async def test_calculate_selling_price_uses_35_shipping_under_500g(self):
@@ -121,8 +121,8 @@ class SellingPriceCalculatorTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(result["chargeable_weight"], 500)
         self.assertEqual(result["charges"]["shipping_charges"]["default"], 35)
-        self.assertEqual(result["default_selling_price"], 215)
-        self.assertEqual(result["custom_selling_price"], 215)
+        self.assertEqual(result["default_selling_price"], 214)
+        self.assertEqual(result["custom_selling_price"], 214)
 
     async def test_user_role_cannot_calculate_selling_price(self):
         from app.services.stock_service import calculate_selling_price

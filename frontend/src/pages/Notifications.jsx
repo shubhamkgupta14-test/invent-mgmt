@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import { FaPaperPlane, FaTrash } from "react-icons/fa";
-import { Link } from "react-router-dom";
 import Card from "../components/common/Card";
 import Loader from "../components/common/Loader";
 import MainLayout from "../layouts/MainLayout";
@@ -148,14 +147,6 @@ function Notifications() {
             >
               {markingAllRead ? "Marking..." : "Mark All As Read"}
             </button>
-            {currentUser?.role === "superadmin" && (
-              <Link
-                to="/superadmin?tab=notifications"
-                className="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700"
-              >
-                Notification Center
-              </Link>
-            )}
           </div>
         </div>
       </div>

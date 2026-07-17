@@ -1,13 +1,14 @@
-from pydantic import BaseModel, Field
+from pydantic import Field
+from app.models.base import SecureBaseModel
 from typing import Optional
 
 
-class CompanyCustomField(BaseModel):
+class CompanyCustomField(SecureBaseModel):
     label: Optional[str] = Field(default="", max_length=80)
     value: Optional[str] = Field(default="", max_length=300)
 
 
-class CompanySettingsUpdate(BaseModel):
+class CompanySettingsUpdate(SecureBaseModel):
     company_name: Optional[str] = Field(default="", max_length=120)
     brand_name: Optional[str] = Field(default="", max_length=120)
     email: Optional[str] = Field(default="", max_length=120)
@@ -17,4 +18,4 @@ class CompanySettingsUpdate(BaseModel):
     website: Optional[str] = Field(default="", max_length=160)
     logo_url: Optional[str] = Field(default="", max_length=300)
     currency: Optional[str] = Field(default="INR", min_length=3, max_length=3)
-    custom_fields: list[CompanyCustomField] = Field(default_factory=list)
+    custom_fields: list[CompanyCustomField] = Field(default_factory=list, max_length=50)

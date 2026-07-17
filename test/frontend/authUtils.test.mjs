@@ -3,15 +3,12 @@ import test from "node:test";
 
 import {
   clearLastPath,
-  clearToken,
+  clearAuthState,
   getLastPath,
+  getCsrfToken,
   getStoredUser,
-  getToken,
-  getTokenWithExpiry,
-  getUserFromToken,
-  isTokenExpired,
+  setCsrfToken,
   setStoredUser,
-  setToken,
 } from "../../frontend/src/utils/authUtils.js";
 
 class MemoryStorage {
@@ -38,38 +35,25 @@ class MemoryStorage {
 
 globalThis.localStorage = new MemoryStorage();
 globalThis.sessionStorage = new MemoryStorage();
-globalThis.atob = globalThis.atob || ((value) => Buffer.from(value, "base64").toString("binary"));
 
 function resetStorage() {
   localStorage.clear();
   sessionStorage.clear();
 }
 
-function createToken(payload) {
-  const encodedPayload = Buffer.from(JSON.stringify(payload)).toString("base64");
-  return `header.${encodedPayload}.signature`;
-}
-
-test("setToken stores token and expiry state", () => {
+test("clearAuthState removes cached user and remembers non-root path", () => {
   resetStorage();
-
-  setToken("abc", 60);
-
-  assert.equal(getToken(), "abc");
-  assert.equal(isTokenExpired(), false);
-  assert.deepEqual(getTokenWithExpiry(), { token: "abc", isExpired: false });
-});
-
-test("clearToken removes auth state and remembers non-root path", () => {
-  resetStorage();
-  setToken("abc", 60);
+  localStorage.setItem("token", "legacy-token");
+  localStorage.setItem("token_expiry", "123");
   setStoredUser({ username: "admin" });
+  setCsrfToken("csrf-value");
 
-  clearToken("/inventory?sku=ABC");
+  clearAuthState("/inventory?sku=ABC");
 
-  assert.equal(getToken(), null);
-  assert.equal(isTokenExpired(), true);
   assert.equal(getStoredUser(), null);
+  assert.equal(getCsrfToken(), null);
+  assert.equal(localStorage.getItem("token"), null);
+  assert.equal(localStorage.getItem("token_expiry"), null);
   assert.equal(getLastPath(), "/inventory?sku=ABC");
 });
 
@@ -79,22 +63,6 @@ test("stored user handles invalid JSON gracefully", () => {
 
   assert.equal(getStoredUser(), null);
   assert.equal(sessionStorage.getItem("current_user"), null);
-});
-
-test("getUserFromToken extracts expected user fields", () => {
-  resetStorage();
-  const token = createToken({
-    sub: "user-1",
-    username: "admin",
-    role: "superadmin",
-    ignored: true,
-  });
-
-  assert.deepEqual(getUserFromToken(token), {
-    user_id: "user-1",
-    username: "admin",
-    role: "superadmin",
-  });
 });
 
 test("last path defaults and can be cleared", () => {

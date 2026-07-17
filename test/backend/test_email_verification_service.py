@@ -65,7 +65,7 @@ class EmailVerificationServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(fake_otps.docs[0]["attempts"], 1)
         self.assertEqual(fake_otps.docs[0]["status"], "PENDING")
 
-    async def test_invalid_otp_blocks_user_after_five_attempts(self):
+    async def test_invalid_otp_blocks_record_without_deactivating_user(self):
         from app.models.auth import UserRole
         from app.services import user_service
         from app.utils.messages import Messages
@@ -114,7 +114,7 @@ class EmailVerificationServiceTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(ctx.exception.status_code, 400)
         self.assertEqual(ctx.exception.detail, Messages.OTP_USER_BLOCKED)
-        self.assertFalse(fake_users.docs[0]["active"])
+        self.assertTrue(fake_users.docs[0]["active"])
         self.assertEqual(fake_otps.docs[0]["attempts"], 5)
         self.assertEqual(fake_otps.docs[0]["status"], "BLOCKED")
 

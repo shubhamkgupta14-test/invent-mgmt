@@ -11,6 +11,7 @@ from app.models.auth import UserRole
 from app.services.supplier_service import ensure_own_company_supplier
 from app.utils.helpers import format_datetime_iso
 from app.utils.settings import Settings
+from app.utils.image_upload import validate_and_reencode_image
 
 company_settings_collection = db.company_settings
 users_collection = db.users
@@ -28,12 +29,6 @@ DEFAULT_COMPANY_SETTINGS = {
     "logo_url": "",
     "currency": "INR",
     "custom_fields": [],
-}
-ALLOWED_IMAGE_TYPES = {
-    "image/jpeg": ".jpg",
-    "image/png": ".png",
-    "image/webp": ".webp",
-    "image/gif": ".gif",
 }
 UPLOAD_DIR = Path(Settings.UPLOAD_DIR)
 
@@ -126,13 +121,7 @@ async def update_company_logo(auth_user: dict, file: UploadFile):
     if auth_user.get("role") != UserRole.SUPERADMIN:
         forbidden()
 
-    extension = ALLOWED_IMAGE_TYPES.get(file.content_type)
-    if not extension:
-        bad_request("Only JPG, PNG, WEBP, or GIF images are allowed")
-
-    contents = await file.read()
-    if len(contents) > 2 * 1024 * 1024:
-        bad_request("Image size must be 2MB or less")
+    contents, extension = await validate_and_reencode_image(file)
 
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     filename = f"brand-logo-{uuid4().hex}{extension}"
